@@ -1,0 +1,177 @@
+using DogShop.Core;
+using DogShop.Data;
+using DogShop.Dogs;
+using DogShop.Shop;
+using UnityEngine;
+using UnityEngine.InputSystem;
+
+
+namespace DogShop.Debugging
+{
+    /// <summary>
+    /// 상점 상태 HUD. 강아지 상호작용은 DogContextMenu(강아지 클릭)가 담당한다.
+    /// 발주는 ShopOrderMenu(계산대 클릭)가 담당한다.
+    /// 1/2/3 배속 · R 하루리셋 · L 레벨업 · B 판매견 매입 · F5/F9 저장/로드
+    /// </summary>
+    public class DebugHud : MonoBehaviour
+    {
+        const float RefreshInterval = 0.25f;
+
+        string line1 = "";
+        string line2 = "";
+        string line3 = "";
+        string line4 = "";
+        string line5 = "";
+        string notice = "";
+        float refreshTimer;
+        float noticeTimer;
+        GUIStyle style;
+        GUIStyle noticeStyle;
+
+        readonly ShopLevelManager.UpgradeAction upgrade = new ShopLevelManager.UpgradeAction();
+
+        void Start()
+        {
+            ActionRunner.OnExecuted += HandleExecuted;
+            ActionRunner.OnRejected += HandleRejected;
+            ShopLevelManager.Instance.OnLevelUp += HandleLevelUp;
+            Refresh();
+        }
+
+        void OnDestroy()
+        {
+            ActionRunner.OnExecuted -= HandleExecuted;
+            ActionRunner.OnRejected -= HandleRejected;
+            if (ShopLevelManager.Instance != null) ShopLevelManager.Instance.OnLevelUp -= HandleLevelUp;
+        }
+
+        void Update()
+        {
+            refreshTimer += Time.unscaledDeltaTime;
+            if (refreshTimer >= RefreshInterval)
+            {
+                refreshTimer = 0f;
+                Refresh();
+            }
+
+            if (noticeTimer > 0f)
+            {
+                noticeTimer -= Time.unscaledDeltaTime;
+                if (noticeTimer <= 0f) notice = "";
+            }
+
+            Keyboard kb = Keyboard.current;
+            if (kb == null) return;
+
+            if (kb.digit1Key.wasPressedThisFrame) TimeManager.Instance.SetSpeed(1);
+            if (kb.digit2Key.wasPressedThisFrame) TimeManager.Instance.SetSpeed(4);
+            if (kb.digit3Key.wasPressedThisFrame) TimeManager.Instance.SetSpeed(16);
+
+            if (kb.rKey.wasPressedThisFrame) { TimeManager.Instance.StartNewDay(); Show("하루 리셋 — 09:00"); }
+            if (kb.lKey.wasPressedThisFrame) ActionRunner.TryRun(upgrade);
+            if (kb.bKey.wasPressedThisFrame) BuySaleDog();
+
+            if (kb.nKey.wasPressedThisFrame && CleanlinessManager.Instance != null)
+            {
+                CleanlinessManager.Instance.ForceSpawn(3);
+                Show("오염 +3 (테스트) — 청결 " + CleanlinessManager.Instance.Cleanliness);
+            }
+
+            if (kb.f5Key.wasPressedThisFrame) SaveManager.Instance.Save();
+            if (kb.f9Key.wasPressedThisFrame) SaveManager.Instance.Load();
+        }
+
+        void BuySaleDog()
+        {
+            DogManager dm = DogManager.Instance;
+            if (!dm.HasFreeSlot) { Show("강아지 슬롯 가득 — " + dm.Count + "/" + dm.SlotLimit); return; }
+
+            Dog dog = dm.SpawnSaleDog(UnityEngine.Random.Range(0, 5));
+            Show(dog != null ? "판매견 매입 — " + dog.BreedKo + " (클릭해서 관리)" : "매입 실패");
+        }
+
+        void HandleExecuted(IPlayerAction action) => Refresh();
+
+        void HandleRejected(IPlayerAction action, string reason) => Show("거절 — " + reason);
+
+        void HandleLevelUp(int level) => Show("레벨 " + level + " — " + ShopLevelManager.Instance.Current.unlockKo);
+
+
+        void Show(string message)
+        {
+            notice = message;
+            noticeTimer = 3.5f;
+            Refresh();
+        }
+
+        void Refresh()
+        {
+            TimeManager t = TimeManager.Instance;
+            GameManager g = GameManager.Instance;
+            ShopLevelManager s = ShopLevelManager.Instance;
+            CustomerManager c = CustomerManager.Instance;
+            InventoryManager inv = InventoryManager.Instance;
+            if (t == null || g == null || s == null || c == null || inv == null) return;
+
+            ShopLevelDef next = s.Next;
+
+            line1 = "Day " + g.Day + "  " + t.ClockText + "  x" + t.SpeedMultiplier
+                  + "     Lv " + s.Level
+                  + "     돈 " + g.Money
+                  + "     명성 " + g.Reputation + (next != null ? " / " + next.requiredReputation : " MAX");
+
+            CleanlinessManager clean = CleanlinessManager.Instance;
+
+            line2 = "매출 " + c.RevenueToday + "   놓침 " + c.LostToday
+                  + "   바스켓 " + c.AverageBasket + "(목표 " + s.Current.basketPriceTarget + ")"
+                  + "   장내 " + c.InStore + "명  대기 " + c.QueueLength + "명"
+                  + (clean != null
+                        ? "     청결 " + clean.Cleanliness + "  오염 " + clean.SpotCount + "개  손님 x"
+                          + clean.CustomerFactor.ToString("0.00")
+                        : "");
+
+            line3 = "재고  ";
+            for (int i = 0; i < inv.Catalog.Count; i++)
+            {
+                ProductDef p = inv.Catalog.Get(i);
+                if (p.unlockLevel > s.Level) continue;
+
+                line3 += p.nameKo + " 창고" + inv.StorageOf(i) + "/진열" + inv.ShelfOf(i);
+                if (inv.IncomingOf(i) > 0) line3 += "(+" + inv.IncomingOf(i) + ")";
+                line3 += "  ";
+            }
+
+            TrainingManager tm = TrainingManager.Instance;
+            DogManager dm = DogManager.Instance;
+            line4 = tm != null && dm != null
+                ? "훈련 슬롯 " + tm.SlotsUsed + "/" + tm.SlotsTotal + "   강아지 " + dm.Count + "/" + dm.SlotLimit
+                : "";
+
+            EconomyMonitor eco = EconomyMonitor.Instance;
+            line5 = eco != null ? eco.StatusLine() : "";
+        }
+
+        void OnGUI()
+        {
+            if (style == null)
+            {
+                style = new GUIStyle(GUI.skin.label) { fontSize = 15 };
+                style.normal.textColor = Color.white;
+                noticeStyle = new GUIStyle(style) { fontSize = 18 };
+                noticeStyle.normal.textColor = new Color(1f, 0.85f, 0.35f);
+            }
+
+            GUI.Box(new Rect(8f, 8f, 1160f, 174f), GUIContent.none);
+            GUI.Label(new Rect(18f, 12f, 1140f, 20f), line1, style);
+            GUI.Label(new Rect(18f, 34f, 1140f, 20f), line2, style);
+            GUI.Label(new Rect(18f, 56f, 1140f, 20f), line3, style);
+            GUI.Label(new Rect(18f, 78f, 1140f, 20f), line4, style);
+            GUI.Label(new Rect(18f, 100f, 1140f, 20f), line5, style);
+            GUI.Label(new Rect(18f, 122f, 1140f, 20f),
+                "조준 + [E] 상호작용   ·   V 시점 전환(1인칭/3인칭)   ·   3인칭은 오른쪽 버튼 드래그로 시점   ·   WASD 이동", style);
+            GUI.Label(new Rect(18f, 142f, 1140f, 20f),
+                "1/2/3 배속   R 하루리셋   L 레벨업   B 판매견 매입   N 오염+3(테스트)   F5/F9 저장/로드", style);
+            if (notice.Length > 0) GUI.Label(new Rect(18f, 162f, 1140f, 22f), notice, noticeStyle);
+        }
+    }
+}

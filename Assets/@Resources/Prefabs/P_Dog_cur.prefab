@@ -1,0 +1,133 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1001 &3071531831264581378
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: 3925358294965130716, guid: 3568ea2e97a164d43a0c334ab62e8694, type: 3}
+      propertyPath: m_Name
+      value: P_Dog_cur
+      objectReference: {fileID: 0}
+    - target: {fileID: 4161284582465434903, guid: 3568ea2e97a164d43a0c334ab62e8694, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4161284582465434903, guid: 3568ea2e97a164d43a0c334ab62e8694, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4161284582465434903, guid: 3568ea2e97a164d43a0c334ab62e8694, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4161284582465434903, guid: 3568ea2e97a164d43a0c334ab62e8694, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 4161284582465434903, guid: 3568ea2e97a164d43a0c334ab62e8694, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4161284582465434903, guid: 3568ea2e97a164d43a0c334ab62e8694, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4161284582465434903, guid: 3568ea2e97a164d43a0c334ab62e8694, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4161284582465434903, guid: 3568ea2e97a164d43a0c334ab62e8694, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4161284582465434903, guid: 3568ea2e97a164d43a0c334ab62e8694, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4161284582465434903, guid: 3568ea2e97a164d43a0c334ab62e8694, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 3925358294965130716, guid: 3568ea2e97a164d43a0c334ab62e8694, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 6692274642214714867}
+    - targetCorrespondingSourceObject: {fileID: 3925358294965130716, guid: 3568ea2e97a164d43a0c334ab62e8694, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 3460218368223367007}
+    - targetCorrespondingSourceObject: {fileID: 3925358294965130716, guid: 3568ea2e97a164d43a0c334ab62e8694, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 8836191594706862002}
+    - targetCorrespondingSourceObject: {fileID: 3925358294965130716, guid: 3568ea2e97a164d43a0c334ab62e8694, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 324407689677843812}
+  m_SourcePrefab: {fileID: 100100000, guid: 3568ea2e97a164d43a0c334ab62e8694, type: 3}
+--- !u!1 &2078949435304510174 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 3925358294965130716, guid: 3568ea2e97a164d43a0c334ab62e8694, type: 3}
+  m_PrefabInstance: {fileID: 3071531831264581378}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &6692274642214714867
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2078949435304510174}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d831ce2584de5ee4584ae9e526e66671, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DogShop.Dogs.DogStats
+--- !u!114 &3460218368223367007
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2078949435304510174}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 02ab721837e241345abe97d374d2ae52, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DogShop.Dogs.DogAnimator
+--- !u!114 &8836191594706862002
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2078949435304510174}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cc95bb9a8af1e2544951a3dabe4796b6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DogShop.Dogs.Dog
+--- !u!65 &324407689677843812
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2078949435304510174}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 0.36759588, y: 1.0236439, z: 1.001637}
+  m_Center: {x: 0.0000000129595925, y: 0.30527395, z: 0.0036729276}

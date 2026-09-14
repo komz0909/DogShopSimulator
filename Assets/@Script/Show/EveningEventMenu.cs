@@ -1,0 +1,226 @@
+using DogShop.Core;
+using DogShop.Data;
+using DogShop.Dogs;
+using DogShop.Shop;
+using UnityEngine;
+
+namespace DogShop.Show
+{
+    /// <summary>
+    /// 18:00 마감 패널. 정산 요약 → (5일마다) 모의 심사 → 저녁 이벤트 카드 1장 선택 → 다음 날.
+    /// D30에는 카드 대신 챔피언십 결과와 최종 랭크가 나오고 게임이 끝난다.
+    /// 새 씬·이동 영역·애니메이션 없음 — 이것이 가게 밖 맵을 대체하는 설계다.
+    /// </summary>
+    public class EveningEventMenu : MonoBehaviour
+    {
+        const float Width = 620f;
+        const float RowHeight = 26f;
+        const float Pad = 12f;
+
+        static readonly string[] CardTitles =
+        {
+            "골목 순찰 — 버려진 강아지를 찾아본다",
+            "유기견 센터 봉사 — 명성 +4",
+            "폐품 수집 — 상품 재고 +3",
+            "휴식 — 모든 강아지 청결·건강 +12"
+        };
+
+        bool open;
+        bool isFinal;
+        bool finished;
+
+        string settlementLine = "";
+        string mockLine = "";
+        string resultLine = "";
+        string gradeLine = "";
+
+        GUIStyle headerStyle;
+        GUIStyle rowStyle;
+        GUIStyle dimStyle;
+        GUIStyle bigStyle;
+
+        void Start()
+        {
+            GameManager.Instance.OnDaySettled += HandleSettled;
+        }
+
+        void OnDestroy()
+        {
+            if (GameManager.Instance != null) GameManager.Instance.OnDaySettled -= HandleSettled;
+        }
+
+        void HandleSettled(int reputationGained)
+        {
+            CustomerManager c = CustomerManager.Instance;
+            GameManager g = GameManager.Instance;
+            ChampionshipManager champ = ChampionshipManager.Instance;
+
+            settlementLine = "Day " + g.Day + " 마감    매출 " + c.RevenueToday
+                           + "    판매 " + c.SoldToday + "건    놓침 " + c.LostToday + "건"
+                           + "    명성 +" + reputationGained + " (누적 " + g.Reputation + ")";
+
+            Dog hero = DogManager.Instance.Hero;
+            isFinal = champ.IsFinalDay(g.Day);
+            mockLine = "";
+            resultLine = "";
+            gradeLine = "";
+
+            if (isFinal) BuildFinalResult(hero, champ, g);
+            else if (champ.IsMockDay(g.Day)) BuildMockResult(hero, champ);
+
+            open = true;
+
+
+            PointerMenus.SetOpen(this, true);
+        }
+
+        void BuildMockResult(Dog hero, ChampionshipManager champ)
+        {
+            string reason;
+            if (!champ.CanEnter(hero, out reason))
+            {
+                mockLine = "모의 심사 — " + reason;
+                return;
+            }
+
+            int score = champ.Score(hero, false);
+            int rank = champ.Rank(score);
+            mockLine = "모의 심사 — 총점 " + score + " → 챔피언십에서 " + rank + "위 예상"
+                     + "   (1위 기준선 " + champ.RivalScore(0) + ", 심사 " + champ.WeightText + ")";
+        }
+
+        void BuildFinalResult(Dog hero, ChampionshipManager champ, GameManager g)
+        {
+            int level = ShopLevelManager.Instance.Level;
+
+            string reason;
+            if (!champ.CanEnter(hero, out reason))
+            {
+                resultLine = "챔피언십 출전 불가 — " + reason;
+                gradeLine = "최종 랭크  " + champ.FinalGrade(champ.RivalCount + 1, level, g.Money);
+                return;
+            }
+
+            int score = champ.Score(hero, true);
+            int rank = champ.Rank(score);
+
+            resultLine = "챔피언십 결과 — 총점 " + score + "   " + rank + "위 / " + (champ.RivalCount + 1) + "명"
+                       + "   (심사 " + champ.WeightText + ")";
+            gradeLine = "최종 랭크  " + champ.FinalGrade(rank, level, g.Money)
+                      + "     가게 Lv " + level + "     자산 " + g.Money + "원"
+                      + "     " + hero.BreedKo + " 미모 " + hero.Stats.Beauty + " / 훈련도 " + hero.Stats.Training;
+        }
+
+        /// <summary>계측 모드(MeasurementMode)가 무인 진행을 위해 호출한다.</summary>
+        public void PickCard(int index)
+        {
+            DogManager dm = DogManager.Instance;
+
+            if (index == 0)
+            {
+                if (dm.HasFreeSlot && Random.value < 0.45f)
+                {
+                    Dog found = dm.SpawnSaleDog(Random.Range(0, 5));
+                    settlementLine = found != null
+                        ? "유기견을 발견했다 — " + found.BreedKo + "를 데려왔다 (무료)"
+                        : "골목은 조용했다";
+                }
+                else
+                {
+                    settlementLine = dm.HasFreeSlot ? "골목은 조용했다" : "강아지 슬롯이 가득해 데려올 수 없었다";
+                }
+            }
+            else if (index == 1)
+            {
+                GameManager.Instance.AddReputation(4);
+            }
+            else if (index == 2)
+            {
+                InventoryManager inv = InventoryManager.Instance;
+                int level = ShopLevelManager.Instance.Level;
+                for (int attempt = 0; attempt < 12; attempt++)
+                {
+                    int i = Random.Range(0, inv.Catalog.Count);
+                    if (inv.Catalog.Get(i).unlockLevel > level) continue;
+                    inv.Grant(i, 3);
+                    break;
+                }
+            }
+            else
+            {
+                for (int i = 0; i < dm.Count; i++)
+                {
+                    dm.Get(i).Stats.RecoverCleanliness(12);
+                    dm.Get(i).Stats.RecoverHealth(12);
+                }
+            }
+
+            open = false;
+
+
+            PointerMenus.SetOpen(this, false);
+            GameManager.Instance.BeginNextDay();
+        }
+
+        void OnGUI()
+        {
+            if (!open) return;
+
+            if (headerStyle == null)
+            {
+                headerStyle = new GUIStyle(GUI.skin.label) { fontSize = 17, fontStyle = FontStyle.Bold };
+                headerStyle.normal.textColor = new Color(1f, 0.9f, 0.55f);
+                rowStyle = new GUIStyle(GUI.skin.button) { fontSize = 14, alignment = TextAnchor.MiddleLeft };
+                dimStyle = new GUIStyle(GUI.skin.label) { fontSize = 14 };
+                dimStyle.normal.textColor = new Color(0.8f, 0.83f, 0.79f);
+                bigStyle = new GUIStyle(GUI.skin.label) { fontSize = 20, fontStyle = FontStyle.Bold };
+                bigStyle.normal.textColor = new Color(0.6f, 1f, 0.8f);
+            }
+
+            int cardCount = isFinal ? 0 : CardTitles.Length;
+            float height = Pad * 4f + RowHeight * (3 + cardCount) + (isFinal ? RowHeight : 0f);
+            float x = (Screen.width - Width) * 0.5f;
+            float y = Mathf.Max(140f, (Screen.height - height) * 0.4f);
+
+            GUI.Box(new Rect(x, y, Width, height), GUIContent.none);
+
+            float ix = x + Pad;
+            float iw = Width - Pad * 2f;
+            float iy = y + Pad;
+
+            GUI.Label(new Rect(ix, iy, iw, RowHeight), settlementLine, headerStyle);
+            iy += RowHeight;
+
+            if (mockLine.Length > 0)
+            {
+                GUI.Label(new Rect(ix, iy, iw, RowHeight), mockLine, dimStyle);
+                iy += RowHeight;
+            }
+
+            if (isFinal)
+            {
+                GUI.Label(new Rect(ix, iy, iw, RowHeight), resultLine, dimStyle);
+                iy += RowHeight;
+                GUI.Label(new Rect(ix, iy, iw, RowHeight + 4f), gradeLine, bigStyle);
+                iy += RowHeight + Pad;
+
+                if (!finished && GUI.Button(new Rect(ix, iy, iw, RowHeight), "게임 종료 — 30일 완주", rowStyle))
+                {
+                    finished = true;
+                    open = false;
+                    PointerMenus.SetOpen(this, false);
+                }
+                return;
+            }
+
+            iy += Pad;
+            GUI.Label(new Rect(ix, iy - RowHeight * 0.7f, iw, RowHeight), "저녁에 무엇을 할까", dimStyle);
+
+            for (int i = 0; i < CardTitles.Length; i++)
+            {
+                if (GUI.Button(new Rect(ix, iy, iw, RowHeight - 3f), CardTitles[i], rowStyle)) PickCard(i);
+                iy += RowHeight;
+            }
+        }
+    }
+}

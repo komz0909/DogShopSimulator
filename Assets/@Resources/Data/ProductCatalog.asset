@@ -1,0 +1,95 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3fb7d09f4f7ded742a9ef4c862c42f73, type: 3}
+  m_Name: ProductCatalog
+  m_EditorClassIdentifier: Assembly-CSharp::DogShop.Data.ProductCatalog
+  products:
+  - nameKo: "\uAE30\uBCF8 \uC0AC\uB8CC"
+    category: 0
+    wholesale: 30
+    retail: 60
+    demandWeight: 4
+    unlockLevel: 1
+    propPrefab: {fileID: 919132149155446097, guid: 194b1b15d72855b40b482591d65860be, type: 3}
+    slotCost: 2
+  - nameKo: "\uC0F4\uD478"
+    category: 1
+    wholesale: 40
+    retail: 80
+    demandWeight: 3
+    unlockLevel: 1
+    propPrefab: {fileID: 919132149155446097, guid: c88207a3359213640bc6145a712ce3f7, type: 3}
+    slotCost: 1
+  - nameKo: "\uAE30\uBCF8 \uC57D\uD488"
+    category: 2
+    wholesale: 70
+    retail: 150
+    demandWeight: 1
+    unlockLevel: 2
+    propPrefab: {fileID: 919132149155446097, guid: eed8e0181e5dbf0488f5784621c04c81, type: 3}
+    slotCost: 1
+  - nameKo: "\uBAA9\uC904"
+    category: 1
+    wholesale: 50
+    retail: 100
+    demandWeight: 2
+    unlockLevel: 3
+    propPrefab: {fileID: 919132149155446097, guid: b8ff7496a9d3f8441ae054bd13b0a5d2, type: 3}
+    slotCost: 1
+  - nameKo: "\uAC04\uC2DD"
+    category: 3
+    wholesale: 45
+    retail: 95
+    demandWeight: 3
+    unlockLevel: 4
+    propPrefab: {fileID: 919132149155446097, guid: a4f1c678617d96f419650dee3fdc1bae, type: 3}
+    slotCost: 1
+  - nameKo: "\uC7A5\uB09C\uAC10"
+    category: 3
+    wholesale: 60
+    retail: 120
+    demandWeight: 2
+    unlockLevel: 4
+    propPrefab: {fileID: 919132149155446097, guid: d601cd2f21f9078479abcc1444d7be89, type: 3}
+    slotCost: 1
+  - nameKo: "\uACE0\uAE09 \uC0AC\uB8CC"
+    category: 4
+    wholesale: 90
+    retail: 190
+    demandWeight: 2
+    unlockLevel: 6
+    propPrefab: {fileID: 919132149155446097, guid: 3105ff18dcc80b14887a1ee10563766b, type: 3}
+    slotCost: 2
+  - nameKo: "\uACE0\uAE09 \uAC04\uC2DD \uC138\uD2B8"
+    category: 4
+    wholesale: 110
+    retail: 230
+    demandWeight: 1
+    unlockLevel: 6
+    propPrefab: {fileID: 919132149155446097, guid: ad820fbfe621ab0459f47e3950507375, type: 3}
+    slotCost: 1
+  - nameKo: "\uC218\uC785 \uC0AC\uB8CC"
+    category: 4
+    wholesale: 130
+    retail: 270
+    demandWeight: 2
+    unlockLevel: 8
+    propPrefab: {fileID: 919132149155446097, guid: f544226a3e03fb946896122c6637b2a8, type: 3}
+    slotCost: 2
+  - nameKo: "\uD504\uB9AC\uBBF8\uC5C4 \uBBF8\uC6A9\uD0A4\uD2B8"
+    category: 4
+    wholesale: 140
+    retail: 290
+    demandWeight: 1
+    unlockLevel: 8
+    propPrefab: {fileID: 919132149155446097, guid: b0974393f522f654db2c23971cf5d28f, type: 3}
+    slotCost: 1

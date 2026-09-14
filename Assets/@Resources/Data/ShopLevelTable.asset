@@ -1,0 +1,96 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e09f713f64774364499c9e31ad1fe6fa, type: 3}
+  m_Name: ShopLevelTable
+  m_EditorClassIdentifier: Assembly-CSharp::DogShop.Data.ShopLevelTable
+  levels:
+  - requiredReputation: 0
+    upgradeCost: 0
+    customersPerDay: 6
+    basketPriceTarget: 69
+    dogSlots: 2
+    trainingSlots: 2
+    heroStatGate: 0
+    unlockKo: "\uC0AC\uB8CC\xB7\uC6A9\uD488"
+  - requiredReputation: 12
+    upgradeCost: 250
+    customersPerDay: 8
+    basketPriceTarget: 79
+    dogSlots: 2
+    trainingSlots: 2
+    heroStatGate: 0
+    unlockKo: "\uC57D\uD488 \uCE74\uD14C\uACE0\uB9AC"
+  - requiredReputation: 28
+    upgradeCost: 450
+    customersPerDay: 10
+    basketPriceTarget: 83
+    dogSlots: 3
+    trainingSlots: 3
+    heroStatGate: 0
+    unlockKo: "\uD6C8\uB828 \uC2AC\uB86F +1 \xB7 \uAC15\uC544\uC9C0 +1"
+  - requiredReputation: 50
+    upgradeCost: 650
+    customersPerDay: 12
+    basketPriceTarget: 90
+    dogSlots: 3
+    trainingSlots: 4
+    heroStatGate: 0
+    unlockKo: "\uAC04\uC2DD\xB7\uC7A5\uB09C\uAC10 \xB7 \uD6C8\uB828 \uC2AC\uB86F
+      +1"
+  - requiredReputation: 80
+    upgradeCost: 900
+    customersPerDay: 15
+    basketPriceTarget: 90
+    dogSlots: 4
+    trainingSlots: 4
+    heroStatGate: 0
+    unlockKo: "\uC804\uBB38 \uD6C8\uB828 \uD574\uAE08 \xB7 \uAC15\uC544\uC9C0 +1"
+  - requiredReputation: 118
+    upgradeCost: 1200
+    customersPerDay: 18
+    basketPriceTarget: 109
+    dogSlots: 4
+    trainingSlots: 4
+    heroStatGate: 150
+    unlockKo: "\uACE0\uAE09 \uC0AC\uB8CC\xB7\uAC04\uC2DD \uC138\uD2B8"
+  - requiredReputation: 165
+    upgradeCost: 1600
+    customersPerDay: 21
+    basketPriceTarget: 109
+    dogSlots: 5
+    trainingSlots: 4
+    heroStatGate: 0
+    unlockKo: "\uCC3D\uACE0 \uD655\uC7A5 \xB7 \uAC15\uC544\uC9C0 +1"
+  - requiredReputation: 222
+    upgradeCost: 2100
+    customersPerDay: 24
+    basketPriceTarget: 133
+    dogSlots: 5
+    trainingSlots: 4
+    heroStatGate: 0
+    unlockKo: "\uB9C8\uC2A4\uD130 \uD6C8\uB828 \uD574\uAE08"
+  - requiredReputation: 290
+    upgradeCost: 2700
+    customersPerDay: 27
+    basketPriceTarget: 133
+    dogSlots: 6
+    trainingSlots: 4
+    heroStatGate: 400
+    unlockKo: "\uAC15\uC544\uC9C0 +1"
+  - requiredReputation: 420
+    upgradeCost: 3400
+    customersPerDay: 30
+    basketPriceTarget: 133
+    dogSlots: 6
+    trainingSlots: 5
+    heroStatGate: 0
+    unlockKo: "\uD6C8\uB828\uC804\uBB38\uAC00 \u2014 \uD6C8\uB828 \uC2AC\uB86F +1"
