@@ -25,19 +25,33 @@ namespace DogShop.Shop
         float topWidth = 1.0f;
         float topDepth = 0.6f;
 
+        /// <summary>선반 단 수. 창고 랙처럼 여러 층에 놓을 때 1보다 커진다.</summary>
+        int tiers = 1;
+
+        /// <summary>단 사이 높이차. 위에서 아래로 쌓으면 음수다.</summary>
+        float tierSpacing = 0f;
+
+        /// <summary>화면에 보일 최대 개수. 0이면 진열대 용량을 쓴다.</summary>
+        int maxVisible;
+
         GameObject prefab;
         int columns = 1;
+        int rowsPerTier = 1;
         int capacity = 1;
         bool prepared;
 
         /// <summary>슬롯을 만든 매니저가 호출한다. 개수 제공자로 진열/창고를 구분한다.</summary>
-        public void Configure(int productIndex, Func<int> countProvider, float topY, float topWidth, float topDepth)
+        public void Configure(int productIndex, Func<int> countProvider, float topY, float topWidth, float topDepth,
+                              int tiers = 1, float tierSpacing = 0f, int maxVisible = 0)
         {
             this.productIndex = productIndex;
             this.countProvider = countProvider;
             this.topY = topY;
             this.topWidth = topWidth;
             this.topDepth = topDepth;
+            this.tiers = Mathf.Max(1, tiers);
+            this.tierSpacing = tierSpacing;
+            this.maxVisible = maxVisible;
 
             prepared = false;
             Refresh();
@@ -86,8 +100,10 @@ namespace DogShop.Shop
             float stepZ = Mathf.Max(0.05f, size.z + Gap);
 
             columns = Mathf.Clamp(Mathf.FloorToInt(topWidth / stepX), 1, MaxColumns);
-            int rows = Mathf.Clamp(Mathf.FloorToInt(topDepth / stepZ), 1, MaxRows);
-            capacity = Mathf.Min(columns * rows, InventoryManager.ShelfCapacity);
+            rowsPerTier = Mathf.Clamp(Mathf.FloorToInt(topDepth / stepZ), 1, MaxRows);
+
+            int limit = maxVisible > 0 ? maxVisible : InventoryManager.ShelfCapacity;
+            capacity = Mathf.Min(columns * rowsPerTier * tiers, limit);
 
             prepared = true;
             return true;
@@ -112,16 +128,22 @@ namespace DogShop.Shop
 
         void Place(GameObject anchor, int index, Vector3 size)
         {
-            int column = index % columns;
-            int row = index / columns;
+            // 한 단을 다 채운 뒤 다음 단으로 내려간다
+            int perTier = Mathf.Max(1, columns * rowsPerTier);
+            int tier = Mathf.Min(index / perTier, tiers - 1);
+            int within = index % perTier;
+
+            int column = within % columns;
+            int row = within / columns;
 
             float stepX = size.x + Gap;
             float stepZ = size.z + Gap;
 
             float x = (column - (columns - 1) * 0.5f) * stepX;
             float z = -row * stepZ + stepZ * 0.5f;
+            float y = topY + tier * tierSpacing;
 
-            anchor.transform.localPosition = new Vector3(x, topY, z);
+            anchor.transform.localPosition = new Vector3(x, y, z);
 
             // 피벗 위치와 무관하게 바닥면이 상판에 정확히 닿게 보정한다
             Renderer[] renderers = anchor.GetComponentsInChildren<Renderer>(true);
@@ -130,7 +152,7 @@ namespace DogShop.Shop
             Bounds bounds = renderers[0].bounds;
             for (int i = 1; i < renderers.Length; i++) bounds.Encapsulate(renderers[i].bounds);
 
-            float topWorldY = transform.TransformPoint(new Vector3(0f, topY, 0f)).y;
+            float topWorldY = transform.TransformPoint(new Vector3(0f, y, 0f)).y;
             anchor.transform.position += Vector3.up * (topWorldY - bounds.min.y);
         }
 

@@ -18,12 +18,18 @@ namespace DogShop.Shop
         /// x는 중앙(3.9~5.1)을 비워 입구에서 통로로 들어오는 길을 남긴다 —
         /// 이 간격이 손님 지름(0.56)보다 좁으면 진열대가 벽이 되어 뒷줄에 갈 수 없다.
         /// </summary>
+        /// <summary>
+        /// 진열대 높이의 절반. AI 에셋 실측 0.48m 기준. 콜라이더가 중심 기준이라
+        /// 이만큼 띄워야 바닥에 선다. 모델을 바꾸면 이 값과 TopY를 함께 고칠 것.
+        /// </summary>
+        public const float ShelfHalfHeight = 0.24f;
+
         static readonly Vector3[] Slots =
         {
-            new Vector3(1.0f, 0.4f, 2.0f), new Vector3(2.2f, 0.4f, 2.0f), new Vector3(3.4f, 0.4f, 2.0f),
-            new Vector3(5.6f, 0.4f, 2.0f), new Vector3(6.8f, 0.4f, 2.0f),
-            new Vector3(1.0f, 0.4f, 3.6f), new Vector3(2.2f, 0.4f, 3.6f), new Vector3(3.4f, 0.4f, 3.6f),
-            new Vector3(5.6f, 0.4f, 3.6f), new Vector3(6.8f, 0.4f, 3.6f)
+            new Vector3(1.0f, ShelfHalfHeight, 2.0f), new Vector3(2.2f, ShelfHalfHeight, 2.0f), new Vector3(3.4f, ShelfHalfHeight, 2.0f),
+            new Vector3(5.6f, ShelfHalfHeight, 2.0f), new Vector3(6.8f, ShelfHalfHeight, 2.0f),
+            new Vector3(1.0f, ShelfHalfHeight, 3.6f), new Vector3(2.2f, ShelfHalfHeight, 3.6f), new Vector3(3.4f, ShelfHalfHeight, 3.6f),
+            new Vector3(5.6f, ShelfHalfHeight, 3.6f), new Vector3(6.8f, ShelfHalfHeight, 3.6f)
         };
 
         /// <summary>두 줄 사이 통로. 손님은 진열대 중심이 아니라 이 지점으로 걸어온다.</summary>
@@ -101,7 +107,7 @@ namespace DogShop.Shop
                 if (display != null)
                     display.Configure(captured,
                         () => InventoryManager.Instance.ShelfOf(captured),
-                        0.4f, 1.0f, 0.6f);
+                        ShelfHalfHeight, 0.95f, 0.40f);
 
                 tables.Add(table);
             }

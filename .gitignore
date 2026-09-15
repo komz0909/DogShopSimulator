@@ -104,3 +104,10 @@ InitTestScene*.unity*
 
 # Auto-generated cache in Assets folder
 /[Aa]ssets/[Ss]ceneDependencyCache*
+
+# 경제 계측 로그 — 측정할 때마다 새로 쌓이는 산출물
+EconomyLog.csv
+
+# Unity 가 FBX 내장 텍스처를 풀어놓는 파생 폴더 — FBX 에서 언제든 재생성된다
+*.fbm/
+*.fbm.meta
