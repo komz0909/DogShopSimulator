@@ -4,7 +4,8 @@ namespace DogShop.Player
 {
     /// <summary>
     /// 이동 속도를 Animator의 Speed 파라미터로 넘겨 대기/걷기를 전환한다.
-    /// 플레이어와 손님이 같은 컨트롤러(AC_Humanoid)를 쓰므로 이 하나로 둘 다 처리한다.
+    /// 컨트롤러는 캐릭터마다 다르지만(Generic 리그라 클립이 골격 전용이다)
+    /// Speed 파라미터 이름은 같으므로 이 하나로 주인과 손님 8종을 모두 처리한다.
     ///
     /// 속도는 <b>변위에서 직접 잰다</b> — CharacterController와 NavMeshAgent 중
     /// 무엇이 움직이든 상관없이 같은 코드가 동작한다.

@@ -92,10 +92,15 @@ namespace DogShop.Core
             return true;
         }
 
+        /// <summary>음수를 넣으면 깎인다. 0 아래로는 내려가지 않는다.</summary>
         public void AddReputation(int amount)
         {
-            if (amount <= 0) return;
-            Reputation += amount;
+            if (amount == 0) return;
+
+            int next = Mathf.Max(0, Reputation + amount);
+            if (next == Reputation) return;
+
+            Reputation = next;
             OnReputationChanged?.Invoke(Reputation);
         }
 

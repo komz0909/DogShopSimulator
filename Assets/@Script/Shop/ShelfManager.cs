@@ -27,9 +27,9 @@ namespace DogShop.Shop
         static readonly Vector3[] Slots =
         {
             new Vector3(1.0f, ShelfHalfHeight, 2.0f), new Vector3(2.2f, ShelfHalfHeight, 2.0f), new Vector3(3.4f, ShelfHalfHeight, 2.0f),
-            new Vector3(5.6f, ShelfHalfHeight, 2.0f), new Vector3(6.8f, ShelfHalfHeight, 2.0f),
+            new Vector3(5.5f, ShelfHalfHeight, 2.0f), new Vector3(6.6f, ShelfHalfHeight, 2.0f),
             new Vector3(1.0f, ShelfHalfHeight, 3.6f), new Vector3(2.2f, ShelfHalfHeight, 3.6f), new Vector3(3.4f, ShelfHalfHeight, 3.6f),
-            new Vector3(5.6f, ShelfHalfHeight, 3.6f), new Vector3(6.8f, ShelfHalfHeight, 3.6f)
+            new Vector3(5.5f, ShelfHalfHeight, 3.6f), new Vector3(6.6f, ShelfHalfHeight, 3.6f)
         };
 
         /// <summary>두 줄 사이 통로. 손님은 진열대 중심이 아니라 이 지점으로 걸어온다.</summary>

@@ -13,32 +13,58 @@ namespace DogShop.Shop
     /// </summary>
     public class CustomerManager : MonoBehaviour
     {
+        /// <summary>이 시간까지 계산해 주면 정가를 다 받는다. 넘어가면 값을 깎기 시작한다.</summary>
         public const float Patience = 22f;
+
+        /// <summary>초과 1초당 깎이는 비율.</summary>
+        const float DiscountPerSecond = 0.02f;
+
+        /// <summary>아무리 기다려도 이 아래로는 안 내려간다 — 방치가 무한 손해가 되면 복구가 불가능해진다.</summary>
+        const float MinPriceFactor = 0.60f;
+
+        /// <summary>이 초 단위마다 명성 1을 잃는다. 값 할인과 달리 상한이 낮게 잡혀 있다.</summary>
+        const float SecondsPerReputationLoss = 10f;
+        const int MaxReputationPenalty = 5;
 
         /// <summary>이동이 이 시간을 넘으면 길이 막힌 것으로 보고 내보낸다.</summary>
         public const float TravelTimeout = 45f;
 
-        static readonly Vector3 Door = new Vector3(4f, 0f, 0.5f);
+        /// <summary>문 앞 스폰·퇴장 지점. NavMesh 가장자리가 z 0.58 이라 조금 안쪽에 둔다.</summary>
+        static readonly Vector3 Door = new Vector3(4f, 0f, 0.7f);
 
         /// <summary>
-        /// 계산대 왼쪽으로 늘어서는 대기 줄. 계산대(x 5.7~7.3)와 진열대(z 1.7~2.3) 사이의
-        /// 빈 앞쪽 통로에 둔다 — 손님 반경 0.28을 확보해야 NavMesh 위에 올라간다.
+        /// 계산대를 사이에 두고 <b>직원 반대편</b>에 서는 대기 줄.
+        /// 계산대는 x 6.205~6.995 를 차지하고 직원 자리는 그 오른쪽(x 7.0~8.0) 주머니다.
+        /// 손님은 왼쪽 면을 마주 보고 문 쪽으로 늘어선다.
+        ///
+        /// NavMesh가 반경 0.5로 구워져 장애물에서 0.5m가 깎인다 — 계산대 면(6.205)에서
+        /// 0.71m 떨어진 5.50이 손님이 설 수 있는 가장 앞자리다(몸 앞면과 계산대 사이 0.43m).
         /// </summary>
         static readonly Vector3[] QueueSlots =
         {
-            new Vector3(5.2f, 0f, 1.0f),
-            new Vector3(4.5f, 0f, 1.0f),
-            new Vector3(3.8f, 0f, 1.0f),
-            new Vector3(3.1f, 0f, 1.0f)
+            new Vector3(5.50f, 0f, 1.00f),
+            new Vector3(4.80f, 0f, 1.00f),
+            new Vector3(4.10f, 0f, 1.00f),
+            new Vector3(3.40f, 0f, 1.00f)
         };
+
+        /// <summary>줄에 선 손님이 바라볼 방향 — 계산대는 손님 줄의 오른쪽(+x)에 있다.</summary>
+        static readonly Vector3 CounterFacing = Vector3.right;
 
         public static CustomerManager Instance { get; private set; }
 
         [SerializeField] GameObject customerPrefab;
 
+        /// <summary>
+        /// 손님 겉모습 후보. 이동 로직은 customerPrefab 하나가 들고 있고 몸만 여기서 고른다.
+        /// 어른 5종 + 아이 2종 — 키 차이가 보여야 매장이 사람 사는 곳처럼 보인다.
+        /// </summary>
+        [SerializeField] GameObject[] appearances = new GameObject[0];
+
         readonly List<Customer> active = new List<Customer>();
         readonly List<Customer> queue = new List<Customer>();
         readonly List<Customer> finished = new List<Customer>();
+        readonly List<int> bag = new List<int>();
 
         public int SoldToday { get; private set; }
         public int LostToday { get; private set; }
@@ -52,6 +78,13 @@ namespace DogShop.Shop
 
         float pending;
 
+        /// <summary>
+        /// NavMesh 표면은 바닥보다 조금 높게 구워진다(굽기 설정에 따라 1~10cm). 상쇄하지 않으면
+        /// 손님 발이 그만큼 공중에 뜬다. 열릴 때 한 번 재서 모든 손님에게 물려준다 —
+        /// NavMesh를 다시 구워도 값이 알아서 따라온다.
+        /// </summary>
+        float groundOffset;
+
         void Awake()
         {
             if (Instance != null && Instance != this) { Destroy(this); return; }
@@ -60,8 +93,25 @@ namespace DogShop.Shop
 
         void Start()
         {
+            MeasureGroundOffset();
             TimeManager.Instance.OnWholeHourChanged += HandleHour;
             TimeManager.Instance.OnDayStarted += ResetDaily;
+        }
+
+        void MeasureGroundOffset()
+        {
+            groundOffset = 0f;
+
+            UnityEngine.AI.NavMeshHit nav;
+            if (!UnityEngine.AI.NavMesh.SamplePosition(Door, out nav, 2f, UnityEngine.AI.NavMesh.AllAreas)) return;
+
+            // 가장 낮은 히트가 바닥이다 — 사람이나 상자를 바닥으로 오인하지 않는다
+            RaycastHit[] hits = Physics.RaycastAll(nav.position + Vector3.up * 2f, Vector3.down, 6f, ~0, QueryTriggerInteraction.Ignore);
+            float floorY = float.MaxValue;
+            for (int i = 0; i < hits.Length; i++)
+                if (hits[i].point.y < floorY) floorY = hits[i].point.y;
+
+            if (floorY < float.MaxValue) groundOffset = floorY - nav.position.y;
         }
 
         void OnDestroy()
@@ -107,11 +157,39 @@ namespace DogShop.Shop
             instance.transform.position = Door;
 
             Customer customer = instance.GetComponent<Customer>();
+            customer.SetAppearance(NextAppearance());
+
+            UnityEngine.AI.NavMeshAgent agent = instance.GetComponent<UnityEngine.AI.NavMeshAgent>();
+            if (agent != null) agent.baseOffset = groundOffset;
             customer.WantedProduct = wanted;
             customer.State = CustomerState.ToShelf;
             customer.MoveTo(shelf.ApproachPoint);
 
             active.Add(customer);
+        }
+
+        /// <summary>
+        /// 뽑기 주머니 — 7종이 한 번씩 다 나온 뒤에야 다시 채운다.
+        /// 그냥 난수로 고르면 같은 얼굴 셋이 동시에 줄 서 있는 장면이 자주 나온다.
+        /// </summary>
+        GameObject NextAppearance()
+        {
+            if (appearances.Length == 0) return null;
+
+            if (bag.Count == 0)
+            {
+                for (int i = 0; i < appearances.Length; i++) bag.Add(i);
+                for (int i = bag.Count - 1; i > 0; i--)
+                {
+                    int j = UnityEngine.Random.Range(0, i + 1);
+                    int swap = bag[i]; bag[i] = bag[j]; bag[j] = swap;
+                }
+            }
+
+            int last = bag.Count - 1;
+            GameObject picked = appearances[bag[last]];
+            bag.RemoveAt(last);
+            return picked;
         }
 
         /// <summary>수요 가중치 x 진열대 입지. 입구에 가까운 테이블의 상품이 더 자주 선택된다.</summary>
@@ -199,20 +277,34 @@ namespace DogShop.Shop
 
             c.State = CustomerState.Waiting;
             c.WaitRemaining = Patience;
+            c.FaceDirection(CounterFacing);
         }
 
+        /// <summary>
+        /// 손님은 <b>떠나지 않는다</b> — 플레이어가 E를 누를 때까지 줄에서 기다린다.
+        /// 대신 기다린 만큼 받는 돈이 줄고 명성이 깎인다. 방치가 손실로 직결되어야
+        /// 계산대를 지키는 일이 실제 일거리가 된다.
+        /// </summary>
         void TickWaiting(Customer c, float step)
         {
             c.WaitRemaining -= step;
-            if (c.WaitRemaining > 0f) return;
+        }
 
-            // 기다리다 지쳐 물건을 두고 나간다
-            InventoryManager.Instance.ReturnToShelf(c.WantedProduct);
-            c.HasItem = false;
-            LostToday++;
-            OnLostSale?.Invoke(c.WantedProduct);
-            LeaveQueue(c);
-            SendHome(c);
+        /// <summary>대기 초과로 깎인 실수령가. 정가는 카탈로그가, 깎는 규칙은 여기가 갖는다.</summary>
+        public int PayoutOf(Customer c)
+        {
+            int retail = InventoryManager.Instance.Catalog.Get(c.WantedProduct).retail;
+            if (c.Overtime <= 0f) return retail;
+
+            float factor = Mathf.Max(MinPriceFactor, 1f - c.Overtime * DiscountPerSecond);
+            return Mathf.Max(1, Mathf.RoundToInt(retail * factor));
+        }
+
+        /// <summary>대기 초과로 잃는 명성. 할인과 달리 오래 끌수록 계속 쌓인다.</summary>
+        public int ReputationPenaltyOf(Customer c)
+        {
+            if (c.Overtime <= 0f) return 0;
+            return Mathf.Min(MaxReputationPenalty, Mathf.FloorToInt(c.Overtime / SecondsPerReputationLoss));
         }
 
         /// <summary>길이 막혔거나 시간 초과. 들고 있던 물건은 진열대로 돌린다.</summary>
@@ -253,7 +345,8 @@ namespace DogShop.Shop
             for (int i = 0; i < queue.Count; i++)
             {
                 Vector3 slot = QueueSlots[Mathf.Min(i, QueueSlots.Length - 1)];
-                if (i >= QueueSlots.Length) slot += new Vector3(0f, 0f, -0.7f * (i - QueueSlots.Length + 1));
+                // 줄이 슬롯보다 길어지면 문 쪽(-x)으로 계속 이어 붙인다
+                if (i >= QueueSlots.Length) slot += new Vector3(-0.7f * (i - QueueSlots.Length + 1), 0f, 0f);
                 queue[i].MoveTo(slot);
             }
         }
@@ -263,11 +356,14 @@ namespace DogShop.Shop
         {
             if (c == null || c.State != CustomerState.Waiting || !c.HasItem) return false;
 
-            int retail = InventoryManager.Instance.Catalog.Get(c.WantedProduct).retail;
-            RevenueToday += retail;
+            int paid = PayoutOf(c);
+            RevenueToday += paid;
             SoldToday++;
-            GameManager.Instance.RegisterSale(retail);
-            OnSale?.Invoke(retail);
+            GameManager.Instance.RegisterSale(paid);
+            OnSale?.Invoke(paid);
+
+            int penalty = ReputationPenaltyOf(c);
+            if (penalty > 0) GameManager.Instance.AddReputation(-penalty);
 
             c.HasItem = false;
             LeaveQueue(c);

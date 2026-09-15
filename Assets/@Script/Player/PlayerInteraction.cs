@@ -343,8 +343,18 @@ namespace DogShop.Player
                 if (c == null) break;
                 if (c.State != CustomerState.Waiting || c.Label.Length == 0) continue;
 
+                // 정가를 다 못 받게 된 손님은 깎인 값과 명성 손실을 같이 보여준다 —
+                // 왜 손해인지가 보이지 않으면 계산대를 지킬 이유가 안 생긴다.
+                string text = c.Label;
+                if (c.Overtime > 0f)
+                {
+                    text = c.Label + "  ->  " + cm.PayoutOf(c) + "원";
+                    int penalty = cm.ReputationPenaltyOf(c);
+                    if (penalty > 0) text += "  명성 -" + penalty;
+                }
+
                 bool urgent = c.WaitRemaining < CustomerManager.Patience * 0.35f;
-                DrawLabel(c.transform.position + Vector3.up * 2.1f, c.Label, urgent ? urgentStyle : labelStyle, false);
+                DrawLabel(c.transform.position + Vector3.up * c.LabelHeight, text, urgent ? urgentStyle : labelStyle, false);
             }
         }
 

@@ -14,15 +14,32 @@ namespace DogShop.Shop
     {
         const float ArriveRadius = 0.6f;
 
+        /// <summary>충돌 캡슐 반경. NavMesh가 이 값으로 구워져 있으므로 키와 무관하게 고정한다.</summary>
+        const float BodyRadius = 0.28f;
+
+        /// <summary>머리 위 이만큼에 가격표를 띄운다.</summary>
+        const float LabelClearance = 0.35f;
+
+        /// <summary>대기 자세로 돌아설 때의 회전 속도(도/초).</summary>
+        const float TurnSpeed = 360f;
+
         NavMeshAgent agent;
         float baseSpeed;
         Vector3 destination;
+        Vector3 facing;
 
         public CustomerState State { get; set; }
         public int WantedProduct { get; set; } = -1;
         public bool HasItem { get; set; }
+        /// <summary>인내 시간이 남은 만큼. 손님은 떠나지 않으므로 이 값은 음수까지 내려간다.</summary>
         public float WaitRemaining { get; set; }
+
+        /// <summary>인내 시간을 넘겨 기다린 초. 할인율과 명성 손실이 여기서 나온다.</summary>
+        public float Overtime { get { return Mathf.Max(0f, -WaitRemaining); } }
         public string Label { get; set; } = "";
+
+        /// <summary>겉모습마다 키가 달라 라벨 높이도 따라간다 — 아이 머리 위 2.1m는 너무 높다.</summary>
+        public float LabelHeight { get; private set; } = 2.1f;
 
         /// <summary>이동 상태에 머문 시간. 길이 막혔을 때 큐를 영구 점유하지 않게 하는 안전장치.</summary>
         public float TravelTime { get; set; }
@@ -48,10 +65,87 @@ namespace DogShop.Shop
             destination = transform.position;
         }
 
+        /// <summary>
+        /// 겉모습을 붙인다. 손님 프리팹은 이동 로직만 들고 있고 몸은 런타임에 고른다 —
+        /// 7종을 각각 프리팹으로 복제하면 이동 파라미터 하나 고칠 때마다 7군데를 고쳐야 한다.
+        ///
+        /// 캡슐과 라벨 높이는 붙인 모델을 <b>실측해서</b> 맞춘다. 아이(1.2m)와 어른(1.8m)이
+        /// 같은 캡슐을 쓰면 아이는 허공을 클릭해야 계산이 된다.
+        /// </summary>
+        public void SetAppearance(GameObject modelPrefab)
+        {
+            if (modelPrefab == null) return;
+
+            GameObject model = Instantiate(modelPrefab, transform);
+            model.name = "Model";
+            model.transform.localPosition = Vector3.zero;
+            model.transform.localRotation = Quaternion.identity;
+
+            float height = MeasureHeight(model);
+            LabelHeight = height + LabelClearance;
+
+            CapsuleCollider capsule = GetComponent<CapsuleCollider>();
+            if (capsule != null)
+            {
+                capsule.radius = BodyRadius;
+                capsule.height = height;
+                capsule.center = new Vector3(0f, height * 0.5f, 0f);
+            }
+
+            if (agent != null) agent.height = height;
+
+            // 모델을 붙인 뒤에 달아야 Awake에서 Animator를 찾는다
+            gameObject.AddComponent<DogShop.Player.CharacterAnimatorDriver>();
+        }
+
+        /// <summary>
+        /// SkinnedMeshRenderer.bounds는 바인드 포즈 기준이라 실제 몸보다 크게 나온다.
+        /// 현재 포즈를 구워서 정점 최고/최저를 직접 잰다.
+        /// </summary>
+        static float MeasureHeight(GameObject model)
+        {
+            float low = float.MaxValue;
+            float high = float.MinValue;
+
+            foreach (SkinnedMeshRenderer skin in model.GetComponentsInChildren<SkinnedMeshRenderer>(true))
+            {
+                Mesh baked = new Mesh();
+                skin.BakeMesh(baked, true);
+
+                foreach (Vector3 vertex in baked.vertices)
+                {
+                    float y = skin.transform.TransformPoint(vertex).y - model.transform.position.y;
+                    if (y < low) low = y;
+                    if (y > high) high = y;
+                }
+
+                Destroy(baked);
+            }
+
+            return high > low ? high - low : 1.7f;
+        }
+
+        /// <summary>
+        /// 대기 중에 바라볼 방향. NavMeshAgent는 멈추면 회전을 놓기 때문에
+        /// 이게 없으면 줄이 제각각 딴 데를 보고 서 있다.
+        /// </summary>
+        public void FaceDirection(Vector3 direction)
+        {
+            direction.y = 0f;
+            facing = direction.normalized;
+        }
+
+        void Update()
+        {
+            if (facing.sqrMagnitude < 0.01f) return;
+            transform.rotation = Quaternion.RotateTowards(transform.rotation, Quaternion.LookRotation(facing), TurnSpeed * Time.deltaTime);
+        }
+
         public void MoveTo(Vector3 target)
         {
             destination = target;
             TravelTime = 0f;
+            facing = Vector3.zero;   // 다시 걷기 시작하면 에이전트가 회전을 가져간다
             if (agent == null || !agent.isOnNavMesh) return;
             agent.SetDestination(target);
         }
