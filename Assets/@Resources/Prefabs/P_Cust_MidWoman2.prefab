@@ -10,15 +10,15 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: -8679921383154817045, guid: 166648fcd6b790c46ad24d40d0b971c0, type: 3}
       propertyPath: m_LocalScale.x
-      value: 1.4507108
+      value: 1.5872474
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 166648fcd6b790c46ad24d40d0b971c0, type: 3}
       propertyPath: m_LocalScale.y
-      value: 1.4507108
+      value: 1.5872474
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 166648fcd6b790c46ad24d40d0b971c0, type: 3}
       propertyPath: m_LocalScale.z
-      value: 1.4507108
+      value: 1.5872474
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 166648fcd6b790c46ad24d40d0b971c0, type: 3}
       propertyPath: m_LocalPosition.x
@@ -26,7 +26,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 166648fcd6b790c46ad24d40d0b971c0, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 0
+      value: 0.0014671924
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 166648fcd6b790c46ad24d40d0b971c0, type: 3}
       propertyPath: m_LocalPosition.z
@@ -68,6 +68,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: P_Cust_MidWoman2
       objectReference: {fileID: 0}
+    - target: {fileID: 5866666021909216657, guid: 166648fcd6b790c46ad24d40d0b971c0, type: 3}
+      propertyPath: m_Controller
+      value: 
+      objectReference: {fileID: 9100000, guid: 50053c9806698ad419c277d93fcfbaf4, type: 2}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []

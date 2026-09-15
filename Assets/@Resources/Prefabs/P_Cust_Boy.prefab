@@ -10,15 +10,15 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: -8679921383154817045, guid: 6fdd3a20363022e40bc6bf3b316cfcc5, type: 3}
       propertyPath: m_LocalScale.x
-      value: 1.0950117
+      value: 1.2150561
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 6fdd3a20363022e40bc6bf3b316cfcc5, type: 3}
       propertyPath: m_LocalScale.y
-      value: 1.0950117
+      value: 1.2150561
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 6fdd3a20363022e40bc6bf3b316cfcc5, type: 3}
       propertyPath: m_LocalScale.z
-      value: 1.0950117
+      value: 1.2150561
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 6fdd3a20363022e40bc6bf3b316cfcc5, type: 3}
       propertyPath: m_LocalPosition.x
@@ -26,7 +26,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 6fdd3a20363022e40bc6bf3b316cfcc5, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 0
+      value: -0.00026121273
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 6fdd3a20363022e40bc6bf3b316cfcc5, type: 3}
       propertyPath: m_LocalPosition.z
@@ -68,6 +68,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: P_Cust_Boy
       objectReference: {fileID: 0}
+    - target: {fileID: 5866666021909216657, guid: 6fdd3a20363022e40bc6bf3b316cfcc5, type: 3}
+      propertyPath: m_Controller
+      value: 
+      objectReference: {fileID: 9100000, guid: 50053c9806698ad419c277d93fcfbaf4, type: 2}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []

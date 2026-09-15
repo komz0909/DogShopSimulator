@@ -20,7 +20,12 @@ namespace DogShop.Shop
         const int MaxVisible = 4;
 
         [SerializeField] Transform contentAnchor;
-        [SerializeField] float contentScale = 0.5f;
+        /// <summary>
+        /// 상자 안 물건의 <b>목표 크기</b>(가장 긴 변, 월드 기준 미터).
+        /// 상품마다 원래 크기가 달라서(샴푸 0.32 · 사료 0.45) 일률 배율을 쓰면
+        /// 작은 것이 유독 작아 보인다. 전부 이 크기로 맞춰 눈에 잘 띄게 한다.
+        /// </summary>
+        [SerializeField] float contentTargetSize = 0.20f;
 
         readonly List<GameObject> visible = new List<GameObject>();
         int[] counts;
@@ -179,7 +184,19 @@ namespace DogShop.Shop
             GameObject prop = Instantiate(prefab, anchor.transform);
             prop.transform.localPosition = Vector3.zero;
 
-            anchor.transform.localScale = Vector3.one * contentScale;
+            // 프롭의 실제 크기를 재서 목표 크기로 정규화한다
+            Renderer[] rends = prop.GetComponentsInChildren<Renderer>(true);
+            float largest = 0.1f;
+            if (rends.Length > 0)
+            {
+                Bounds b = rends[0].bounds;
+                for (int i = 1; i < rends.Length; i++) b.Encapsulate(rends[i].bounds);
+                largest = Mathf.Max(b.size.x, Mathf.Max(b.size.y, b.size.z));
+            }
+            float lossy = contentAnchor.lossyScale.x;
+            float scale = largest > 0.0001f ? (contentTargetSize / largest) / Mathf.Max(0.0001f, lossy) : 1f;
+
+            anchor.transform.localScale = Vector3.one * scale;
             anchor.transform.localPosition = new Vector3(
                 (slot % 2 == 0 ? -1f : 1f) * 0.085f,
                 0f,

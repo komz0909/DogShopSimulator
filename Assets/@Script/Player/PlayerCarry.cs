@@ -16,7 +16,7 @@ namespace DogShop.Player
         /// <summary>상자를 들면 이 비율로 느려진다.</summary>
         const float LoadedSpeedFactor = 0.82f;
 
-        [SerializeField] Vector3 holdOffset = new Vector3(0f, 0.95f, 0.42f);
+        [SerializeField] Vector3 holdOffset = new Vector3(0f, 0.74f, 0.46f);
 
         Transform holdAnchor;
         CharacterController controller;

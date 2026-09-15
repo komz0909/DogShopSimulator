@@ -129,17 +129,21 @@ namespace DogShop.Player
             // 벽을 스쳐도 놓아버리면 창고 랙에 담는 도중 상자를 계속 잃는다.
             if (carry == null || !carry.IsHolding) return;
 
-            if (!IsGround(hit)) { Reject("바닥을 보고 E — 벽에는 내려놓지 않는다"); return; }
+            if (!IsGround(hit)) { Reject("바닥에만 내려놓을 수 있다 — 발 앞 바닥을 볼 것"); return; }
             if (!inRange) { Reject("너무 멀다 — 발 앞 바닥을 볼 것"); return; }
 
             carry.DropAt(hit.point);
         }
 
+        /// <summary>바닥 높이 허용 오차. 매장·창고 바닥은 둘 다 y=0 이다.</summary>
+        const float GroundLevel = 0.06f;
+
         /// <summary>
-        /// 위를 향한 면만 바닥으로 인정한다. 벽·선반 측면은 제외되므로
-        /// 조준이 빗나가 벽이 맞아도 상자를 놓지 않는다.
+        /// <b>진짜 바닥</b>만 인정한다. 위를 향한 면이면서 높이가 바닥면이어야 한다.
+        /// 법선만 보면 계산대 상판(0.63)·진열대(0.48)·선반 위, 심지어 손님 머리까지
+        /// 위를 향하므로 상자를 그 위에 얹을 수 있게 되어 버그처럼 보인다.
         /// </summary>
-        static bool IsGround(RaycastHit hit) => hit.normal.y > 0.7f;
+        static bool IsGround(RaycastHit hit) => hit.normal.y > 0.7f && hit.point.y <= GroundLevel;
 
         bool Aim(out RaycastHit hit)
         {
