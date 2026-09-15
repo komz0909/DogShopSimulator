@@ -169,41 +169,14 @@ namespace DogShop.Debugging
         /// 전 상품을 똑같이 쌓을 필요가 없다 — L2에서 전 상품 8개는 1120원이지만
         /// 수요 비례로는 310원이면 된다. 이 값이 운전자본의 기준이다.
         /// </summary>
-        int DailyRestockCost() => RestockCostFor(
+        // 수요 비례 계산은 InventoryManager가 단일 출처다 — HUD의 승격 경고와 같은 숫자를 써야 한다
+        int DailyRestockCost() => InventoryManager.Instance.DailyRestockCost(
             ShopLevelManager.Instance.Level,
             ShopLevelManager.Instance.Current.customersPerDay);
 
-        /// <summary>그 레벨에서 하루치를 채우는 데 드는 도매 합계.</summary>
-        int RestockCostFor(int level, int customers)
-        {
-            InventoryManager inv = InventoryManager.Instance;
-            int total = 0;
-            for (int i = 0; i < inv.Catalog.Count; i++)
-            {
-                if (inv.Catalog.Get(i).unlockLevel > level) continue;
-                total += TargetFor(i, level, customers) * inv.Catalog.Get(i).wholesale;
-            }
-            return total;
-        }
-
-        int DemandTarget(int index) => TargetFor(index,
+        int DemandTarget(int index) => InventoryManager.Instance.DemandTarget(index,
             ShopLevelManager.Instance.Level,
             ShopLevelManager.Instance.Current.customersPerDay);
-
-        /// <summary>그 상품이 하루에 몇 개 팔릴지 — 손님 수 × (수요가중치 / 전체 가중치) + 여유 1.</summary>
-        int TargetFor(int index, int level, int customers)
-        {
-            InventoryManager inv = InventoryManager.Instance;
-
-            int totalWeight = 0;
-            for (int i = 0; i < inv.Catalog.Count; i++)
-                if (inv.Catalog.Get(i).unlockLevel <= level) totalWeight += inv.Catalog.Get(i).demandWeight;
-            if (totalWeight <= 0) return 1;
-
-            int weight = inv.Catalog.Get(index).demandWeight;
-            int target = Mathf.CeilToInt(customers * weight / (float)totalWeight) + 1;
-            return Mathf.Clamp(target, 1, StorageTarget);
-        }
 
         void Restock()
         {
@@ -234,6 +207,19 @@ namespace DogShop.Debugging
         }
 
         /// <summary>
+        /// 승격 직후 한 번은 발주할 수 있어야 한다. 리드타임이 1일이라 그 한 번이면
+        /// 다음날 매출이 들어와 자립한다 — 2일치를 요구했더니 문턱이 1150원이 되어
+        /// 30일 최고 보유액 1140원으로 10원이 모자라 승격이 한 번도 안 됐다(5차 측정).
+        /// </summary>
+        int UpgradeReserve()
+        {
+            ShopLevelManager s = ShopLevelManager.Instance;
+            if (s.IsMaxLevel) return 0;
+            return Mathf.RoundToInt(
+                InventoryManager.Instance.DailyRestockCost(s.Level + 1, s.Next.customersPerDay) * 1.5f);
+        }
+
+        /// <summary>
         /// 업그레이드는 <b>운전자본을 남기고서만</b> 산다. 2차 측정에서 D5에 590원으로
         /// 250원 업그레이드를 사고 340원이 남았는데 L2는 하루 재고에 더 큰 돈이 필요해
         /// 가게가 영구 자본 부족에 빠졌다. 레벨은 올랐지만 팔 물건이 없었다.
@@ -248,9 +234,8 @@ namespace DogShop.Debugging
 
             // 승격 <b>이후</b> 레벨의 재고비로 판정한다. 현재 레벨(L1 310원) 기준으로 봤더니
             // L2의 실제 필요액을 과소평가해 승격 직후 자본이 말랐다(4차 측정).
-            int nextCost = RestockCostFor(level.Level + 1, level.Next.customersPerDay);
             int after = GameManager.Instance.Money - level.Next.upgradeCost;
-            if (after < nextCost * 2) return;
+            if (after < UpgradeReserve()) return;
 
             level.TryLevelUp();
         }
@@ -267,9 +252,15 @@ namespace DogShop.Debugging
             Dog hero = DogManager.Instance.Hero;
             if (hero == null) return;
 
-            // 운전자본 아래로는 훈련에 쓰지 않는다. "업그레이드 살 때까지 훈련 금지"로 잡았더니
-            // 돈이 비용에 영원히 못 닿아 30일간 훈련을 한 번도 못 하는 교착이 났다.
+            // 운전자본 아래로는 훈련에 쓰지 않는다.
             int floor = DailyRestockCost() * 2;
+
+            // 승격이 눈앞이면 그 자금까지 지킨다. 하한선이 승격 문턱보다 낮으면
+            // 훈련이 매일 남는 돈을 다 태워 돈이 문턱에 영영 닿지 않는다(5차 측정: 30일 L1 고정).
+            // 승격을 사고 나면 하한선이 도로 내려가므로 교착이 되지 않는다.
+            ShopLevelManager s = ShopLevelManager.Instance;
+            if (!s.IsMaxLevel && GameManager.Instance.Reputation >= s.Next.requiredReputation)
+                floor = Mathf.Max(floor, s.Next.upgradeCost + UpgradeReserve());
 
             int guard = 0;
             while (tm.SlotsLeft > 0 && guard++ < 32)

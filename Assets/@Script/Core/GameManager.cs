@@ -11,7 +11,14 @@ namespace DogShop.Core
 
         public static GameManager Instance { get; private set; }
 
-        public int Money { get; private set; } = 500;
+        /// <summary>
+        /// 시작 자금. L1 하루 재고비가 310원이라 500원은 여유가 하루치도 안 됐고,
+        /// L2(하루 재고비 450원) 승격을 감당할 운전자본을 모으기 전에 손님을 놓쳤다.
+        /// 실측 4회에서 반복된 병목이라 L2 이틀치인 900원으로 올렸다. D27 조정 대상.
+        /// </summary>
+        [SerializeField] int startingMoney = 900;
+
+        public int Money { get; private set; }
         public int Reputation { get; private set; }
         public int Day { get; private set; } = 1;
         public int DailyRevenue { get; private set; }
@@ -25,6 +32,7 @@ namespace DogShop.Core
         {
             if (Instance != null && Instance != this) { Destroy(this); return; }
             Instance = this;
+            Money = startingMoney;
         }
 
         void Start()

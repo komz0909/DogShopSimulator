@@ -31,6 +31,36 @@ namespace DogShop.Shop
         public int IncomingOf(int index) => incoming[index];
         public int ShelfRoom(int index) => ShelfCapacity - shelf[index];
 
+        /// <summary>
+        /// 그 레벨에서 하루치 재고를 채우는 데 드는 도매 합계 — <b>운전자본의 기준</b>이다.
+        /// 손님은 수요가중치로 상품을 고르므로 전 상품을 똑같이 쌓을 필요가 없다.
+        /// L2 기준 전 상품 8개는 1120원이지만 수요 비례로는 450원이면 된다.
+        /// </summary>
+        public int DailyRestockCost(int level, int customersPerDay)
+        {
+            int total = 0;
+            for (int i = 0; i < catalog.Count; i++)
+            {
+                if (catalog.Get(i).unlockLevel > level) continue;
+                total += DemandTarget(i, level, customersPerDay) * catalog.Get(i).wholesale;
+            }
+            return total;
+        }
+
+        /// <summary>그 상품이 하루에 몇 개 팔릴지 — 손님 수 × (수요가중치 / 전체 가중치) + 여유 1.</summary>
+        public int DemandTarget(int index, int level, int customersPerDay)
+        {
+            int totalWeight = 0;
+            for (int i = 0; i < catalog.Count; i++)
+                if (catalog.Get(i).unlockLevel <= level) totalWeight += catalog.Get(i).demandWeight;
+            if (totalWeight <= 0) return 1;
+
+            // 여유 2개. 손님의 상품 선택은 확률이라 평균보다 몰리는 날이 있고,
+            // 여유 1개로는 그 변동을 못 받아 L1에서도 하루 5명까지 놓쳤다(5차 측정).
+            int target = Mathf.CeilToInt(customersPerDay * catalog.Get(index).demandWeight / (float)totalWeight) + 2;
+            return Mathf.Clamp(target, 1, ShelfCapacity);
+        }
+
         void Awake()
         {
             if (Instance != null && Instance != this) { Destroy(this); return; }

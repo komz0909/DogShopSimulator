@@ -147,8 +147,32 @@ namespace DogShop.Debugging
                 ? "훈련 슬롯 " + tm.SlotsUsed + "/" + tm.SlotsTotal + "   강아지 " + dm.Count + "/" + dm.SlotLimit
                 : "";
 
+            line4 += UpgradeAdvice(s, inv, g);
+
             EconomyMonitor eco = EconomyMonitor.Instance;
             line5 = eco != null ? eco.StatusLine() : "";
+        }
+
+        /// <summary>
+        /// 승격이 가능할 때 <b>승격 후에 필요한 운전자본</b>을 함께 알린다.
+        /// 명성만 보고 올리면 손님은 늘어나는데 채울 돈이 없어 가게가 마른다 —
+        /// 실측에서 L2 승격 직후 매일 손님 6~7명을 놓치는 나선에 빠졌다.
+        /// 막지는 않는다. 언제 올릴지는 플레이어의 판단이다.
+        /// </summary>
+        static string UpgradeAdvice(ShopLevelManager s, InventoryManager inv, GameManager g)
+        {
+            if (s == null || inv == null || g == null || s.IsMaxLevel) return "";
+
+            string reason;
+            if (!s.CanLevelUp(out reason)) return "";
+
+            ShopLevelDef next = s.Next;
+            int needed = inv.DailyRestockCost(s.Level + 1, next.customersPerDay) * 2;
+            int after = g.Money - next.upgradeCost;
+
+            return "      [L] Lv" + (s.Level + 1) + " 승격 가능 — 비용 " + next.upgradeCost
+                 + ", 승격 후 남는 돈 " + after + " / 권장 운전자본 " + needed
+                 + (after < needed ? "  ※자금 부족 — 더 모으고 올릴 것" : "  OK");
         }
 
         void OnGUI()
