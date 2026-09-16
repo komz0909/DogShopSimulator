@@ -32,12 +32,18 @@ namespace DogShop.Player
         ShopOrderMenu orderMenu;
         IPointerMenu[] menus;
 
+        /// <summary>월드 라벨(가격표·힌트) 폰트. HUD와 같은 서체를 써야 한 화면처럼 보인다.</summary>
+        [SerializeField] Font uiFont;
+
         GUIStyle labelStyle;
         GUIStyle urgentStyle;
         GUIStyle crateStyle;
         GUIStyle hintStyle;
 
         string hint = "";
+
+        /// <summary>배치 모드가 켜져 있으면 E를 그쪽에 넘긴다 — 진열하다 진열대를 들면 안 된다.</summary>
+        FurniturePlacer placer;
 
         void Awake()
         {
@@ -47,12 +53,15 @@ namespace DogShop.Player
             carry = GetComponentInParent<PlayerCarry>();
             player = carry != null ? carry.transform : transform;
             dogMenu = GetComponent<DogContextMenu>();
+            placer = GetComponent<FurniturePlacer>();
             orderMenu = GetComponent<ShopOrderMenu>();
             menus = GetComponents<IPointerMenu>();
         }
 
         void Update()
         {
+            if (placer != null && placer.Active) { hint = ""; return; }
+
             RefreshHint();
 
             Keyboard keyboard = Keyboard.current;
@@ -90,7 +99,17 @@ namespace DogShop.Player
             if (shelf != null)
             {
                 if (!inRange) { Reject("너무 멀다 — 진열대에 가까이 갈 것"); return; }
-                ActionRunner.TryRun(new PlaceOneAction(carry, shelf.ProductIndex));
+
+                // 어느 칸인지는 <b>조준한 높이</b>가 정한다. 벽 진열대처럼 위아래 두 칸이면
+                // 플레이어가 보는 칸에 놓인다 — 칸 고르는 키를 따로 만들 이유가 없다.
+                int slot = shelf.SlotNear(hit.point.y);
+
+                // 그 칸에 뭔가 있으면 회수, 비어 있으면 상자에서 진열.
+                // 둘이 동시에 성립하지 않으므로 키를 나눌 필요가 없다.
+                if (shelf.CountAt(slot) > 0 && !HoldsProduct(shelf.ProductAt(slot)))
+                    ActionRunner.TryRun(new TakeFromShelfAction(carry, shelf, slot));
+                else
+                    ActionRunner.TryRun(new PlaceOneAction(carry, shelf, slot));
                 return;
             }
 
@@ -175,7 +194,13 @@ namespace DogShop.Player
 
             if (hit.collider.GetComponentInParent<CarryCrate>() != null) hint = "[E] 상자 들기";
             else if (hit.collider.GetComponentInParent<StorageRack>() != null) hint = "[E] 상자에 1개 담기";
-            else if (hit.collider.GetComponentInParent<ShelfTable>() != null) hint = "[E] 1개 진열";
+            else if (hit.collider.GetComponentInParent<ShelfTable>() != null)
+            {
+                ShelfTable aimed = hit.collider.GetComponentInParent<ShelfTable>();
+                int slot = aimed.SlotNear(hit.point.y);
+                hint = aimed.CountAt(slot) > 0 && !HoldsProduct(aimed.ProductAt(slot))
+                     ? "[E] 1개 회수" : "[E] 1개 진열";
+            }
             else if (hit.collider.GetComponentInParent<Customer>() != null) hint = "[E] 계산";
             else if (hit.collider.GetComponentInParent<DirtSpot>() != null) hint = "[E] 청소";
             else if (hit.collider.GetComponentInParent<ShopCounter>() != null) hint = "[E] 발주";
@@ -246,15 +271,34 @@ namespace DogShop.Player
             }
         }
 
+        /// <summary>
+        /// 상자에서 <b>그 칸</b>으로 1개 옮긴다. 칸이 이미 다른 상품에 배정돼 있으면 거절한다 —
+        /// 그 규칙이 "자리를 바꾸려면 먼저 비워야 한다"를 만든다.
+        /// </summary>
         sealed class PlaceOneAction : IPlayerAction
         {
             readonly PlayerCarry carry;
-            readonly int productIndex;
+            readonly ShelfTable table;
+            readonly int slot;
 
-            public PlaceOneAction(PlayerCarry carry, int productIndex)
+            public PlaceOneAction(PlayerCarry carry, ShelfTable table, int slot)
             {
                 this.carry = carry;
-                this.productIndex = productIndex;
+                this.table = table;
+                this.slot = slot;
+            }
+
+            int Pick()
+            {
+                int bound = table.ProductAt(slot);
+                if (bound >= 0) return bound;
+
+                // 빈 칸이면 상자에 든 것 중 이 진열대가 받는 첫 상품을 올린다
+                CarryCrate crate = carry.Held;
+                for (int i = 0; i < InventoryManager.Instance.Catalog.Count; i++)
+                    if (crate.CountOf(i) > 0 && table.AcceptsBulk(i)) return i;
+
+                return -1;
             }
 
             public bool CanExecute(out string reason)
@@ -262,18 +306,65 @@ namespace DogShop.Player
                 if (carry == null || !carry.IsHolding) { reason = "상자를 들고 와야 한다 (E)"; return false; }
 
                 CarryCrate crate = carry.Held;
+                if (crate.IsEmpty) { reason = "상자가 비었다 — 창고에서 담아올 것"; return false; }
+
+                int productIndex = Pick();
+                if (productIndex < 0)
+                {
+                    reason = table.AcceptedBulk == 1
+                        ? "작은 물건만 올릴 수 있다 — " + crate.Describe()
+                        : "사료처럼 부피 큰 물건만 올릴 수 있다 — " + crate.Describe();
+                    return false;
+                }
+
                 if (crate.CountOf(productIndex) <= 0)
                 {
-                    reason = crate.IsEmpty
-                        ? "상자가 비었다 — 창고에서 담아올 것"
-                        : "상자에 이 상품이 없다 — " + crate.Describe();
+                    reason = "상자에 " + InventoryManager.Instance.Catalog.Get(productIndex).nameKo + "이(가) 없다";
                     return false;
                 }
-                if (InventoryManager.Instance.ShelfRoom(productIndex) <= 0)
-                {
-                    reason = "진열대 가득 — " + InventoryManager.ShelfCapacity + "개";
-                    return false;
-                }
+
+                return table.CanPlace(slot, productIndex, out reason);
+            }
+
+            public void Execute()
+            {
+                int productIndex = Pick();
+                if (productIndex < 0) return;
+                if (!carry.Held.RemoveOne(productIndex)) return;
+
+                table.Place(slot, productIndex);
+            }
+        }
+
+        bool HoldsProduct(int productIndex)
+        {
+            return carry != null && carry.IsHolding && carry.Held.CountOf(productIndex) > 0;
+        }
+
+        /// <summary>
+        /// 진열대에서 상자로 도로 담는다. 진열대를 옮기려면 먼저 비워야 하므로
+        /// <b>되돌리는 경로가 반드시 있어야 한다</b> — 없으면 한 번 진열한 진열대는 영영 못 옮긴다.
+        /// </summary>
+        sealed class TakeFromShelfAction : IPlayerAction
+        {
+            readonly PlayerCarry carry;
+            readonly ShelfTable table;
+            readonly int slot;
+
+            public TakeFromShelfAction(PlayerCarry carry, ShelfTable table, int slot)
+            {
+                this.carry = carry;
+                this.table = table;
+                this.slot = slot;
+            }
+
+            public bool CanExecute(out string reason)
+            {
+                if (carry == null || !carry.IsHolding) { reason = "상자를 들고 와야 한다 (E)"; return false; }
+
+                int productIndex = table.ProductAt(slot);
+                if (productIndex < 0 || table.CountAt(slot) <= 0) { reason = "이 칸은 비었다"; return false; }
+                if (!carry.Held.Accepts(productIndex)) { reason = "상자가 가득 찼다 — " + carry.Held.Describe(); return false; }
 
                 reason = null;
                 return true;
@@ -281,8 +372,9 @@ namespace DogShop.Player
 
             public void Execute()
             {
-                if (!carry.Held.RemoveOne(productIndex)) return;
-                InventoryManager.Instance.PlaceOnShelf(productIndex, 1);
+                int productIndex = table.ProductAt(slot);
+                if (!table.Take(slot)) return;
+                carry.Held.AddOne(productIndex);
             }
         }
 
@@ -303,8 +395,9 @@ namespace DogShop.Player
         {
             if (labelStyle != null) return;
 
-            labelStyle = new GUIStyle(GUI.skin.box) { fontSize = 13 };
+            labelStyle = new GUIStyle(GUI.skin.box) { fontSize = 14 };
             labelStyle.normal.textColor = Color.white;
+            if (uiFont != null) labelStyle.font = uiFont;
 
             urgentStyle = new GUIStyle(labelStyle);
             urgentStyle.normal.textColor = new Color(1f, 0.55f, 0.45f);
@@ -312,8 +405,9 @@ namespace DogShop.Player
             crateStyle = new GUIStyle(labelStyle);
             crateStyle.normal.textColor = new Color(0.75f, 1f, 0.8f);
 
-            hintStyle = new GUIStyle(GUI.skin.box) { fontSize = 16, fontStyle = FontStyle.Bold };
+            hintStyle = new GUIStyle(GUI.skin.box) { fontSize = 18 };
             hintStyle.normal.textColor = new Color(1f, 0.93f, 0.6f);
+            if (uiFont != null) hintStyle.font = uiFont;
         }
 
         void DrawHint()
@@ -366,13 +460,21 @@ namespace DogShop.Player
             ShelfManager shelves = ShelfManager.Instance;
             if (shelves != null)
             {
+                // 칸마다 한 줄씩 띄운다 — 벽 진열대는 위아래가 다른 상품일 수 있다
                 for (int i = 0; i < shelves.Count; i++)
                 {
                     ShelfTable table = shelves.Get(i);
-                    ProductDef def = inv.Catalog.Get(table.ProductIndex);
-                    DrawLabel(table.transform.position + Vector3.up * 1.0f,
-                        def.nameKo + "  " + inv.ShelfOf(table.ProductIndex) + " / " + InventoryManager.ShelfCapacity,
-                        labelStyle, true);
+                    for (int slot = 0; slot < table.SlotCount; slot++)
+                    {
+                        int index = table.ProductAt(slot);
+                        Vector3 at = table.transform.position + Vector3.up * (table.HeightOf(slot) + 0.34f);
+
+                        string text = index >= 0
+                            ? inv.Catalog.Get(index).nameKo + "  " + table.CountAt(slot) + " / " + table.CapacityPerSlot
+                            : (table.AcceptedBulk == 1 ? "빈 칸 (작은 물건)" : table.AcceptedBulk == 2 ? "빈 칸 (큰 물건)" : "빈 칸");
+
+                        DrawLabel(at, text, index >= 0 ? labelStyle : crateStyle, true);
+                    }
                 }
             }
 

@@ -20,7 +20,6 @@ namespace DogShop.Shop
         [SerializeField] int startingStoragePerProduct = 8;
 
         int[] storage;
-        int[] shelf;
         int[] incoming;
 
         /// <summary>
@@ -38,9 +37,29 @@ namespace DogShop.Shop
 
         public ProductCatalog Catalog => catalog;
         public int StorageOf(int index) => storage[index];
-        public int ShelfOf(int index) => shelf[index];
+        /// <summary>
+        /// 진열된 개수는 <b>진열대의 칸이 직접 들고 있다</b>. 여기서는 전 진열대를 훑어 합계만 낸다 —
+        /// 칸마다 상품이 배정되고 잠기므로 전역 배열로는 "어느 칸에 몇 개"를 표현할 수 없다.
+        /// </summary>
+        public int ShelfOf(int index)
+        {
+            ShelfManager shelves = ShelfManager.Instance;
+            if (shelves == null) return 0;
+
+            int sum = 0;
+            for (int i = 0; i < shelves.Count; i++) sum += shelves.Get(i).TotalOf(index);
+            return sum;
+        }
         public int IncomingOf(int index) => incoming[index];
-        public int ShelfRoom(int index) => ShelfCapacity - shelf[index];
+        public int ShelfRoom(int index)
+        {
+            ShelfManager shelves = ShelfManager.Instance;
+            if (shelves == null) return 0;
+
+            int room = 0;
+            for (int i = 0; i < shelves.Count; i++) room += shelves.Get(i).RoomFor(index);
+            return room;
+        }
 
         /// <summary>오늘 발주가 즉시 입고되는가. 승급한 날 하루만 참이다.</summary>
         public bool RushDelivery => rushDelivery;
@@ -104,7 +123,6 @@ namespace DogShop.Shop
             Instance = this;
 
             storage = new int[catalog.Count];
-            shelf = new int[catalog.Count];
             incoming = new int[catalog.Count];
 
             for (int i = 0; i < catalog.Count; i++)
@@ -184,11 +202,24 @@ namespace DogShop.Shop
         /// </summary>
         public void PlaceOnShelf(int index, int quantity)
         {
-            int moved = Mathf.Min(quantity, ShelfRoom(index));
-            if (moved <= 0) return;
+            ShelfManager shelves = ShelfManager.Instance;
+            if (shelves == null) return;
 
-            shelf[index] += moved;
-            OnStockChanged?.Invoke();
+            int left = quantity;
+            for (int i = 0; i < shelves.Count && left > 0; i++)
+            {
+                ShelfTable table = shelves.Get(i);
+                while (left > 0)
+                {
+                    int slot = table.FirstSlotFor(index);
+                    if (slot < 0) break;
+
+                    table.Place(slot, index);
+                    left--;
+                }
+            }
+
+            if (left < quantity) OnStockChanged?.Invoke();
         }
 
         // ---- 소비 ----
@@ -196,17 +227,28 @@ namespace DogShop.Shop
         /// <summary>손님 구매. 테이블에서만 나간다 — 창고에 있어도 테이블이 비면 놓친다.</summary>
         public bool TryConsumeShelf(int index)
         {
-            if (shelf[index] <= 0) return false;
-            shelf[index]--;
-            OnStockChanged?.Invoke();
-            return true;
+            ShelfManager shelves = ShelfManager.Instance;
+            if (shelves == null) return false;
+
+            for (int i = 0; i < shelves.Count; i++)
+            {
+                if (!shelves.Get(i).Consume(index)) continue;
+                OnStockChanged?.Invoke();
+                return true;
+            }
+            return false;
         }
 
         /// <summary>손님이 물건을 두고 나갔다. 테이블이 가득하면 창고로 돌린다.</summary>
         public void ReturnToShelf(int index)
         {
-            if (ShelfRoom(index) > 0) shelf[index]++;
-            else storage[index]++;
+            ShelfManager shelves = ShelfManager.Instance;
+
+            bool placed = false;
+            for (int i = 0; shelves != null && i < shelves.Count && !placed; i++)
+                placed = shelves.Get(i).Restore(index);
+
+            if (!placed) storage[index]++;   // 놓을 칸이 없으면 창고로 돌린다
             OnStockChanged?.Invoke();
         }
 
@@ -222,7 +264,7 @@ namespace DogShop.Shop
         public void CaptureInto(SaveData data)
         {
             data.storage = (int[])storage.Clone();
-            data.shelf = (int[])shelf.Clone();
+            ShelfManager.Instance?.CaptureInto(data);
             data.incoming = (int[])incoming.Clone();
             data.rushDelivery = rushDelivery;
         }
@@ -230,7 +272,7 @@ namespace DogShop.Shop
         public void RestoreFrom(SaveData data)
         {
             CopyInto(data.storage, storage);
-            CopyInto(data.shelf, shelf);
+            ShelfManager.Instance?.RestoreFrom(data);
             CopyInto(data.incoming, incoming);
             rushDelivery = data.rushDelivery;
             OnStockChanged?.Invoke();

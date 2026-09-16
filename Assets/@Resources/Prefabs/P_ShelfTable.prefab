@@ -28,7 +28,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalScale: {x: 1.15, y: 1.65, z: 1.2}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 144028668801068984}
@@ -102,7 +102,8 @@ GameObject:
   - component: {fileID: 5223391068352209368}
   - component: {fileID: 3249859318535446823}
   - component: {fileID: 265676719662494749}
-  - component: {fileID: 1359252639954423219}
+  - component: {fileID: 5115994781111114995}
+  - component: {fileID: 5486987071954233920}
   m_Layer: 0
   m_Name: P_ShelfTable
   m_TagString: Untagged
@@ -145,7 +146,7 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 1, y: 0.48, z: 0.45}
+  m_Size: {x: 1.15, y: 0.792, z: 0.54}
   m_Center: {x: 0, y: 0, z: 0}
 --- !u!208 &3249859318535446823
 NavMeshObstacle:
@@ -175,7 +176,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a8504b63a7dfd4443a52b31e05a48f39, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DogShop.Shop.ShelfTable
---- !u!114 &1359252639954423219
+  slotHeights:
+  - 0.792
+  acceptedBulk: 0
+  capacityPerSlot: 8
+  slotWidth: 1.09
+  slotDepth: 0.48
+--- !u!114 &5115994781111114995
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -184,6 +191,21 @@ MonoBehaviour:
   m_GameObject: {fileID: 8582389824327769217}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: c9f50316207889f408eb97e1a3926ab8, type: 3}
+  m_Script: {fileID: 11500000, guid: 0203c44060850764a8f0a52d8a73ab91, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::DogShop.Shop.ProductSlotDisplay
+  m_EditorClassIdentifier: Assembly-CSharp::DogShop.Shop.PlaceableFurniture
+  displayName: "\uC9C4\uC5F4\uB300"
+  wallMounted: 0
+--- !u!114 &5486987071954233920
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8582389824327769217}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0f18e7e40f9c63d4cb6d3a25aa7d09db, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DogShop.Shop.ShelfDisplay
+  propTargetSize: 0.22

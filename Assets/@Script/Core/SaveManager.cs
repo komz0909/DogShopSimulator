@@ -43,6 +43,10 @@ namespace DogShop.Core
         public int[] shelf = new int[0];
         public int[] incoming = new int[0];
 
+        /// <summary>진열대 칸별 상품과 개수. 진열대를 이어 붙인 한 줄이다. -1 은 빈 칸.</summary>
+        public int[] shelfSlotProduct = new int[0];
+        public int[] shelfSlotCount = new int[0];
+
         /// <summary>승급 당일 특급 입고가 켜져 있는가. 없던 시절 세이브는 false 로 복원되고 그게 맞다.</summary>
         public bool rushDelivery;
 

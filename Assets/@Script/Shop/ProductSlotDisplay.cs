@@ -34,6 +34,16 @@ namespace DogShop.Shop
         /// <summary>화면에 보일 최대 개수. 0이면 진열대 용량을 쓴다.</summary>
         int maxVisible;
 
+        /// <summary>
+        /// 상품 프롭의 목표 크기(가장 긴 변). AI로 뽑은 프롭은 종마다 원본 크기가 제각각이라
+        /// 그대로 올리면 사료 포대가 진열대만 해지고 목줄은 안 보인다. 한 치수로 맞춘다.
+        /// 진열대를 키워도 물건이 같이 커지지 않는 것도 이 값 덕분이다.
+        /// </summary>
+        float propTargetSize = 0.22f;
+
+        /// <summary>목표 크기에 맞추려고 프롭에 곱하는 배수.</summary>
+        float propScale = 1f;
+
         GameObject prefab;
         int columns = 1;
         int rowsPerTier = 1;
@@ -42,8 +52,9 @@ namespace DogShop.Shop
 
         /// <summary>슬롯을 만든 매니저가 호출한다. 개수 제공자로 진열/창고를 구분한다.</summary>
         public void Configure(int productIndex, Func<int> countProvider, float topY, float topWidth, float topDepth,
-                              int tiers = 1, float tierSpacing = 0f, int maxVisible = 0)
+                              int tiers = 1, float tierSpacing = 0f, int maxVisible = 0, float propSize = 0.22f)
         {
+            this.propTargetSize = propSize;
             this.productIndex = productIndex;
             this.countProvider = countProvider;
             this.topY = topY;
@@ -93,8 +104,12 @@ namespace DogShop.Shop
             if (prefab == null) { prepared = true; return false; }
 
             GameObject probe = Instantiate(prefab);
-            Vector3 size = MeasureSize(probe);
+            Vector3 native = MeasureSize(probe);
             Destroy(probe);
+
+            float largest = Mathf.Max(native.x, Mathf.Max(native.y, native.z));
+            propScale = largest > 0.0001f ? propTargetSize / largest : 1f;
+            Vector3 size = native * propScale;
 
             float stepX = Mathf.Max(0.05f, size.x + Gap);
             float stepZ = Mathf.Max(0.05f, size.z + Gap);
@@ -118,6 +133,7 @@ namespace DogShop.Shop
             GameObject anchor = new GameObject("Prop_" + index);
             anchor.transform.SetParent(transform, false);
             anchor.transform.localRotation = Quaternion.identity;
+            anchor.transform.localScale = Vector3.one * propScale;
 
             GameObject prop = Instantiate(prefab, anchor.transform);
             prop.transform.localPosition = Vector3.zero;

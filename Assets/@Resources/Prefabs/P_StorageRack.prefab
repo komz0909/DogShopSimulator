@@ -13,6 +13,7 @@ GameObject:
   - component: {fileID: 8555508900959519447}
   - component: {fileID: 7024753592294092924}
   - component: {fileID: 5472245132485138023}
+  - component: {fileID: 9116451705191518709}
   m_Layer: 0
   m_Name: P_StorageRack
   m_TagString: Untagged
@@ -97,6 +98,19 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c9f50316207889f408eb97e1a3926ab8, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DogShop.Shop.ProductSlotDisplay
+--- !u!114 &9116451705191518709
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3694646031744754877}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0203c44060850764a8f0a52d8a73ab91, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DogShop.Shop.PlaceableFurniture
+  displayName: "\uCC3D\uACE0 \uC120\uBC18"
 --- !u!1 &7771091377112215096
 GameObject:
   m_ObjectHideFlags: 0
