@@ -25,6 +25,8 @@ namespace DogShop.Shop
 
         NavMeshAgent agent;
         float baseSpeed;
+        float baseAcceleration;
+        float baseAngularSpeed;
         Vector3 destination;
         Vector3 facing;
 
@@ -62,6 +64,8 @@ namespace DogShop.Shop
         {
             agent = GetComponent<NavMeshAgent>();
             baseSpeed = agent.speed;
+            baseAcceleration = agent.acceleration;
+            baseAngularSpeed = agent.angularSpeed;
             destination = transform.position;
         }
 
@@ -150,11 +154,27 @@ namespace DogShop.Shop
             agent.SetDestination(target);
         }
 
-        /// <summary>배속을 따라간다 — 16배속에서 손님도 16배로 몰려온다.</summary>
+        /// <summary>
+        /// 배속을 따라간다 — 다만 <b>상한이 있다</b>.
+        ///
+        /// 16배속에서 속도를 그대로 16배(28.8m/s)로 주면 한 프레임에 0.48m 를 건너뛴다.
+        /// 손님 반경이 0.28 이라 자기 몸통 두 개씩 순간이동하는 셈이고,
+        /// NavMeshAgent 의 회피와 도착 판정이 그 단위에서 무너진다 —
+        /// 계산대를 뚫고 지나가고 손실률이 11%에서 21%로 뛰었다(10차 측정).
+        ///
+        /// 시계는 16배로 가되 사람은 이 배수까지만 빨라진다. 가게가 6m 남짓이라
+        /// 5배(9m/s)면 한 시간(16배속 기준 3.3초) 안에 충분히 오간다.
+        /// </summary>
+        const int MaxSpeedMultiplier = 5;
+
         public void ApplySpeed(int multiplier)
         {
             if (agent == null) return;
-            agent.speed = baseSpeed * multiplier;
+
+            int scaled = Mathf.Min(multiplier, MaxSpeedMultiplier);
+            agent.speed = baseSpeed * scaled;
+            agent.acceleration = baseAcceleration * scaled;
+            agent.angularSpeed = baseAngularSpeed * scaled;
         }
     }
 }

@@ -69,6 +69,13 @@ namespace DogShop.Shop
             if (!GameManager.Instance.TrySpend(Next.upgradeCost)) return false;
 
             Level++;
+
+            // 승급 당일은 리드타임을 없앤다. 손님이 한 번에 늘고 카테고리가 열리는 날인데
+            // 하루를 기다리면 그 수요를 받을 재고가 존재할 수 없다.
+            // RestoreFrom도 OnLevelUp을 쏘므로 이벤트가 아니라 여기서 직접 부른다 —
+            // 세이브를 불러올 때마다 특급 입고가 공짜로 붙으면 안 된다.
+            if (InventoryManager.Instance != null) InventoryManager.Instance.BeginRushDelivery();
+
             OnLevelUp?.Invoke(Level);
             return true;
         }

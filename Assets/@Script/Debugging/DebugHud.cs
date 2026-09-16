@@ -130,7 +130,7 @@ namespace DogShop.Debugging
                           + clean.CustomerFactor.ToString("0.00")
                         : "");
 
-            line3 = "재고  ";
+            line3 = inv.RushDelivery ? "재고 [승급일 — 발주 즉시 입고]  " : "재고  ";
             for (int i = 0; i < inv.Catalog.Count; i++)
             {
                 ProductDef p = inv.Catalog.Get(i);
@@ -172,7 +172,8 @@ namespace DogShop.Debugging
 
             return "      [L] Lv" + (s.Level + 1) + " 승격 가능 — 비용 " + next.upgradeCost
                  + ", 승격 후 남는 돈 " + after + " / 권장 운전자본 " + needed
-                 + (after < needed ? "  ※자금 부족 — 더 모으고 올릴 것" : "  OK");
+                 + (after < needed ? "  ※자금 부족 — 더 모으고 올릴 것" : "  OK")
+                 + "  (승급 당일 발주는 즉시 입고)";
         }
 
         void OnGUI()

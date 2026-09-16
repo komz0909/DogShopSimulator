@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using DogShop.Data;
 using UnityEngine;
+using UnityEngine.AI;
 
 namespace DogShop.Shop
 {
@@ -14,26 +15,39 @@ namespace DogShop.Shop
         static readonly Vector3 Entrance = new Vector3(4f, 0f, 0f);
 
         /// <summary>
-        /// 앞줄 z=2.0(입구에 가까움), 뒷줄 z=3.6. 두 줄 사이 z 2.3~3.3이 통로다.
-        /// x는 중앙(3.9~5.1)을 비워 입구에서 통로로 들어오는 길을 남긴다 —
-        /// 이 간격이 손님 지름(0.56)보다 좁으면 진열대가 벽이 되어 뒷줄에 갈 수 없다.
-        /// </summary>
-        /// <summary>
         /// 진열대 높이의 절반. AI 에셋 실측 0.48m 기준. 콜라이더가 중심 기준이라
         /// 이만큼 띄워야 바닥에 선다. 모델을 바꾸면 이 값과 TopY를 함께 고칠 것.
         /// </summary>
         public const float ShelfHalfHeight = 0.24f;
 
+        /// <summary>
+        /// 진열대는 <b>두 줄</b>이고 가운데 x 3.8~5.0 를 비운다. 이 세로 통로가
+        /// 입구(x 3~5)와 창고 문(x 3.2~4.8)을 일직선으로 잇는 가게의 등뼈다.
+        ///
+        /// 테이블은 NavMesh를 1.00 x 0.60 으로 깎는다. 줄 간격을 1.8m 로 벌려
+        /// 통로 폭이 1.2m 가 되게 했다 — 손님 지름 0.56 이라 둘이 비껴갈 수 있다.
+        /// 이전 배치(간격 1.6, 통로 1.0)에서는 마주친 둘이 그대로 굳어
+        /// 손님 12명 중 11명을 놓쳤다(7차 측정).
+        /// </summary>
+        const float FrontRowZ = 2.4f;
+        const float BackRowZ = 4.2f;
+
         static readonly Vector3[] Slots =
         {
-            new Vector3(1.0f, ShelfHalfHeight, 2.0f), new Vector3(2.2f, ShelfHalfHeight, 2.0f), new Vector3(3.4f, ShelfHalfHeight, 2.0f),
-            new Vector3(5.5f, ShelfHalfHeight, 2.0f), new Vector3(6.6f, ShelfHalfHeight, 2.0f),
-            new Vector3(1.0f, ShelfHalfHeight, 3.6f), new Vector3(2.2f, ShelfHalfHeight, 3.6f), new Vector3(3.4f, ShelfHalfHeight, 3.6f),
-            new Vector3(5.5f, ShelfHalfHeight, 3.6f), new Vector3(6.6f, ShelfHalfHeight, 3.6f)
+            new Vector3(0.9f, ShelfHalfHeight, FrontRowZ), new Vector3(2.1f, ShelfHalfHeight, FrontRowZ), new Vector3(3.3f, ShelfHalfHeight, FrontRowZ),
+            new Vector3(5.5f, ShelfHalfHeight, FrontRowZ), new Vector3(6.7f, ShelfHalfHeight, FrontRowZ),
+            new Vector3(0.9f, ShelfHalfHeight, BackRowZ),  new Vector3(2.1f, ShelfHalfHeight, BackRowZ),  new Vector3(3.3f, ShelfHalfHeight, BackRowZ),
+            new Vector3(5.5f, ShelfHalfHeight, BackRowZ),  new Vector3(6.7f, ShelfHalfHeight, BackRowZ)
         };
 
-        /// <summary>두 줄 사이 통로. 손님은 진열대 중심이 아니라 이 지점으로 걸어온다.</summary>
-        const float AisleZ = 2.8f;
+        /// <summary>두 줄 사이 통로. <b>뒷줄 손님만</b> 여기로 들어온다.</summary>
+        const float AisleZ = 3.3f;
+
+        /// <summary>
+        /// 앞줄은 통로가 아니라 <b>입구 쪽</b>에서 접근한다.
+        /// 전부 통로로 몰면 앞줄 손님과 뒷줄 손님이 같은 1.2m 에서 엉킨다.
+        /// </summary>
+        const float FrontApproachZ = 1.75f;
 
         public const float NearMultiplier = 1.5f;
         public const float FarMultiplier = 1.0f;
@@ -96,7 +110,8 @@ namespace DogShop.Shop
                 float t = maxDistance > minDistance ? (distance - minDistance) / (maxDistance - minDistance) : 0f;
                 float multiplier = Mathf.Lerp(NearMultiplier, FarMultiplier, t);
 
-                Vector3 approach = new Vector3(Slots[i].x, 0f, AisleZ);
+                Vector3 approach = new Vector3(Slots[i].x, 0f, Slots[i].z < AisleZ ? FrontApproachZ : AisleZ);
+                if (!Reachable(approach)) approach = new Vector3(Slots[i].x, 0f, AisleZ);
 
                 ShelfTable table = instance.GetComponent<ShelfTable>();
                 table.Bind(i, multiplier, approach);
@@ -111,6 +126,18 @@ namespace DogShop.Shop
 
                 tables.Add(table);
             }
+        }
+
+        /// <summary>
+        /// 접근점이 실제로 NavMesh 위인지 본다. 계산대 옆처럼 침식으로 막힌 자리가 생기면
+        /// 손님이 그 진열대에 영영 닿지 못하고 시간 초과로 나가버린다 —
+        /// 배치를 손볼 때마다 사람이 눈으로 확인할 일이 아니다.
+        /// </summary>
+        static bool Reachable(Vector3 point)
+        {
+            NavMeshHit hit;
+            if (!NavMesh.SamplePosition(point + Vector3.up * 0.2f, out hit, 0.35f, NavMesh.AllAreas)) return false;
+            return Mathf.Abs(hit.position.x - point.x) < 0.25f && Mathf.Abs(hit.position.z - point.z) < 0.25f;
         }
 
         public ShelfTable FindFor(int productIndex)

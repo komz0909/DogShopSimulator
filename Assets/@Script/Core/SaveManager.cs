@@ -43,6 +43,9 @@ namespace DogShop.Core
         public int[] shelf = new int[0];
         public int[] incoming = new int[0];
 
+        /// <summary>승급 당일 특급 입고가 켜져 있는가. 없던 시절 세이브는 false 로 복원되고 그게 맞다.</summary>
+        public bool rushDelivery;
+
         /// <summary>
         /// 운반 상자. 상자 안의 물건은 <b>이미 창고에서 빠져나온</b> 상태라
         /// 저장하지 않으면 창고에도 상자에도 없는 채로 영구 유실된다.

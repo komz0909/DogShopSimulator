@@ -160,7 +160,15 @@ namespace DogShop.Shop
             customer.SetAppearance(NextAppearance());
 
             UnityEngine.AI.NavMeshAgent agent = instance.GetComponent<UnityEngine.AI.NavMeshAgent>();
-            if (agent != null) agent.baseOffset = groundOffset;
+            if (agent != null)
+            {
+                agent.baseOffset = groundOffset;
+
+                // 회피 우선순위가 전원 같으면 서로 양보하지 않는다. 좁은 통로에서
+                // 마주친 둘이 그대로 굳어 TravelTimeout 에 걸렸다(7차 측정: 12명 중 11명 손실).
+                // 흩어 놓으면 낮은 쪽이 비켜주며 풀린다.
+                agent.avoidancePriority = UnityEngine.Random.Range(30, 71);
+            }
             customer.WantedProduct = wanted;
             customer.State = CustomerState.ToShelf;
             customer.MoveTo(shelf.ApproachPoint);

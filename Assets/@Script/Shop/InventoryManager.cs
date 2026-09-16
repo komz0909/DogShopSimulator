@@ -23,6 +23,17 @@ namespace DogShop.Shop
         int[] shelf;
         int[] incoming;
 
+        /// <summary>
+        /// 승급 당일에만 켜지는 즉시 입고. 승급하면 손님이 한 번에 늘고 새 카테고리가 열리는데
+        /// 리드타임이 1일이라 <b>그 수요를 받을 재고가 존재할 수 없다</b>. 매출 0인 하루가 생기면
+        /// 다음날 재고를 두세 개밖에 못 사고 그대로 빈곤 함정에 빠진다
+        /// (30일 무인 측정 6회 중 승급한 4회가 전부 붕괴).
+        ///
+        /// <b>전환 한 칸만</b> 없앤다 — 정상 운영 중인 어느 레벨의 수익 구조도 건드리지 않으므로
+        /// 10레벨 감시 지표를 다시 계산할 필요가 없다.
+        /// </summary>
+        bool rushDelivery;
+
         public event Action OnStockChanged;
 
         public ProductCatalog Catalog => catalog;
@@ -30,6 +41,9 @@ namespace DogShop.Shop
         public int ShelfOf(int index) => shelf[index];
         public int IncomingOf(int index) => incoming[index];
         public int ShelfRoom(int index) => ShelfCapacity - shelf[index];
+
+        /// <summary>오늘 발주가 즉시 입고되는가. 승급한 날 하루만 참이다.</summary>
+        public bool RushDelivery => rushDelivery;
 
         /// <summary>
         /// 그 레벨에서 하루치 재고를 채우는 데 드는 도매 합계 — <b>운전자본의 기준</b>이다.
@@ -45,6 +59,29 @@ namespace DogShop.Shop
                 total += DemandTarget(i, level, customersPerDay) * catalog.Get(i).wholesale;
             }
             return total;
+        }
+
+        /// <summary>
+        /// 하루에 실제로 팔려 나가는 만큼의 도매 합계 — <b>하루 소진액</b>이다.
+        /// <see cref="DailyRestockCost"/> 는 진열을 목표치까지 채우는 <b>총액</b>이라
+        /// 여유분(상품당 +2)까지 포함하는데, 그 여유분은 한 번 사두면 계속 남는다.
+        /// 매일 손에 쥐고 있어야 하는 돈은 이쪽이다.
+        /// </summary>
+        public int DailyConsumptionCost(int level, int customersPerDay)
+        {
+            int totalWeight = 0;
+            for (int i = 0; i < catalog.Count; i++)
+                if (catalog.Get(i).unlockLevel <= level) totalWeight += catalog.Get(i).demandWeight;
+            if (totalWeight <= 0) return 0;
+
+            float cost = 0f;
+            for (int i = 0; i < catalog.Count; i++)
+            {
+                ProductDef p = catalog.Get(i);
+                if (p.unlockLevel > level) continue;
+                cost += customersPerDay * (p.demandWeight / (float)totalWeight) * p.wholesale;
+            }
+            return Mathf.CeilToInt(cost);
         }
 
         /// <summary>그 상품이 하루에 몇 개 팔릴지 — 손님 수 × (수요가중치 / 전체 가중치) + 여유 1.</summary>
@@ -76,12 +113,18 @@ namespace DogShop.Shop
 
         void Start()
         {
-            TimeManager.Instance.OnDayStarted += ReceiveOrders;
+            TimeManager.Instance.OnDayStarted += StartDay;
+        }
+
+        void StartDay()
+        {
+            rushDelivery = false;   // 특급 입고는 승급한 그 하루로 끝난다
+            ReceiveOrders();
         }
 
         void OnDestroy()
         {
-            if (TimeManager.Instance != null) TimeManager.Instance.OnDayStarted -= ReceiveOrders;
+            if (TimeManager.Instance != null) TimeManager.Instance.OnDayStarted -= StartDay;
             if (Instance == this) Instance = null;
         }
 
@@ -96,9 +139,20 @@ namespace DogShop.Shop
             int cost = catalog.Get(index).wholesale * quantity;
             if (!GameManager.Instance.TrySpend(cost)) return false;
 
-            incoming[index] += quantity;
+            if (rushDelivery) storage[index] += quantity;
+            else incoming[index] += quantity;
+
             OnStockChanged?.Invoke();
             return true;
+        }
+
+        /// <summary>승급 직후 하루 동안 발주를 즉시 입고로 바꾼다. ShopLevelManager가 부른다.</summary>
+        public void BeginRushDelivery()
+        {
+            rushDelivery = true;
+
+            // 승급 전에 넣어둔 주문도 같이 당겨준다 — 승급 당일에 두 번 발주하게 만들 이유가 없다
+            ReceiveOrders();
         }
 
         void ReceiveOrders()
@@ -170,6 +224,7 @@ namespace DogShop.Shop
             data.storage = (int[])storage.Clone();
             data.shelf = (int[])shelf.Clone();
             data.incoming = (int[])incoming.Clone();
+            data.rushDelivery = rushDelivery;
         }
 
         public void RestoreFrom(SaveData data)
@@ -177,6 +232,7 @@ namespace DogShop.Shop
             CopyInto(data.storage, storage);
             CopyInto(data.shelf, shelf);
             CopyInto(data.incoming, incoming);
+            rushDelivery = data.rushDelivery;
             OnStockChanged?.Invoke();
         }
 
