@@ -20,8 +20,19 @@ namespace DogShop.Show
 
         public static ChampionshipManager Instance { get; private set; }
 
-        // ponytail: NPC 기준선은 D26 밸런싱 대상인 시작값이다. 특화 플레이가 이기고 균등 분배는 지는 지점.
-        static readonly int[] RivalScores = { 210, 185, 160, 130, 100 };
+        /// <summary>
+        /// NPC 기준선. <b>11차 무인 측정 실측</b>에 맞춰 내렸다 — 30일 자동 플레이가
+        /// L5 도달, 성장 155(점수 78)였는데 옛 기준선 210~100 으로는 전원에게 졌다.
+        ///
+        /// 지금 값의 의도:
+        ///   L1에 머무는 플레이(점수 ~60)  -> 전원 패배. "레벨을 올려야 이긴다"
+        ///   훈련을 10일 놓친 자동 플레이(78) -> 5위
+        ///   훈련을 놓치지 않는 플레이(120~140) -> 2~3위
+        ///   레벨과 훈련 둘 다 최적(150+)  -> 우승
+        ///
+        /// 아직 <b>임시값</b>이다. 사람이 직접 플레이할 수 있게 되면 그때 실측으로 다시 맞춘다.
+        /// </summary>
+        static readonly int[] RivalScores = { 150, 125, 100, 80, 62 };
 
         /// <summary>50/50은 두 축 구분을 무의미하게 만들므로 후보에서 제외한다.</summary>
         static readonly int[] BeautyWeightOptions = { 70, 60, 40, 30 };
