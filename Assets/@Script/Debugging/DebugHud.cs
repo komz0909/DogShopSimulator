@@ -25,6 +25,12 @@ namespace DogShop.Debugging
         string notice = "";
         float refreshTimer;
         float noticeTimer;
+
+        /// <summary>
+        /// 디버그 수치는 기본으로 숨긴다 — 이제 GameHud 가 플레이용 정보를 맡는다.
+        /// 단축키(배속·저장·레벨업·매입)는 숨겨도 계속 동작한다. 측정 중에 필요하다.
+        /// </summary>
+        bool visible;
         GUIStyle style;
         GUIStyle noticeStyle;
 
@@ -62,6 +68,8 @@ namespace DogShop.Debugging
 
             Keyboard kb = Keyboard.current;
             if (kb == null) return;
+
+            if (kb.f1Key.wasPressedThisFrame) visible = !visible;
 
             if (kb.digit1Key.wasPressedThisFrame) TimeManager.Instance.SetSpeed(1);
             if (kb.digit2Key.wasPressedThisFrame) TimeManager.Instance.SetSpeed(4);
@@ -178,6 +186,8 @@ namespace DogShop.Debugging
 
         void OnGUI()
         {
+            if (!visible) return;
+
             if (style == null)
             {
                 style = new GUIStyle(GUI.skin.label) { fontSize = 15 };
@@ -195,7 +205,7 @@ namespace DogShop.Debugging
             GUI.Label(new Rect(18f, 122f, 1140f, 20f),
                 "조준 + [E] 상호작용   ·   V 시점 전환(1인칭/3인칭)   ·   3인칭은 오른쪽 버튼 드래그로 시점   ·   WASD 이동", style);
             GUI.Label(new Rect(18f, 142f, 1140f, 20f),
-                "1/2/3 배속   R 하루리셋   L 레벨업   B 판매견 매입   N 오염+3(테스트)   F5/F9 저장/로드", style);
+                "F1 디버그 표시   ·   1/2/3 배속   R 하루리셋   L 레벨업   B 판매견 매입   N 오염+3   F5/F9 저장/로드", style);
             if (notice.Length > 0) GUI.Label(new Rect(18f, 162f, 1140f, 22f), notice, noticeStyle);
         }
     }
