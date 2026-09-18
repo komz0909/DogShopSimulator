@@ -131,19 +131,54 @@ namespace DogShop.Shop
                 : "내일 09:00 입고 " + incomingCost.ToString("N0") + "원     리드타임 1일";
         }
 
-        int RowCount()
+        /// <summary>지금 탭에 놓일 줄 수.</summary>
+        int RowsNow()
         {
             int count = IsFurnitureTab ? (furniture != null ? furniture.Count : 0) : visible.Count;
             return Mathf.Max(1, Mathf.CeilToInt(count / (float)Columns));
         }
 
+        /// <summary>가장 물건이 많은 탭의 줄 수. 창의 <b>윗변</b>을 붙박아 두는 데 쓴다.</summary>
+        int RowsMost()
+        {
+            InventoryManager inv = InventoryManager.Instance;
+            int most = furniture != null ? furniture.Count : 0;
+
+            if (inv != null)
+            {
+                ProductCatalog catalog = inv.Catalog;
+                for (int t = 0; t < ProductCategories.Tabs.Length; t++)
+                {
+                    int count = 0;
+                    for (int i = 0; i < catalog.Count; i++)
+                        if (catalog.Get(i).category == ProductCategories.Tabs[t]) count++;
+                    if (count > most) most = count;
+                }
+            }
+
+            return Mathf.Max(1, Mathf.CeilToInt(most / (float)Columns));
+        }
+
+        static float HeightFor(int rows) =>
+            Pad * 2f + HeaderHeight + 8f + TabHeight + 12f
+            + rows * (CardHeight + Gap) - Gap + 12f + FooterHeight;
+
+        /// <summary>
+        /// 높이는 지금 탭에 맞추되 <b>윗변은 가장 큰 탭 기준으로 붙박는다.</b>
+        ///
+        /// 창을 통째로 화면 가운데에 두면 5개짜리 동물사료에서 2개짜리 애견용품으로 넘길 때
+        /// 창이 줄면서 위로 올라가, 방금 누른 탭 단추가 커서 밑에서 달아난다.
+        /// 그렇다고 높이까지 최대로 고정하면 물건 둘인 탭에 검은 여백이 한 화면 남는다.
+        /// </summary>
         Rect WindowRect()
         {
             float width = Pad * 2f + Columns * CardWidth + (Columns - 1) * Gap;
-            float height = Pad * 2f + HeaderHeight + 8f + TabHeight + 12f
-                         + RowCount() * (CardHeight + Gap) - Gap + 12f + FooterHeight;
 
-            return new Rect((Screen.width - width) * 0.5f, (Screen.height - height) * 0.5f, width, height);
+            return new Rect(
+                (Screen.width - width) * 0.5f,
+                (Screen.height - HeightFor(RowsMost())) * 0.5f,
+                width,
+                HeightFor(RowsNow()));
         }
 
         public bool ContainsPoint(Vector2 screenPos)
@@ -202,7 +237,10 @@ namespace DogShop.Shop
         void DrawProducts(InventoryManager inv, float left, float top)
         {
             ProductCatalog catalog = inv.Catalog;
-            int money = GameManager.Instance.Money;
+            int wallet = GameManager.Instance.Money;
+
+            // 마감한 뒤에는 ActionRunner 가 모든 행동을 막는다. 눌러 봐야 거절만 뜨므로 아예 끈다
+            bool canOrder = TimeManager.Instance == null || !TimeManager.Instance.IsDayOver;
 
             for (int i = 0; i < visible.Count; i++)
             {
@@ -232,7 +270,7 @@ namespace DogShop.Shop
                 float buttonWidth = (card.width - 16f - 8f) / Quantities.Length;
                 for (int q = 0; q < Quantities.Length; q++)
                 {
-                    GUI.enabled = money >= product.wholesale * Quantities[q];
+                    GUI.enabled = canOrder && wallet >= product.wholesale * Quantities[q];
                     Rect rect = new Rect(card.x + 8f + q * (buttonWidth + 4f), card.y + ActionY, buttonWidth, 26f);
                     if (GUI.Button(rect, "+" + Quantities[q], UiSkin.Button(UiSkin.Green)))
                     {

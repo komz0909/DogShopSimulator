@@ -103,7 +103,9 @@ namespace DogShop.Core
         /// <summary>시각을 되돌린다. 배속은 저장하지 않는다 — 로드 후엔 1x가 안전하다.</summary>
         public void RestoreFrom(SaveData data)
         {
-            CurrentHour = Mathf.Clamp(data.currentHour, OpenHour, CloseHour);
+            // 상한은 <b>CloseHour 가 아니라 LastHour</b> 다. 18시는 장사의 끝이지 하루의 끝이
+            // 아니므로, 마감 단계(18~24시)에 저장한 사람이 불러오면 시계가 18시로 되감겼다.
+            CurrentHour = Mathf.Clamp(data.currentHour, OpenHour, LastHour);
             lastWholeHour = Mathf.FloorToInt(CurrentHour);
             IsDayOver = data.dayOver;
             SpeedMultiplier = 1;
@@ -116,7 +118,10 @@ namespace DogShop.Core
             {
                 int h = Mathf.FloorToInt(CurrentHour);
                 int m = Mathf.FloorToInt((CurrentHour - h) * 60f);
-                return h.ToString("00") + ":" + m.ToString("00");
+
+                // 자정 안전장치가 걸리면 CurrentHour 가 24가 되는데 시계에 24시는 없다.
+                // 분을 먼저 뽑고 나서 시만 접는다 — 접은 값으로 분을 구하면 24:00이 00:1440이 된다
+                return (h % 24).ToString("00") + ":" + m.ToString("00");
             }
         }
     }

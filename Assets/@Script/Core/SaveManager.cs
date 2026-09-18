@@ -39,6 +39,14 @@ namespace DogShop.Core
         /// <summary>그날 매출. 마감 명성(매출/100) 정산의 근거이므로 유실되면 안 된다.</summary>
         public int dailyRevenue;
 
+        /// <summary>
+        /// 그날 판매·놓침 건수. 마감 카드가 이 둘을 읽는데, 저장하지 않으면 마감 상태로
+        /// 저장한 세이브를 불러왔을 때 "매출 1,240원 판매 0건"처럼 앞뒤가 안 맞는 줄이 뜬다.
+        /// 없던 시절 세이브는 0으로 복원되고 그게 맞다.
+        /// </summary>
+        public int soldToday;
+        public int lostToday;
+
         public int[] storage = new int[0];
         public int[] shelf = new int[0];
         public int[] incoming = new int[0];
@@ -73,8 +81,9 @@ namespace DogShop.Core
         /// <summary>
         /// 스키마 버전. 필드를 늘릴 때마다 올린다.
         /// 2 = 시각·그날매출·운반상자 추가 (D20).
+        /// 3 = 영업 단계·그날 판매/놓침 건수 추가 (2026-09-18).
         /// </summary>
-        public const int SchemaVersion = 2;
+        public const int SchemaVersion = 3;
 
         public static SaveManager Instance { get; private set; }
 
@@ -115,7 +124,7 @@ namespace DogShop.Core
 
             if (data.version < SchemaVersion)
                 Debug.LogWarning("[Load] 옛 세이브(v" + data.version + " < v" + SchemaVersion
-                    + ") — 시각·그날매출·상자 내용물이 없어 기본값으로 복원한다. 데모 세이브라면 다시 만들 것.");
+                    + ") — 빠진 필드는 기본값으로 복원한다. 데모 세이브라면 다시 만들 것.");
 
             Restore(data);
             OnLoaded?.Invoke();

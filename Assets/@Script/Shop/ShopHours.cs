@@ -118,7 +118,7 @@ namespace DogShop.Shop
                 switch (Current)
                 {
                     case Phase.Open: return TimeManager.Instance.CurrentHour >= WindDownHour ? "영업중 (손님 줄어드는 중)" : "영업중";
-                    case Phase.Closed: return "마감 — 발주하고 정리한 뒤 잠자리로";
+                    case Phase.Closed: return "마감  발주하고 정리한 뒤 잠자리로";
                     default: return TimeManager.Instance.CurrentHour < OpeningHour ? "준비중 (09:00 부터 열 수 있다)" : "준비중";
                 }
             }

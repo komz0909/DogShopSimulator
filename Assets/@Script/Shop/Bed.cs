@@ -37,7 +37,7 @@ namespace DogShop.Shop
                 Mathf.Clamp(screenPos.x, Pad, Screen.width - Width - Pad),
                 Mathf.Clamp(Screen.height - screenPos.y, Pad, Screen.height - Height() - Pad));
 
-            headline = "Day " + game.Day + " — 잠자리에 들까?";
+            headline = "Day " + game.Day + " 잠자리에 들까?";
 
             // 이미 마감한 뒤라면 버릴 것이 없다
             detail = time.IsDayOver

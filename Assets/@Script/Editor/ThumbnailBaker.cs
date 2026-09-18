@@ -38,6 +38,9 @@ namespace DogShop.EditorTools
 
         public static string Bake()
         {
+            // 씬 조명을 껐다 켜고 씬에 임시 물체를 세우므로, 플레이 중에 돌리면 그 장면을 망친다
+            if (Application.isPlaying) return "플레이 중에는 굽지 않는다 — 정지하고 다시 실행할 것";
+
             Directory.CreateDirectory(OutputFolder);
 
             StringBuilder report = new StringBuilder();

@@ -73,7 +73,16 @@ namespace DogShop.Shop
         void HandleHour(int hour)
         {
             int dogs = DogManager.Instance != null && DogManager.Instance.Hero != null ? 1 : 0;
-            int customers = ShopLevelManager.Instance != null ? ShopLevelManager.Instance.Current.customersPerDay : 0;
+
+            // 문을 닫은 뒤에는 손님이 없으니 손님 몫의 오염도 없다.
+            // 이걸 빼지 않으면 발주·정리하려고 문 닫고 남아 있는 시간이 그대로 청소 빚이 된다 —
+            // 마감 시간을 쓰라고 만들어 놓고 쓰면 벌을 주는 꼴이다. 하루가 18시에 끝나던 시절에는
+            // 마감 뒤라는 시간 자체가 없어서 드러나지 않았다.
+            bool open = ShopHours.Instance == null || ShopHours.Instance.IsOpen;
+            int customers = open && ShopLevelManager.Instance != null
+                ? ShopLevelManager.Instance.Current.customersPerDay
+                : 0;
+
             accumulated += BaseDirtPerHour + dogs * DirtPerDogPerHour + customers * DirtPerCustomerPerHour;
 
             while (accumulated >= DirtPerSpot && spots.Count < MaxSpots)

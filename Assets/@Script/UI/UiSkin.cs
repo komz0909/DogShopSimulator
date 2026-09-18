@@ -26,7 +26,13 @@ namespace DogShop.UI
         const int Radius = 14;
         const int Outline = 4;
 
-        /// <summary>패널·버튼 글꼴. GameHud 가 들고 있는 BMJUA 를 시작할 때 넘겨 준다.</summary>
+        /// <summary>
+        /// 패널·버튼 글꼴. GameHud 가 들고 있는 BMJUA 를 시작할 때 넘겨 준다.
+        ///
+        /// <b>이 글꼴에는 줄표(—)와 가운뎃점(·)의 글리프가 없다.</b> 없는 글자는 경고 없이
+        /// 빈칸으로 찍히므로 "약품·미용"이 "약품 미용"으로 보인다. 여기 스타일로 그리는 글은
+        /// ASCII 문장부호나 공백만 쓸 것 — 내장 글꼴로 그리는 디버그 화면은 해당 없다.
+        /// </summary>
         public static Font Font { get; set; }
 
         static readonly System.Collections.Generic.Dictionary<int, GUIStyle> buttons =

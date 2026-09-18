@@ -11,7 +11,7 @@ namespace DogShop.Shop
     /// 원하는 상품이 진열대에 없으면 그냥 나가고, 계산을 오래 기다리면 물건을 두고 떠난다 — 둘 다 매출 손실.
     /// 손님은 이 매니저의 자식으로 런타임 생성된다.
     /// </summary>
-    public class CustomerManager : MonoBehaviour
+    public class CustomerManager : MonoBehaviour, ISaveParticipant
     {
         /// <summary>이 시간까지 계산해 주면 정가를 다 받는다. 넘어가면 값을 깎기 시작한다.</summary>
         public const float Patience = 22f;
@@ -398,6 +398,25 @@ namespace DogShop.Shop
             active.Remove(c);
             queue.Remove(c);
             Destroy(c.gameObject);
+        }
+
+        // ---- 세이브 ----
+
+        /// <summary>
+        /// 그날 집계만 넣고 뺀다. 장내 손님은 저장하지 않는다 — 불러온 자리에서 다시 도착한다.
+        /// 매출은 GameManager 가 이미 같은 수를 들고 있어 그 칸을 같이 쓴다.
+        /// </summary>
+        public void CaptureInto(SaveData data)
+        {
+            data.soldToday = SoldToday;
+            data.lostToday = LostToday;
+        }
+
+        public void RestoreFrom(SaveData data)
+        {
+            SoldToday = data.soldToday;
+            LostToday = data.lostToday;
+            RevenueToday = data.dailyRevenue;
         }
     }
 }

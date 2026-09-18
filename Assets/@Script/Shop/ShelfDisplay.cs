@@ -32,8 +32,11 @@ namespace DogShop.Shop
         ///
         /// 실제 크기는 <b>칸을 가득 채웠을 때 들어가는 최대치</b>로 정해지고 이 값이 상한이다 —
         /// 좁은 칸이면 알아서 작아지고, 넓은 칸이면 여기까지 커진다.
+        ///
+        /// 기본값은 창고 랙과 같은 값을 받아 온다. 여기에 숫자를 따로 박아 두면 씬에 놓인
+        /// 진열대(0.30)와 <b>나중에 새로 놓는 진열대</b>의 물건 크기가 달라진다.
         /// </summary>
-        [SerializeField] float propTargetSize = 0.22f;
+        [SerializeField] float propTargetSize = ProductSlotDisplay.DisplaySize;
 
         readonly List<GameObject> spawned = new List<GameObject>();
 

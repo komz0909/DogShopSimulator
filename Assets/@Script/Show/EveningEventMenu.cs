@@ -42,11 +42,30 @@ namespace DogShop.Show
         void Start()
         {
             GameManager.Instance.OnDaySettled += HandleSettled;
+            if (SaveManager.Instance != null) SaveManager.Instance.OnLoaded += HandleLoaded;
         }
 
         void OnDestroy()
         {
             if (GameManager.Instance != null) GameManager.Instance.OnDaySettled -= HandleSettled;
+            if (SaveManager.Instance != null) SaveManager.Instance.OnLoaded -= HandleLoaded;
+        }
+
+        /// <summary>
+        /// 마감된 상태로 저장한 세이브를 불러오면 카드를 <b>다시 띄운다</b>.
+        ///
+        /// 이 카드는 이벤트로만 열렸고 저장되지 않는다. 그래서 카드가 떠 있을 때 저장한 사람이
+        /// 불러오면 "하루는 끝났는데 고를 카드가 없는" 상태가 됐다 — 날짜를 넘기는 길은
+        /// 카드뿐이고 그 사이 모든 행동은 "영업 종료"로 거절되므로 <b>게임이 멈춘다</b>.
+        ///
+        /// 명성 정산액은 저장된 그날 매출에서 다시 계산한다. 정산 자체는 마감 때 이미 끝났고
+        /// 여기서는 같은 수를 화면에 다시 적을 뿐이라, 명성이 두 번 붙지 않는다.
+        /// </summary>
+        void HandleLoaded()
+        {
+            if (TimeManager.Instance == null || !TimeManager.Instance.IsDayOver) return;
+
+            HandleSettled(GameManager.Instance.DailyRevenue / GameManager.RevenuePerReputation);
         }
 
         void HandleSettled(int reputationGained)
@@ -55,7 +74,7 @@ namespace DogShop.Show
             GameManager g = GameManager.Instance;
             ChampionshipManager champ = ChampionshipManager.Instance;
 
-            settlementLine = "Day " + g.Day + " 마감    매출 " + c.RevenueToday
+            settlementLine = "Day " + g.Day + " 마감    매출 " + g.DailyRevenue
                            + "    판매 " + c.SoldToday + "건    놓침 " + c.LostToday + "건"
                            + "    명성 +" + reputationGained + " (누적 " + g.Reputation + ")";
 
