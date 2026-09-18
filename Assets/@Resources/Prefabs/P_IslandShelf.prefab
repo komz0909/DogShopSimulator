@@ -55,8 +55,8 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 0.92997813, y: 0.8998267, z: 0.38523734}
-  m_Center: {x: 0, y: 0.4500866, z: -0.000000053654507}
+  m_Size: {x: 1.6468649, y: 0.81345, z: 0.89792997}
+  m_Center: {x: 0, y: 0.406725, z: 0}
 --- !u!114 &2363123291726193932
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -84,13 +84,13 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DogShop.Shop.ShelfTable
   slotHeights:
-  - 0.9
+  - 0.8118
   slotCenterZ:
   - 0
   acceptedBulk: 2
   capacityPerSlot: 6
-  slotWidth: 0.86
-  slotDepth: 0.34
+  slotWidth: 1.5
+  slotDepth: 0.76
 --- !u!114 &1269543520784889536
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -113,8 +113,20 @@ PrefabInstance:
     m_TransformParent: {fileID: 1703317097288172435}
     m_Modifications:
     - target: {fileID: -8679921383154817045, guid: 130ba6cd3680efd419ffb2211e4dbc9e, type: 3}
+      propertyPath: m_LocalScale.x
+      value: 1.65
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 130ba6cd3680efd419ffb2211e4dbc9e, type: 3}
+      propertyPath: m_LocalScale.y
+      value: 1.65
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 130ba6cd3680efd419ffb2211e4dbc9e, type: 3}
+      propertyPath: m_LocalScale.z
+      value: 1.65
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 130ba6cd3680efd419ffb2211e4dbc9e, type: 3}
       propertyPath: m_LocalPosition.x
-      value: -0
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 130ba6cd3680efd419ffb2211e4dbc9e, type: 3}
       propertyPath: m_LocalPosition.y
@@ -126,11 +138,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 130ba6cd3680efd419ffb2211e4dbc9e, type: 3}
       propertyPath: m_LocalRotation.w
-      value: 0.7071067
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 130ba6cd3680efd419ffb2211e4dbc9e, type: 3}
       propertyPath: m_LocalRotation.x
-      value: -0.7071068
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 130ba6cd3680efd419ffb2211e4dbc9e, type: 3}
       propertyPath: m_LocalRotation.y
@@ -138,7 +150,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 130ba6cd3680efd419ffb2211e4dbc9e, type: 3}
       propertyPath: m_LocalRotation.z
-      value: -0
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 130ba6cd3680efd419ffb2211e4dbc9e, type: 3}
       propertyPath: m_LocalEulerAnglesHint.x

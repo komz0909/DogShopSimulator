@@ -111,3 +111,7 @@ EconomyLog.csv
 # Unity 가 FBX 내장 텍스처를 풀어놓는 파생 폴더 — FBX 에서 언제든 재생성된다
 *.fbm/
 *.fbm.meta
+
+# MCP 스크린샷 - 확인용으로만 찍는다
+/[Aa]ssets/[Ss]creenshots/
+/[Aa]ssets/[Ss]creenshots.meta
