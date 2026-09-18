@@ -1,38 +1,65 @@
+using System.Collections.Generic;
 using DogShop.Core;
 using DogShop.Data;
-using DogShop.Dogs;
+using DogShop.UI;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
 namespace DogShop.Shop
 {
     /// <summary>
-    /// 계산대를 클릭하면 발주 메뉴가 열린다. 대금은 즉시 지불하고 다음날 09:00에 입고된다.
+    /// 계산대에서 여는 상점창. 대금은 즉시 지불하고 다음날 09:00에 입고된다.
+    ///
+    /// 예전에는 전 상품이 한 줄짜리 글로 쭉 늘어서 있었다. 이름과 숫자만 보고 고르니
+    /// <b>무엇을 파는 가게인지가 창에서 사라졌고</b>, 해금 안 된 상품은 아예 숨어서
+    /// 레벨을 올릴 이유도 창에 없었다. 지금은 넷으로 나눈 칸을 넘겨 가며 사진으로 고른다.
+    ///
+    /// - 사진은 진열대에 실제로 올라가는 그 모델을 찍은 것이다(<see cref="EditorTools"/> 의 사진 굽기)
+    /// - 해금 전 상품도 회색으로 보여 준다 — 몇 레벨에 무엇이 열리는지가 승급의 이유다
+    /// - 가구 칸은 <b>아직 배달이 없다</b>. 살 수 있게 되는 건 가게 앞 배달이 생기고 나서다
+    ///
     /// 카메라 피벗에 붙는다(자식에서 Camera를 GetComponent로 찾기 위해).
-    /// ponytail: 지금은 OnGUI다. D23-25에 Canvas UI로 교체하되 상호작용 모델은 그대로 유지한다.
     /// </summary>
     public class ShopOrderMenu : MonoBehaviour, IPointerMenu
     {
         const float RefreshInterval = 0.25f;
-        const float Width = 460f;
-        const float RowHeight = 24f;
-        const float Pad = 8f;
+
+        const float Pad = 16f;
+        const float Gap = 10f;
+        const int Columns = 4;
+        const float CardWidth = 132f;
+        const float CardHeight = 230f;
+
+        // 카드 안에서 줄이 시작하는 높이. 잠긴 상품은 창고·버튼 자리에 해금 레벨이 대신 들어간다
+        const float PhotoHeight = 98f;
+        const float NameY = 110f;
+        const float PriceY = 132f;
+        const float RetailY = 158f;
+        const float StockY = 177f;
+        const float ActionY = 196f;
+        const float HeaderHeight = 30f;
+        const float TabHeight = 34f;
+        const float FooterHeight = 24f;
 
         static readonly int[] Quantities = { 1, 5, 10 };
 
+        /// <summary>
+        /// 가구 목록. 상품 카탈로그와 따로인 이유는 <see cref="FurnitureCatalog"/> 에 적어 두었다.
+        /// 비어 있으면 가구 칸은 준비 중이라고만 뜬다.
+        /// </summary>
+        [SerializeField] FurnitureCatalog furniture;
+
         IPointerMenu[] menus;
         bool open;
-        Vector2 anchor;
         float refreshTimer;
 
-        string footer = "";
-        string[] rowLabels = new string[0];
-        bool[] rowVisible = new bool[0];
-        bool[,] buttonEnabled;
+        int tab;
 
-        GUIStyle rowStyle;
-        GUIStyle headerStyle;
-        GUIStyle dimStyle;
+        /// <summary>지금 칸에 보일 상품 번호. 칸을 바꿀 때마다 다시 모은다.</summary>
+        readonly List<int> visible = new List<int>();
+
+        string money = "";
+        string footer = "";
 
         public bool IsOpen => open;
 
@@ -48,13 +75,10 @@ namespace DogShop.Shop
             return false;
         }
 
-        /// <summary>PlayerInteraction이 E로 호출한다.</summary>
+        /// <summary>PlayerInteraction이 E로 호출한다. 창이 커서 클릭한 자리가 아니라 화면 가운데에 띄운다.</summary>
         public void Open(Vector2 screenPos)
         {
             open = true;
-            anchor = new Vector2(
-                Mathf.Min(screenPos.x + 12f, Screen.width - Width - Pad),
-                Mathf.Max(Screen.height - screenPos.y - 12f, Pad));
             Rebuild();
         }
 
@@ -70,9 +94,7 @@ namespace DogShop.Shop
 
             PointerMenus.SetOpen(this, open);
 
-
             if (!open) return;
-
 
             refreshTimer += Time.unscaledDeltaTime;
             if (refreshTimer >= RefreshInterval)
@@ -82,105 +104,222 @@ namespace DogShop.Shop
             }
         }
 
+        // ---- 내용 ----
+
+        ProductCategory Category => ProductCategories.Tabs[Mathf.Clamp(tab, 0, ProductCategories.Tabs.Length - 1)];
+        bool IsFurnitureTab => Category == ProductCategory.Furniture;
+
         void Rebuild()
         {
             InventoryManager inv = InventoryManager.Instance;
-            ProductCatalog cat = inv.Catalog;
-            int money = GameManager.Instance.Money;
+            if (inv == null) return;
 
-            if (rowLabels.Length != cat.Count)
-            {
-                rowLabels = new string[cat.Count];
-                rowVisible = new bool[cat.Count];
-                buttonEnabled = new bool[cat.Count, Quantities.Length];
-            }
+            ProductCatalog catalog = inv.Catalog;
+
+            visible.Clear();
+            if (!IsFurnitureTab)
+                for (int i = 0; i < catalog.Count; i++)
+                    if (catalog.Get(i).category == Category) visible.Add(i);
 
             int incomingCost = 0;
+            for (int i = 0; i < catalog.Count; i++)
+                incomingCost += inv.IncomingOf(i) * catalog.Get(i).wholesale;
 
-            for (int i = 0; i < cat.Count; i++)
-            {
-                ProductDef p = cat.Get(i);
-                rowVisible[i] = inv.IsUnlocked(i);
-                incomingCost += inv.IncomingOf(i) * p.wholesale;
-                if (!rowVisible[i]) continue;
+            money = "보유 " + GameManager.Instance.Money.ToString("N0") + "원";
+            footer = inv.RushDelivery
+                ? "승급 특급 입고     오늘 주문한 것은 바로 창고에 들어온다"
+                : "내일 09:00 입고 " + incomingCost.ToString("N0") + "원     리드타임 1일";
+        }
 
-                rowLabels[i] = p.nameKo
-                             + "   창고 " + inv.StorageOf(i)
-                             + (inv.IncomingOf(i) > 0 ? " (+" + inv.IncomingOf(i) + ")" : "")
-                             + "   도매 " + p.wholesale + "원";
+        int RowCount()
+        {
+            int count = IsFurnitureTab ? (furniture != null ? furniture.Count : 0) : visible.Count;
+            return Mathf.Max(1, Mathf.CeilToInt(count / (float)Columns));
+        }
 
-                for (int q = 0; q < Quantities.Length; q++)
-                    buttonEnabled[i, q] = money >= p.wholesale * Quantities[q];
-            }
+        Rect WindowRect()
+        {
+            float width = Pad * 2f + Columns * CardWidth + (Columns - 1) * Gap;
+            float height = Pad * 2f + HeaderHeight + 8f + TabHeight + 12f
+                         + RowCount() * (CardHeight + Gap) - Gap + 12f + FooterHeight;
 
-            footer = "보유 " + money + "원     내일 입고 대금 " + incomingCost + "원     리드타임 1일";
+            return new Rect((Screen.width - width) * 0.5f, (Screen.height - height) * 0.5f, width, height);
         }
 
         public bool ContainsPoint(Vector2 screenPos)
         {
             if (!open) return false;
 
-            float guiY = Screen.height - screenPos.y;
-            return guiY >= anchor.y && guiY <= anchor.y + MenuHeight()
-                && screenPos.x >= anchor.x && screenPos.x <= anchor.x + Width;
+            Rect window = WindowRect();
+            return window.Contains(new Vector2(screenPos.x, Screen.height - screenPos.y));
         }
 
-        float MenuHeight()
-        {
-            int rows = 1;
-            for (int i = 0; i < rowVisible.Length; i++) if (rowVisible[i]) rows++;
-            return rows * RowHeight + RowHeight + Pad * 4f;
-        }
+        // ---- 화면 ----
 
         void OnGUI()
         {
             if (!open) return;
 
-            if (rowStyle == null)
+            InventoryManager inv = InventoryManager.Instance;
+            if (inv == null) return;
+
+            Rect window = WindowRect();
+            GUI.Box(window, GUIContent.none, UiSkin.Panel_);
+
+            float x = window.x + Pad;
+            float y = window.y + Pad;
+            float inner = window.width - Pad * 2f;
+
+            // 머리 — 제목과 보유 금액
+            GUI.Label(new Rect(x, y + 2f, 60f, HeaderHeight), "상점", UiSkin.Title);
+            GUI.Label(new Rect(x + 58f, y + 2f, inner * 0.6f, HeaderHeight), "오늘 주문하면 내일 아침에 온다", LeftCaption);
+            GUI.Label(new Rect(x + inner * 0.6f, y + 2f, inner * 0.4f - 34f, HeaderHeight), money, RightCaption);
+            if (GUI.Button(new Rect(window.xMax - Pad - 30f, y - 2f, 30f, 28f), "✕", UiSkin.Button(UiSkin.Coral))) open = false;
+            y += HeaderHeight + 8f;
+
+            // 칸 고르기
+            float tabWidth = (inner - Gap * (ProductCategories.Tabs.Length - 1)) / ProductCategories.Tabs.Length;
+            for (int i = 0; i < ProductCategories.Tabs.Length; i++)
             {
-                rowStyle = new GUIStyle(GUI.skin.button) { fontSize = 13 };
-                headerStyle = new GUIStyle(GUI.skin.label) { fontSize = 15, fontStyle = FontStyle.Bold };
-                headerStyle.normal.textColor = new Color(0.6f, 0.9f, 1f);
-                dimStyle = new GUIStyle(GUI.skin.label) { fontSize = 13 };
-                dimStyle.normal.textColor = new Color(0.75f, 0.78f, 0.74f);
+                Color tint = i == tab ? UiSkin.Sky : UiSkin.Cream;
+                Rect rect = new Rect(x + i * (tabWidth + Gap), y, tabWidth, TabHeight);
+                if (GUI.Button(rect, ProductCategories.NameOf(ProductCategories.Tabs[i]), UiSkin.Button(tint)) && i != tab)
+                {
+                    tab = i;
+                    Rebuild();
+                }
             }
+            y += TabHeight + 12f;
 
-            float h = MenuHeight();
-            GUI.Box(new Rect(anchor.x, anchor.y, Width, h), GUIContent.none);
+            // 물건들
+            if (IsFurnitureTab) DrawFurniture(x, y);
+            else DrawProducts(inv, x, y);
 
-            float x = anchor.x + Pad;
-            float y = anchor.y + Pad;
-            float w = Width - Pad * 2f;
+            float footerY = window.yMax - Pad - FooterHeight;
+            GUI.Label(new Rect(x, footerY, inner, FooterHeight), footer, UiSkin.Caption);
+        }
 
-            GUI.Label(new Rect(x, y, w, RowHeight), "발주 — 내일 09:00 입고", headerStyle);
-            y += RowHeight + Pad;
+        void DrawProducts(InventoryManager inv, float left, float top)
+        {
+            ProductCatalog catalog = inv.Catalog;
+            int money = GameManager.Instance.Money;
 
-            float buttonWidth = 44f;
-            float labelWidth = w - (buttonWidth + 4f) * Quantities.Length;
-
-            for (int i = 0; i < rowVisible.Length; i++)
+            for (int i = 0; i < visible.Count; i++)
             {
-                if (!rowVisible[i]) continue;
+                int index = visible[i];
+                ProductDef product = catalog.Get(index);
+                bool unlocked = inv.IsUnlocked(index);
 
-                GUI.Label(new Rect(x, y, labelWidth, RowHeight), rowLabels[i], dimStyle);
+                Rect card = CardAt(left, top, i);
+                GUI.Box(card, GUIContent.none, UiSkin.Panel_);
 
-                float bx = x + labelWidth;
+                DrawPhoto(card, product.icon, unlocked);
+                GUI.Label(new Rect(card.x + 4f, card.y + NameY, card.width - 8f, 20f), product.nameKo, UiSkin.Caption);
+                DrawTag(card, PriceY, "도매 " + product.wholesale + "원", UiSkin.Cream);
+                GUI.Label(new Rect(card.x + 4f, card.y + RetailY, card.width - 8f, 18f),
+                          "판매 " + product.retail + "원", UiSkin.Caption);
+
+                if (!unlocked)
+                {
+                    DrawTag(card, ActionY, "Lv " + product.unlockLevel + " 에 열린다", UiSkin.Sky);
+                    continue;
+                }
+
+                string stock = "창고 " + inv.StorageOf(index)
+                             + (inv.IncomingOf(index) > 0 ? "  (+" + inv.IncomingOf(index) + ")" : "");
+                GUI.Label(new Rect(card.x + 4f, card.y + StockY, card.width - 8f, 18f), stock, UiSkin.Caption);
+
+                float buttonWidth = (card.width - 16f - 8f) / Quantities.Length;
                 for (int q = 0; q < Quantities.Length; q++)
                 {
-                    GUI.enabled = buttonEnabled[i, q];
-                    if (GUI.Button(new Rect(bx, y, buttonWidth, RowHeight - 3f), "+" + Quantities[q], rowStyle))
+                    GUI.enabled = money >= product.wholesale * Quantities[q];
+                    Rect rect = new Rect(card.x + 8f + q * (buttonWidth + 4f), card.y + ActionY, buttonWidth, 26f);
+                    if (GUI.Button(rect, "+" + Quantities[q], UiSkin.Button(UiSkin.Green)))
                     {
-                        ActionRunner.TryRun(new InventoryManager.OrderAction(i, Quantities[q]));
+                        ActionRunner.TryRun(new InventoryManager.OrderAction(index, Quantities[q]));
                         Rebuild();
                     }
-                    bx += buttonWidth + 4f;
+                    GUI.enabled = true;
                 }
-                GUI.enabled = true;
-                y += RowHeight;
+            }
+        }
+
+        void DrawFurniture(float left, float top)
+        {
+            if (furniture == null || furniture.Count == 0)
+            {
+                GUI.Label(new Rect(left, top + 40f, Columns * CardWidth + (Columns - 1) * Gap, 22f),
+                          "가구는 아직 들여놓을 수 없다", UiSkin.Caption);
+                return;
             }
 
-            y += Pad;
-            GUI.Label(new Rect(x, y, w, RowHeight), footer, dimStyle);
+            for (int i = 0; i < furniture.Count; i++)
+            {
+                FurnitureDef item = furniture.Get(i);
+
+                Rect card = CardAt(left, top, i);
+                GUI.Box(card, GUIContent.none, UiSkin.Panel_);
+
+                DrawPhoto(card, item.icon, true);
+                GUI.Label(new Rect(card.x + 4f, card.y + NameY, card.width - 8f, 20f), item.nameKo, UiSkin.Caption);
+                DrawTag(card, PriceY, item.price.ToString("N0") + "원", UiSkin.Cream);
+                GUI.Label(new Rect(card.x + 4f, card.y + RetailY, card.width - 8f, 18f), item.note, UiSkin.Caption);
+
+                // 가구는 가게 앞으로 배달 와서 직접 놓는 것이라, 받을 자리가 생겨야 살 수 있다.
+                // 눌리지 않는 버튼 대신 딱지를 둔다 — 못 누르는 버튼은 고장 난 것처럼 보인다
+                DrawTag(card, ActionY, "배달 준비 중", UiSkin.Sky);
+            }
+        }
+
+        Rect CardAt(float left, float top, int slot) =>
+            new Rect(left + (slot % Columns) * (CardWidth + Gap),
+                     top + (slot / Columns) * (CardHeight + Gap),
+                     CardWidth, CardHeight);
+
+        /// <summary>사진은 칸 폭에 맞춰 비율을 지킨다. 늘려 채우면 병이 납작해진다.</summary>
+        static void DrawPhoto(Rect card, Texture2D icon, bool lit)
+        {
+            Rect frame = new Rect(card.x + 8f, card.y + 8f, card.width - 16f, PhotoHeight);
+            if (icon == null)
+            {
+                GUI.Label(frame, "사진 없음", UiSkin.Caption);
+                return;
+            }
+
+            Color before = GUI.color;
+            if (!lit) GUI.color = new Color(1f, 1f, 1f, 0.45f);   // 못 사는 물건은 흐리게
+            GUI.DrawTexture(frame, icon, ScaleMode.ScaleToFit, true);
+            GUI.color = before;
+        }
+
+        static void DrawTag(Rect card, float offsetY, string text, Color tint)
+        {
+            const float width = 108f;
+            GUI.Label(new Rect(card.x + (card.width - width) * 0.5f, card.y + offsetY, width, 24f), text, UiSkin.Tag(tint));
+        }
+
+        static GUIStyle rightCaption;
+        static GUIStyle leftCaption;
+
+        static GUIStyle RightCaption
+        {
+            get
+            {
+                if (rightCaption != null && rightCaption.font == UiSkin.Font) return rightCaption;
+                rightCaption = new GUIStyle(UiSkin.Caption) { alignment = TextAnchor.MiddleRight };
+                return rightCaption;
+            }
+        }
+
+        static GUIStyle LeftCaption
+        {
+            get
+            {
+                if (leftCaption != null && leftCaption.font == UiSkin.Font) return leftCaption;
+                leftCaption = new GUIStyle(UiSkin.Caption) { alignment = TextAnchor.MiddleLeft };
+                leftCaption.normal.textColor = new Color(0.66f, 0.70f, 0.74f);
+                return leftCaption;
+            }
         }
     }
 }

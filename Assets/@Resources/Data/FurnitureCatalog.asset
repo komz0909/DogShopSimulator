@@ -1,0 +1,47 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0ac214b9a8e93c54b98e02031e6fbde8, type: 3}
+  m_Name: FurnitureCatalog
+  m_EditorClassIdentifier: Assembly-CSharp::DogShop.Data.FurnitureCatalog
+  items:
+  - nameKo: "\uC9C4\uC5F4\uB300"
+    price: 650
+    unlockLevel: 1
+    prefab: {fileID: 919132149155446097, guid: 130ba6cd3680efd419ffb2211e4dbc9e, type: 3}
+    material: {fileID: 2100000, guid: 178e4bc200543e54c9b3945e153df326, type: 2}
+    icon: {fileID: 2800000, guid: dde8c4989960eb94385548fbda03940e, type: 3}
+    iconYaw: 180
+    note: "\uAC00\uC6B4\uB370 12\uCE78"
+  - nameKo: "\uBCBD \uC9C4\uC5F4\uB300"
+    price: 450
+    unlockLevel: 1
+    prefab: {fileID: 919132149155446097, guid: aef635263e110bf40b1f9ba2a04ac419, type: 3}
+    material: {fileID: 2100000, guid: 8c8542bd43156f6449fddc638180b426, type: 2}
+    icon: {fileID: 2800000, guid: d59990fd6e97c354dbd82a049ea8ef70, type: 3}
+    iconYaw: 0
+    note: "\uBCBD\uC5D0 24\uCE78"
+  - nameKo: "\uAC15\uC544\uC9C0 \uCE68\uB300"
+    price: 180
+    unlockLevel: 1
+    prefab: {fileID: 919132149155446097, guid: 6006bbdf80424e047a0d78d5d71ba307, type: 3}
+    material: {fileID: 2100000, guid: d1ea2a8ed954fba409e1304864a941b8, type: 2}
+    icon: {fileID: 2800000, guid: 4cb6bdd549164674fa37e6001b2448b7, type: 3}
+    iconYaw: 0
+    note: "\uBC18\uB824\uACAC \uC790\uB9AC"
+  - nameKo: "\uCE68\uB300"
+    price: 300
+    unlockLevel: 1
+    prefab: {fileID: 919132149155446097, guid: 8734de21d6fee33419723b6d976ea9a6, type: 3}
+    material: {fileID: 2100000, guid: 4b74d8d6f1fd1d148ac1e0ef00a3a1fa, type: 2}
+    icon: {fileID: 2800000, guid: f5a6db2d03687e24382978adaf2feb88, type: 3}
+    iconYaw: 0
+    note: "\uC790\uBA74 \uD558\uB8E8 \uB05D"

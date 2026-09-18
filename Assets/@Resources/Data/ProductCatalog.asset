@@ -20,14 +20,16 @@ MonoBehaviour:
     demandWeight: 4
     unlockLevel: 1
     propPrefab: {fileID: 919132149155446097, guid: 194b1b15d72855b40b482591d65860be, type: 3}
+    icon: {fileID: 2800000, guid: b7b3401e2ada75c44937d1b9495fd4cc, type: 3}
     slotCost: 2
   - nameKo: "\uC0F4\uD478"
-    category: 1
+    category: 2
     wholesale: 40
     retail: 80
     demandWeight: 3
     unlockLevel: 1
     propPrefab: {fileID: 919132149155446097, guid: c88207a3359213640bc6145a712ce3f7, type: 3}
+    icon: {fileID: 2800000, guid: ec2442c922bc38d4787146bdcf6f8932, type: 3}
     slotCost: 1
   - nameKo: "\uAE30\uBCF8 \uC57D\uD488"
     category: 2
@@ -36,6 +38,7 @@ MonoBehaviour:
     demandWeight: 1
     unlockLevel: 2
     propPrefab: {fileID: 919132149155446097, guid: eed8e0181e5dbf0488f5784621c04c81, type: 3}
+    icon: {fileID: 2800000, guid: 290d2564b7e5a2c4385b11b09e74ca45, type: 3}
     slotCost: 1
   - nameKo: "\uBAA9\uC904"
     category: 1
@@ -44,52 +47,59 @@ MonoBehaviour:
     demandWeight: 2
     unlockLevel: 3
     propPrefab: {fileID: 919132149155446097, guid: b8ff7496a9d3f8441ae054bd13b0a5d2, type: 3}
+    icon: {fileID: 2800000, guid: 1160ce7cb15ed90408b0f018a9355f0f, type: 3}
     slotCost: 1
   - nameKo: "\uAC04\uC2DD"
-    category: 3
+    category: 0
     wholesale: 45
     retail: 95
     demandWeight: 3
     unlockLevel: 4
     propPrefab: {fileID: 919132149155446097, guid: a4f1c678617d96f419650dee3fdc1bae, type: 3}
+    icon: {fileID: 2800000, guid: 0aa362b5ce919674ab106ab6701acd6e, type: 3}
     slotCost: 1
   - nameKo: "\uC7A5\uB09C\uAC10"
-    category: 3
+    category: 1
     wholesale: 60
     retail: 120
     demandWeight: 2
     unlockLevel: 4
     propPrefab: {fileID: 919132149155446097, guid: d601cd2f21f9078479abcc1444d7be89, type: 3}
+    icon: {fileID: 2800000, guid: ba0a4adaa2aaa1b40bcfbb3d147e6254, type: 3}
     slotCost: 1
   - nameKo: "\uACE0\uAE09 \uC0AC\uB8CC"
-    category: 4
+    category: 0
     wholesale: 90
     retail: 190
     demandWeight: 2
     unlockLevel: 6
     propPrefab: {fileID: 919132149155446097, guid: 3105ff18dcc80b14887a1ee10563766b, type: 3}
+    icon: {fileID: 2800000, guid: 82a26e274e6234041aaccb32ff90f1fd, type: 3}
     slotCost: 2
   - nameKo: "\uACE0\uAE09 \uAC04\uC2DD \uC138\uD2B8"
-    category: 4
+    category: 0
     wholesale: 110
     retail: 230
     demandWeight: 1
     unlockLevel: 6
     propPrefab: {fileID: 919132149155446097, guid: ad820fbfe621ab0459f47e3950507375, type: 3}
+    icon: {fileID: 2800000, guid: 061803df6f38ae945b30f6f35d019800, type: 3}
     slotCost: 1
   - nameKo: "\uC218\uC785 \uC0AC\uB8CC"
-    category: 4
+    category: 0
     wholesale: 130
     retail: 270
     demandWeight: 2
     unlockLevel: 8
     propPrefab: {fileID: 919132149155446097, guid: f544226a3e03fb946896122c6637b2a8, type: 3}
+    icon: {fileID: 2800000, guid: a1d846ac5ad6df84a86595edfed39d23, type: 3}
     slotCost: 2
   - nameKo: "\uD504\uB9AC\uBBF8\uC5C4 \uBBF8\uC6A9\uD0A4\uD2B8"
-    category: 4
+    category: 2
     wholesale: 140
     retail: 290
     demandWeight: 1
     unlockLevel: 8
     propPrefab: {fileID: 919132149155446097, guid: b0974393f522f654db2c23971cf5d28f, type: 3}
+    icon: {fileID: 2800000, guid: 983ebb131a740054d8d8b1532f0d5564, type: 3}
     slotCost: 1

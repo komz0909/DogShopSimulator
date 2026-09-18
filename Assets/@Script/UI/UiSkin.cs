@@ -31,6 +31,8 @@ namespace DogShop.UI
 
         static readonly System.Collections.Generic.Dictionary<int, GUIStyle> buttons =
             new System.Collections.Generic.Dictionary<int, GUIStyle>();
+        static readonly System.Collections.Generic.Dictionary<int, GUIStyle> tags =
+            new System.Collections.Generic.Dictionary<int, GUIStyle>();
         static GUIStyle panel;
         static GUIStyle label;
         static GUIStyle title;
@@ -103,6 +105,32 @@ namespace DogShop.UI
             GUIStyle built = Build(tint);
             buttons[key] = built;
             return built;
+        }
+
+        /// <summary>
+        /// 가격표처럼 글자를 얹는 색판. 버튼과 같은 판을 쓰되 누름·올림 상태가 없다 —
+        /// 값을 읽는 자리에 hover 가 붙으면 누를 수 있는 것처럼 보인다.
+        /// </summary>
+        public static GUIStyle Tag(Color tint)
+        {
+            int key = tint.GetHashCode();
+            GUIStyle found;
+            if (tags.TryGetValue(key, out found) && found.normal.background != null && found.font == Font) return found;
+
+            var style = new GUIStyle
+            {
+                border = new RectOffset(Radius, Radius, Radius, Radius),
+                padding = new RectOffset(6, 6, 2, 3),
+                alignment = TextAnchor.MiddleCenter,
+                fontSize = 14,
+                font = Font,
+                wordWrap = false
+            };
+            style.normal.background = Plate(tint, Shift(tint, -0.26f));
+            style.normal.textColor = Ink;
+
+            tags[key] = style;
+            return style;
         }
 
         public static GUIStyle Panel_
