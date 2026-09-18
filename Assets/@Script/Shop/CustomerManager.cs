@@ -134,8 +134,13 @@ namespace DogShop.Shop
 
         void HandleHour(int hour)
         {
+            // 문을 열지 않았으면 아무도 오지 않는다. 늦게 열면 그 시간 몫을 그냥 잃는다 —
+            // 따로 벌점을 두지 않아도 늦잠이 손해가 된다.
+            float hoursFactor = ShopHours.Instance != null ? ShopHours.Instance.ArrivalFactor : 1f;
+            if (hoursFactor <= 0f) return;
+
             float dirtFactor = CleanlinessManager.Instance != null ? CleanlinessManager.Instance.CustomerFactor : 1f;
-            pending += ShopLevelManager.Instance.Current.customersPerDay / TimeManager.HoursPerDay * dirtFactor;
+            pending += ShopLevelManager.Instance.Current.customersPerDay / TimeManager.HoursPerDay * dirtFactor * hoursFactor;
 
             int arrivals = Mathf.FloorToInt(pending);
             pending -= arrivals;

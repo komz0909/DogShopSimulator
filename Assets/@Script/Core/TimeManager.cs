@@ -10,7 +10,14 @@ namespace DogShop.Core
     public class TimeManager : MonoBehaviour, ISaveParticipant
     {
         public const float OpenHour = 9f;
+
+        /// <summary>장사 시간의 끝. 이 시각이 지나면 손님이 줄지만 하루가 끝나지는 않는다.</summary>
         public const float CloseHour = 18f;
+
+        /// <summary>시계가 멈추는 시각. 플레이어가 자지 않고 버틸 때를 위한 안전장치다.</summary>
+        public const float LastHour = 24f;
+
+        /// <summary>손님 도착량을 나누는 기준. 09~18시 아홉 시간에 하루치가 다 온다.</summary>
         public const float HoursPerDay = CloseHour - OpenHour;
         public const float RealSecondsPerDay = 480f;
         public const float RealSecondsPerGameHour = RealSecondsPerDay / HoursPerDay;
@@ -52,9 +59,12 @@ namespace DogShop.Core
                 OnWholeHourChanged?.Invoke(whole);
             }
 
-            if (CurrentHour >= CloseHour)
+            // 18시가 지나도 하루는 끝나지 않는다. 문을 닫고 발주·정리를 한 뒤
+            // <b>침대에서 자야</b> 넘어간다(ShopHours / Bed). 여기서는 시계가 영원히
+            // 도는 것만 막는다 — 자정이면 강제로 재운다.
+            if (CurrentHour >= LastHour)
             {
-                CurrentHour = CloseHour;
+                CurrentHour = LastHour;
                 IsDayOver = true;
                 OnDayEnded?.Invoke();
             }
@@ -69,7 +79,7 @@ namespace DogShop.Core
         {
             if (IsDayOver) return;
 
-            CurrentHour = CloseHour;
+            // 시계는 건드리지 않는다. 18시로 맞추면 21시에 잔 사람의 시간이 거꾸로 간다.
             IsDayOver = true;
             OnDayEnded?.Invoke();
         }

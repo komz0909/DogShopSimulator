@@ -178,6 +178,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::DogShop.Shop.ShelfTable
   slotHeights:
   - 0.792
+  slotCenterZ:
+  - 0
+  slotCenterX:
+  - 0
   acceptedBulk: 0
   capacityPerSlot: 8
   slotWidth: 1.09
@@ -208,4 +212,4 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0f18e7e40f9c63d4cb6d3a25aa7d09db, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DogShop.Shop.ShelfDisplay
-  propTargetSize: 0.22
+  propTargetSize: 0.3

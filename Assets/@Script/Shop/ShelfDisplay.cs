@@ -18,11 +18,20 @@ namespace DogShop.Shop
     {
         const float Gap = 0.03f;
         const int MaxColumns = 4;
-        const int MaxRows = 2;
+        const int MaxRows = 3;
 
         /// <summary>
-        /// 프롭의 목표 크기(가장 긴 변). 종마다 원본 크기가 제각각이라 그대로 올리면
-        /// 사료 포대가 진열대만 해지고 목줄은 안 보인다. 진열대를 키워도 물건은 이 치수를 지킨다.
+        /// 새 배열이 이만큼 더 커야 줄 수를 늘린다. 줄이 적을수록 앞에서 잘 보이므로
+        /// 몇 퍼센트 차이로는 뒤로 겹쳐 쌓지 않는다.
+        /// </summary>
+        const float RowPenalty = 1.1f;
+
+        /// <summary>
+        /// 프롭의 <b>최대</b> 크기(가장 긴 변). 종마다 원본 크기가 제각각이라 그대로 올리면
+        /// 사료 포대가 진열대만 해지고 목줄은 안 보인다.
+        ///
+        /// 실제 크기는 <b>칸을 가득 채웠을 때 들어가는 최대치</b>로 정해지고 이 값이 상한이다 —
+        /// 좁은 칸이면 알아서 작아지고, 넓은 칸이면 여기까지 커진다.
         /// </summary>
         [SerializeField] float propTargetSize = 0.22f;
 
@@ -90,13 +99,35 @@ namespace DogShop.Shop
             Vector3 native = Measure(probe);
             DestroyImmediate(probe);
 
+            // 칸 용량을 기준으로 격자를 잡는다. 지금 개수로 잡으면 하나 팔릴 때마다
+            // 남은 물건의 크기와 자리가 통째로 바뀐다.
+            int capacity = Mathf.Max(1, table.CapacityPerSlot);
+            int columns = 1, rows = 1;
+            float scale = 0f;
+
+            for (int r = 1; r <= MaxRows; r++)
+            {
+                int c = Mathf.CeilToInt(capacity / (float)r);
+                if (c > MaxColumns) continue;
+
+                float cellX = table.SlotWidth / c - Gap;
+                float cellZ = table.SlotDepth / r - Gap;
+                if (cellX <= 0f || cellZ <= 0f) continue;
+
+                float fit = Mathf.Min(cellX / Mathf.Max(0.001f, native.x), cellZ / Mathf.Max(0.001f, native.z));
+                if (fit <= scale * RowPenalty) continue;    // 줄을 늘릴 만큼 이득이 크지 않다
+
+                scale = fit;
+                columns = c;
+                rows = r;
+            }
+
             float largest = Mathf.Max(native.x, Mathf.Max(native.y, native.z));
-            float scale = largest > 0.0001f ? propTargetSize / largest : 1f;
+            float cap = largest > 0.0001f ? propTargetSize / largest : 1f;
+            if (scale <= 0f) scale = cap;
+            scale = Mathf.Min(scale, cap);                  // 칸이 넓어도 이 이상은 키우지 않는다
+
             Vector3 size = native * scale;
-
-            int columns = Mathf.Clamp(Mathf.FloorToInt(table.SlotWidth / Mathf.Max(0.05f, size.x + Gap)), 1, MaxColumns);
-            int rows = Mathf.Clamp(Mathf.FloorToInt(table.SlotDepth / Mathf.Max(0.05f, size.z + Gap)), 1, MaxRows);
-
             int visible = Mathf.Min(count, columns * rows);
             float top = table.HeightOf(slot);
 
@@ -115,7 +146,7 @@ namespace DogShop.Shop
                 int row = i / columns;
 
                 // 격자를 상판 중심에 맞춰 편다. 앞으로 밀면 널빤지 밖으로 나간다
-                float x = (column - (columns - 1) * 0.5f) * (size.x + Gap);
+                float x = table.CenterXOf(slot) + (column - (columns - 1) * 0.5f) * (size.x + Gap);
                 float z = table.CenterZOf(slot) + (row - (rows - 1) * 0.5f) * (size.z + Gap);
                 anchor.transform.localPosition = new Vector3(x, top, z);
 

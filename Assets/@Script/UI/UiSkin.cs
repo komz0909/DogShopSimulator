@@ -34,6 +34,7 @@ namespace DogShop.UI
         static GUIStyle panel;
         static GUIStyle label;
         static GUIStyle title;
+        static GUIStyle caption;
 
         static Color Shift(Color c, float dv)
         {
@@ -138,6 +139,24 @@ namespace DogShop.UI
                 label = new GUIStyle { fontSize = 14, wordWrap = true, font = Font };
                 label.normal.textColor = new Color(0.82f, 0.85f, 0.87f);
                 return label;
+            }
+        }
+
+        /// <summary>한 줄짜리 가운데 정렬 글. 줄바꿈을 끄지 않으면 좁은 칸에서 글자가 뭉갠다.</summary>
+        public static GUIStyle Caption
+        {
+            get
+            {
+                if (caption != null && caption.font == Font) return caption;
+                caption = new GUIStyle
+                {
+                    fontSize = 14,
+                    wordWrap = false,
+                    alignment = TextAnchor.MiddleCenter,
+                    font = Font
+                };
+                caption.normal.textColor = new Color(0.86f, 0.88f, 0.90f);
+                return caption;
             }
         }
     }

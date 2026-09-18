@@ -90,9 +90,32 @@ namespace DogShop.Debugging
                 ServeShelves();
             }
 
+            MindShopHours();
             ServeCustomers();
             CleanFloor();
             AdvanceDayIfOver();
+        }
+
+        /// <summary>
+        /// 문을 09시에 열고 18시에 닫는다. 측정값을 예전과 비교하려면 <b>장사 시간이
+        /// 똑같아야</b> 한다 — 늦게까지 열어 두면 18~20시의 남는 손님까지 받아
+        /// 손님 수가 달라진다.
+        /// </summary>
+        void MindShopHours()
+        {
+            ShopHours hours = ShopHours.Instance;
+            if (hours == null) return;
+
+            if (hours.Current == ShopHours.Phase.Preparing)
+            {
+                string reason;
+                if (hours.CanOpen(out reason)) hours.Open();
+            }
+            else if (hours.Current == ShopHours.Phase.Open
+                     && TimeManager.Instance.CurrentHour >= TimeManager.CloseHour)
+            {
+                hours.Close();
+            }
         }
 
         void Toggle()
@@ -354,10 +377,23 @@ namespace DogShop.Debugging
             }
         }
 
+        /// <summary>
+        /// 마감했으면 자고 다음 날로 넘어간다. 예전에는 18시에 하루가 저절로 끝났지만
+        /// 이제는 <b>자야</b> 넘어가므로, 사람이 침대에서 하는 일을 여기서 대신한다.
+        /// </summary>
         void AdvanceDayIfOver()
         {
-            if (!TimeManager.Instance.IsDayOver || evening == null) return;
+            if (evening == null) return;
             if (ChampionshipManager.Instance.IsFinalDay(GameManager.Instance.Day)) return;
+
+            if (!TimeManager.Instance.IsDayOver)
+            {
+                bool closed = ShopHours.Instance == null || ShopHours.Instance.Current == ShopHours.Phase.Closed;
+                if (!closed) return;
+
+                TimeManager.Instance.EndDayNow();   // 침대에서 자는 것과 같은 경로
+                return;
+            }
 
             evening.PickCard(FlyerCard);
         }

@@ -35,11 +35,17 @@ namespace DogShop.Shop
         int maxVisible;
 
         /// <summary>
-        /// 상품 프롭의 목표 크기(가장 긴 변). AI로 뽑은 프롭은 종마다 원본 크기가 제각각이라
-        /// 그대로 올리면 사료 포대가 진열대만 해지고 목줄은 안 보인다. 한 치수로 맞춘다.
+        /// <b>가구에 올려둔 상품의 크기(가장 긴 변).</b> 진열대와 창고 랙이 이 값을 같이 쓴다 —
+        /// 같은 물건이 어디에 놓였느냐로 커졌다 작아지면 눈에 거슬린다.
+        /// 작아지는 곳은 <b>운반 상자뿐</b>이다(<see cref="CarryCrate"/>, 0.20).
+        ///
+        /// 한 치수로 맞추는 이유: AI로 뽑은 프롭은 종마다 원본 크기가 제각각이라
+        /// 그대로 올리면 사료 포대가 진열대만 해지고 목줄은 안 보인다.
         /// 진열대를 키워도 물건이 같이 커지지 않는 것도 이 값 덕분이다.
         /// </summary>
-        float propTargetSize = 0.22f;
+        public const float DisplaySize = 0.30f;
+
+        float propTargetSize = DisplaySize;
 
         /// <summary>목표 크기에 맞추려고 프롭에 곱하는 배수.</summary>
         float propScale = 1f;
@@ -52,7 +58,7 @@ namespace DogShop.Shop
 
         /// <summary>슬롯을 만든 매니저가 호출한다. 개수 제공자로 진열/창고를 구분한다.</summary>
         public void Configure(int productIndex, Func<int> countProvider, float topY, float topWidth, float topDepth,
-                              int tiers = 1, float tierSpacing = 0f, int maxVisible = 0, float propSize = 0.22f)
+                              int tiers = 1, float tierSpacing = 0f, int maxVisible = 0, float propSize = DisplaySize)
         {
             this.propTargetSize = propSize;
             this.productIndex = productIndex;

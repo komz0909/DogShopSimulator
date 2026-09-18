@@ -26,6 +26,12 @@ namespace DogShop.Shop
         [SerializeField] float[] slotCenterZ = { 0f };
 
         /// <summary>
+        /// 칸 상판의 로컬 <b>좌우 중심</b>. 한 상판을 좌우로 갈라 칸 둘을 올릴 때 쓴다 —
+        /// 아일랜드 진열대가 그렇다(왼쪽 −0.40 / 오른쪽 +0.40). 비워 두면 0으로 본다.
+        /// </summary>
+        [SerializeField] float[] slotCenterX = { 0f };
+
+        /// <summary>
         /// 받는 부피. 0이면 아무거나, 1이면 <see cref="Data.ProductDef.slotCost"/>가 1인 작은 것만,
         /// 2면 사료처럼 부피 큰 것만 받는다.
         /// </summary>
@@ -59,6 +65,12 @@ namespace DogShop.Shop
         {
             if (slotCenterZ == null || slotCenterZ.Length == 0) return 0f;
             return slotCenterZ[Mathf.Clamp(slot, 0, slotCenterZ.Length - 1)];
+        }
+
+        public float CenterXOf(int slot)
+        {
+            if (slotCenterX == null || slotCenterX.Length == 0) return 0f;
+            return slotCenterX[Mathf.Clamp(slot, 0, slotCenterX.Length - 1)];
         }
         public int ProductAt(int slot) => Valid(slot) ? product[slot] : -1;
         public int CountAt(int slot) => Valid(slot) ? stock[slot] : 0;

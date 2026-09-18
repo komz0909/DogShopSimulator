@@ -93,6 +93,8 @@ MonoBehaviour:
   - -0.046
   - -0.046
   - -0.046
+  slotCenterX:
+  - 0
   acceptedBulk: 1
   capacityPerSlot: 6
   slotWidth: 0.9
@@ -109,7 +111,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0f18e7e40f9c63d4cb6d3a25aa7d09db, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DogShop.Shop.ShelfDisplay
-  propTargetSize: 0.22
+  propTargetSize: 0.3
 --- !u!1001 &8649467907210919274
 PrefabInstance:
   m_ObjectHideFlags: 0
