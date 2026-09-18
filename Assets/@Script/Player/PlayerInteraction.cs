@@ -144,6 +144,14 @@ namespace DogShop.Player
                 return;
             }
 
+            Bed bed = hit.collider.GetComponentInParent<Bed>();
+            if (bed != null)
+            {
+                if (!inRange) { Reject("너무 멀다 — 침대로 갈 것"); return; }
+                bed.Open(ScreenPointOf(hit.point));
+                return;
+            }
+
             // 남은 것은 지형이다. 상자는 바닥을 조준했을 때만 내려놓는다 —
             // 벽을 스쳐도 놓아버리면 창고 랙에 담는 도중 상자를 계속 잃는다.
             if (carry == null || !carry.IsHolding) return;
@@ -205,6 +213,7 @@ namespace DogShop.Player
             else if (hit.collider.GetComponentInParent<DirtSpot>() != null) hint = "[E] 청소";
             else if (hit.collider.GetComponentInParent<ShopCounter>() != null) hint = "[E] 발주";
             else if (hit.collider.GetComponentInParent<Dog>() != null) hint = "[E] 강아지 관리";
+            else if (hit.collider.GetComponentInParent<Bed>() != null) hint = "[E] 잠자기";
             else if (carry != null && carry.IsHolding && IsGround(hit)) hint = "[E] 여기에 상자 내려놓기";
         }
 

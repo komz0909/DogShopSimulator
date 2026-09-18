@@ -60,6 +60,20 @@ namespace DogShop.Core
             }
         }
 
+        /// <summary>
+        /// 남은 시간을 버리고 그 자리에서 마감한다. 침대에서 잠자리에 들 때 쓴다.
+        /// 18시를 기다린 것과 <b>같은 경로</b>를 타므로 정산·명성·마감 이벤트가 그대로 돈다 —
+        /// 일찍 자면 손님을 덜 받아 그날 매출이 줄고, 그 손해가 곧 일찍 자는 값이다.
+        /// </summary>
+        public void EndDayNow()
+        {
+            if (IsDayOver) return;
+
+            CurrentHour = CloseHour;
+            IsDayOver = true;
+            OnDayEnded?.Invoke();
+        }
+
         public void StartNewDay()
         {
             CurrentHour = OpenHour;
