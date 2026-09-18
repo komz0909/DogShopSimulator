@@ -68,6 +68,12 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 4333106941318723275, guid: cc6b3e636f70b5044994ea3e192717ac, type: 3}
       insertIndex: -1
       addedObject: {fileID: 6878939718402049276}
+    - targetCorrespondingSourceObject: {fileID: 4333106941318723275, guid: cc6b3e636f70b5044994ea3e192717ac, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 2126735654387586907}
+    - targetCorrespondingSourceObject: {fileID: 4333106941318723275, guid: cc6b3e636f70b5044994ea3e192717ac, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 6120654623145136094}
   m_SourcePrefab: {fileID: 100100000, guid: cc6b3e636f70b5044994ea3e192717ac, type: 3}
 --- !u!1 &7123999096709452996 stripped
 GameObject:
@@ -131,3 +137,37 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 0.39649996, y: 0.9582981, z: 0.9480394}
   m_Center: {x: -0.000039881954, y: 0.25990438, z: 0.01875569}
+--- !u!195 &2126735654387586907
+NavMeshAgent:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7123999096709452996}
+  m_Enabled: 1
+  m_AgentTypeID: 0
+  m_Radius: 0.33181378
+  m_Speed: 1.3
+  m_Acceleration: 8
+  avoidancePriority: 20
+  m_AngularSpeed: 300
+  m_StoppingDistance: 0
+  m_AutoTraverseOffMeshLink: 1
+  m_AutoBraking: 1
+  m_AutoRepath: 1
+  m_Height: 0.9582981
+  m_BaseOffset: 0
+  m_WalkableMask: 4294967295
+  m_ObstacleAvoidanceType: 4
+--- !u!114 &6120654623145136094
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7123999096709452996}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f3eb30b106ba3d14897ed899972c70a1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DogShop.Dogs.DogRoamer

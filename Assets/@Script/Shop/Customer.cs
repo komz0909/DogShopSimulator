@@ -60,9 +60,20 @@ namespace DogShop.Shop
             }
         }
 
+        /// <summary>
+        /// 창고·옆방에 깔린 NavMesh 영역. 예전에는 그곳에 NavMesh를 아예 굽지 않아
+        /// 손님을 막았는데, 그러면 <b>반려견도 못 들어간다.</b> 걸을 수 있게 굽고
+        /// 손님만 마스크로 뺀다 — 앞으로 직원·배달 NPC가 생겨도 같은 방식으로 쓴다.
+        /// </summary>
+        public const int StaffArea = 3;
+
+        /// <summary>손님이 다닐 수 있는 영역. 직원 구역만 빠진다.</summary>
+        public static int WalkableAreas => NavMesh.AllAreas & ~(1 << StaffArea);
+
         void Awake()
         {
             agent = GetComponent<NavMeshAgent>();
+            agent.areaMask = WalkableAreas;
             baseSpeed = agent.speed;
             baseAcceleration = agent.acceleration;
             baseAngularSpeed = agent.angularSpeed;

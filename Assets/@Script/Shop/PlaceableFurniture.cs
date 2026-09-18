@@ -45,10 +45,22 @@ namespace DogShop.Shop
             body = GetComponentInChildren<Collider>();
             if (body == null) return;
 
-            Bounds bounds = body.bounds;
-            localCenter = transform.InverseTransformPoint(bounds.center);
+            // Collider.bounds 는 <b>월드 축에 정렬된</b> 상자라 회전이 섞여 들어온다.
+            // 벽에 붙이려고 90도 돌려 세운 진열대는 폭과 깊이가 뒤바뀐 값이 나왔고
+            // (1.17 x 0.40 를 0.40 x 1.17 로), 그래서 다시 붙일 때 깊이의 절반이 아니라
+            // 폭의 절반만큼 밀려나 벽에서 38cm 떠서 놓였다.
+            // 회전을 잠깐 풀고 재면 회전과 무관한 진짜 크기가 나온다.
+            Quaternion spin = transform.rotation;
+            transform.rotation = Quaternion.identity;
+            Physics.SyncTransforms();
 
-            // lossyScale 을 되돌려 <b>회전과 무관한</b> 절반 크기를 얻는다
+            Bounds bounds = body.bounds;
+            localCenter = transform.InverseTransformPoint(bounds.center);   // 반드시 회전을 푼 상태에서
+
+            transform.rotation = spin;
+            Physics.SyncTransforms();
+
+            // lossyScale 을 되돌려 크기를 로컬 값으로 환산한다
             Vector3 scale = transform.lossyScale;
             halfExtents = new Vector3(
                 bounds.extents.x / Mathf.Max(0.0001f, Mathf.Abs(scale.x)),
@@ -192,8 +204,11 @@ namespace DogShop.Shop
 
             // 벽을 따라가는 위치는 <b>조준점을 그대로 쓰고</b>, 벽에서 떨어진 거리만 고친다.
             // 히트 지점을 그대로 쓰면 가구가 광선이 닿은 자리로 끌려가 문틀 안으로 들어갔다.
+            // 원점이 발자국 한가운데가 아닌 가구(뒤판만 있는 선반 따위)도 있으므로
+            // 절반 깊이에서 중심이 밀린 만큼을 뺀다 — 기준은 원점이 아니라 <b>뒷면</b>이다.
+            float centerZ = Vector3.Scale(localCenter, transform.lossyScale).z;
             float gap = Vector3.Dot(floorPoint - hitPoint, normal);
-            position = floorPoint + normal * (RawHalfExtents.z - gap);
+            position = floorPoint + normal * (RawHalfExtents.z - centerZ - gap);
             position.y = floorPoint.y + BottomOffset;
 
             return true;
@@ -219,7 +234,7 @@ namespace DogShop.Shop
                 Vector3 candidate = center + new Vector3(Mathf.Sin(angle), 0f, Mathf.Cos(angle)) * reach;
 
                 NavMeshHit hit;
-                if (!NavMesh.SamplePosition(candidate + Vector3.up * 0.3f, out hit, 0.4f, NavMesh.AllAreas)) continue;
+                if (!NavMesh.SamplePosition(candidate + Vector3.up * 0.3f, out hit, 0.4f, Customer.WalkableAreas)) continue;
                 if (Mathf.Abs(hit.position.x - candidate.x) > 0.3f || Mathf.Abs(hit.position.z - candidate.z) > 0.3f) continue;
 
                 float score = Vector3.Distance(candidate, entrance);

@@ -103,7 +103,7 @@ namespace DogShop.Shop
             groundOffset = 0f;
 
             UnityEngine.AI.NavMeshHit nav;
-            if (!UnityEngine.AI.NavMesh.SamplePosition(Door, out nav, 2f, UnityEngine.AI.NavMesh.AllAreas)) return;
+            if (!UnityEngine.AI.NavMesh.SamplePosition(Door, out nav, 2f, Customer.WalkableAreas)) return;
 
             // 가장 낮은 히트가 바닥이다 — 사람이나 상자를 바닥으로 오인하지 않는다
             RaycastHit[] hits = Physics.RaycastAll(nav.position + Vector3.up * 2f, Vector3.down, 6f, ~0, QueryTriggerInteraction.Ignore);

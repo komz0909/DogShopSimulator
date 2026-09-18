@@ -28,6 +28,13 @@ namespace DogShop.Debugging
     {
         /// <summary>Plan.md 10레벨 곡선의 가정. 여기만 고치면 지표 전체가 따라온다.</summary>
         public const float MarginRate = 0.5f;
+
+        /// <summary>
+        /// 반려견 유지비. 판매견을 없애 <b>항상 1마리</b>다 —
+        /// 예전에는 레벨업마다 마리가 늘어(최대 6) 유지비가 훈련 예산을 눌러 주는
+        /// 배수구 노릇을 했는데, 그게 사라져 지표가 위로 밀린다(L2 0.83→0.94).
+        /// 대체 배수구(가구 구매·랜덤박스)가 들어오기 전까지는 여유가 없는 구간이다.
+        /// </summary>
         public const int UpkeepPerDog = 33;
 
         public const float RatioFloor = 0.4f;
@@ -66,14 +73,14 @@ namespace DogShop.Debugging
             {
                 ShopLevelDef level = ShopLevelManager.Instance.Current;
                 return Mathf.RoundToInt(level.customersPerDay * level.basketPriceTarget * MarginRate)
-                     - DogManager.Instance.Count * UpkeepPerDog;
+                     - UpkeepPerDog;
             }
         }
 
         /// <summary>실제 그날 매출로 계산한 하루 가용액.</summary>
         public int AMaxActual =>
             Mathf.RoundToInt(CustomerManager.Instance.RevenueToday * MarginRate)
-            - DogManager.Instance.Count * UpkeepPerDog;
+            - UpkeepPerDog;
 
         public float RatioTarget(GrowthAxis axis) => Ratio(AMaxTarget, axis);
         public float RatioActual(GrowthAxis axis) => Ratio(AMaxActual, axis);
@@ -134,7 +141,7 @@ namespace DogShop.Debugging
             Append(row, c.AverageBasket);
             Append(row, level.basketPriceTarget);
             Append(row, level.customersPerDay);
-            Append(row, dm.Count);
+            Append(row, dm.Hero != null ? 1 : 0);
             Append(row, clean != null ? clean.Cleanliness : 100);
             Append(row, tm.SlotsTotal);
             Append(row, tm.SlotsUsed);

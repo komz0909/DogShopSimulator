@@ -25,8 +25,6 @@ namespace DogShop.Dogs
 
         string header = "";
         string statLine = "";
-        string sellLabel = "";
-        bool sellEnabled;
 
         readonly string[] careLabels = new string[3];
         readonly bool[] careEnabled = new bool[3];
@@ -92,8 +90,7 @@ namespace DogShop.Dogs
             if (target == null) return;
 
             DogStats st = target.Stats;
-            header = target.BreedKo + (target.IsHero ? "  ★ 주인공견" : "  판매견")
-                   + "   " + target.DaysOwned + "일";
+            header = target.BreedKo + "   함께한 지 " + target.DaysOwned + "일";
             statLine = "청결 " + st.Cleanliness + "   건강 " + st.Health
                      + "   미모 " + st.Beauty + "   훈련도 " + st.Training
                      + (st.GrowthBlocked ? "   ※성장정지" : "");
@@ -124,9 +121,6 @@ namespace DogShop.Dogs
                                + "   " + def.cost + "원"
                                + "   " + (def.axis == GrowthAxis.Beauty ? "미모" : "훈련도") + " +" + def.gain;
             }
-
-            sellEnabled = target.CanSell;
-            sellLabel = target.CanSell ? "판매   " + target.SalePrice + "원" : "주인공견은 판매 불가";
         }
 
         void BuildCare(int slot, DogCare.CareAction action, string label, int productIndex, InventoryManager inv)
@@ -148,7 +142,7 @@ namespace DogShop.Dogs
 
         float MenuHeight()
         {
-            int rows = 2 + 3 + 1 + 1;
+            int rows = 2 + 3 + 1;   // 머리말·스탯 / 관리 3종 / 슬롯 표시 (판매 줄 제거)
             for (int i = 0; i < trainVisible.Length; i++) if (trainVisible[i]) rows++;
             return rows * RowHeight + Pad * 4f;
         }
@@ -201,15 +195,6 @@ namespace DogShop.Dogs
                 y += RowHeight;
             }
 
-            GUI.enabled = true;
-            y += Pad;
-
-            GUI.enabled = sellEnabled;
-            if (GUI.Button(new Rect(x, y, w, RowHeight - 2f), sellLabel, rowStyle))
-            {
-                Dog sold = target;
-                if (DogManager.Instance.Sell(sold)) target = null;
-            }
             GUI.enabled = true;
 
             if (tm != null)

@@ -19,10 +19,10 @@ namespace DogShop.Show
 
         static readonly string[] CardTitles =
         {
-            "골목 순찰 — 버려진 강아지를 찾아본다",
+            "유기견 센터 기부 — 사료 1개를 내주고 명성 +8",
             "유기견 센터 봉사 — 명성 +4",
             "폐품 수집 — 상품 재고 +3",
-            "휴식 — 모든 강아지 청결·건강 +12"
+            "휴식 — 반려견 청결·건강 +12"
         };
 
         bool open;
@@ -118,17 +118,14 @@ namespace DogShop.Show
 
             if (index == 0)
             {
-                if (dm.HasFreeSlot && Random.value < 0.45f)
-                {
-                    Dog found = dm.SpawnSaleDog(Random.Range(0, 5));
-                    settlementLine = found != null
-                        ? "유기견을 발견했다 — " + found.BreedKo + "를 데려왔다 (무료)"
-                        : "골목은 조용했다";
-                }
-                else
-                {
-                    settlementLine = dm.HasFreeSlot ? "골목은 조용했다" : "강아지 슬롯이 가득해 데려올 수 없었다";
-                }
+                // 재고를 내주는 카드. 봉사(공짜 +4)보다 명성이 크지만 팔 물건이 줄어든다 —
+                // 카드 넷 중 유일하게 값을 치르는 선택이다.
+                bool donated = InventoryManager.Instance.TryConsumeStorage(0);
+                if (donated) GameManager.Instance.AddReputation(8);
+
+                settlementLine = donated
+                    ? "사료 한 포대를 기부했다 — 명성 +8"
+                    : "창고에 내줄 사료가 없었다";
             }
             else if (index == 1)
             {
@@ -146,13 +143,10 @@ namespace DogShop.Show
                     break;
                 }
             }
-            else
+            else if (dm.Hero != null)
             {
-                for (int i = 0; i < dm.Count; i++)
-                {
-                    dm.Get(i).Stats.RecoverCleanliness(12);
-                    dm.Get(i).Stats.RecoverHealth(12);
-                }
+                dm.Hero.Stats.RecoverCleanliness(12);
+                dm.Hero.Stats.RecoverHealth(12);
             }
 
             open = false;

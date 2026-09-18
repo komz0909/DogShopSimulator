@@ -11,7 +11,6 @@ namespace DogShop.Data
         public int upgradeCost;
         public int customersPerDay = 6;
         public int basketPriceTarget = 70;
-        public int dogSlots = 2;
         public int trainingSlots = 2;
         public int heroStatGate;
         public string unlockKo = "";

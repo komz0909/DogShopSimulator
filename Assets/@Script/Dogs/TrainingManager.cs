@@ -8,7 +8,8 @@ namespace DogShop.Dogs
 {
     /// <summary>
     /// 하루 훈련 슬롯. 슬롯은 강아지별로 나뉘지 않고 총량으로 공유된다 —
-    /// 주인공견에 몰면 챔피언십, 판매견에 나누면 즉시 현금. 이것이 매일의 선택이다.
+    /// 반려견은 한 마리뿐이다. 슬롯은 <b>미모와 훈련도 중 어디에 쓸까</b>로 갈린다 —
+    /// 챔피언십 심사 가중치가 시작 시점에 공개되므로 그 배분이 매일의 선택이다.
     /// </summary>
     public class TrainingManager : MonoBehaviour, ISaveParticipant
     {

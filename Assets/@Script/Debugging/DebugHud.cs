@@ -11,7 +11,7 @@ namespace DogShop.Debugging
     /// <summary>
     /// 상점 상태 HUD. 강아지 상호작용은 DogContextMenu(강아지 클릭)가 담당한다.
     /// 발주는 ShopOrderMenu(계산대 클릭)가 담당한다.
-    /// 1/2/3 배속 · R 하루리셋 · L 레벨업 · B 판매견 매입 · F5/F9 저장/로드
+    /// 1/2/3 배속 · R 하루리셋 · L 레벨업 · F5/F9 저장/로드
     /// </summary>
     public class DebugHud : MonoBehaviour
     {
@@ -28,7 +28,7 @@ namespace DogShop.Debugging
 
         /// <summary>
         /// 디버그 수치는 기본으로 숨긴다 — 이제 GameHud 가 플레이용 정보를 맡는다.
-        /// 단축키(배속·저장·레벨업·매입)는 숨겨도 계속 동작한다. 측정 중에 필요하다.
+        /// 단축키(배속·저장·레벨업)는 숨겨도 계속 동작한다. 측정 중에 필요하다.
         /// </summary>
         bool visible;
         GUIStyle style;
@@ -77,7 +77,6 @@ namespace DogShop.Debugging
 
             if (kb.rKey.wasPressedThisFrame) { TimeManager.Instance.StartNewDay(); Show("하루 리셋 — 09:00"); }
             if (kb.lKey.wasPressedThisFrame) ActionRunner.TryRun(upgrade);
-            if (kb.bKey.wasPressedThisFrame) BuySaleDog();
 
             if (kb.nKey.wasPressedThisFrame && CleanlinessManager.Instance != null)
             {
@@ -87,15 +86,6 @@ namespace DogShop.Debugging
 
             if (kb.f5Key.wasPressedThisFrame) SaveManager.Instance.Save();
             if (kb.f9Key.wasPressedThisFrame) SaveManager.Instance.Load();
-        }
-
-        void BuySaleDog()
-        {
-            DogManager dm = DogManager.Instance;
-            if (!dm.HasFreeSlot) { Show("강아지 슬롯 가득 — " + dm.Count + "/" + dm.SlotLimit); return; }
-
-            Dog dog = dm.SpawnSaleDog(UnityEngine.Random.Range(0, 5));
-            Show(dog != null ? "판매견 매입 — " + dog.BreedKo + " (클릭해서 관리)" : "매입 실패");
         }
 
         void HandleExecuted(IPlayerAction action) => Refresh();
@@ -151,8 +141,9 @@ namespace DogShop.Debugging
 
             TrainingManager tm = TrainingManager.Instance;
             DogManager dm = DogManager.Instance;
-            line4 = tm != null && dm != null
-                ? "훈련 슬롯 " + tm.SlotsUsed + "/" + tm.SlotsTotal + "   강아지 " + dm.Count + "/" + dm.SlotLimit
+            line4 = tm != null && dm != null && dm.Hero != null
+                ? "훈련 슬롯 " + tm.SlotsUsed + "/" + tm.SlotsTotal
+                  + "   " + dm.Hero.BreedKo + " 미모 " + dm.Hero.Stats.Beauty + " / 훈련도 " + dm.Hero.Stats.Training
                 : "";
 
             line4 += UpgradeAdvice(s, inv, g);
@@ -205,7 +196,7 @@ namespace DogShop.Debugging
             GUI.Label(new Rect(18f, 122f, 1140f, 20f),
                 "조준 + [E] 상호작용   ·   V 시점 전환(1인칭/3인칭)   ·   3인칭은 오른쪽 버튼 드래그로 시점   ·   WASD 이동", style);
             GUI.Label(new Rect(18f, 142f, 1140f, 20f),
-                "F1 디버그 표시   ·   1/2/3 배속   R 하루리셋   L 레벨업   B 판매견 매입   N 오염+3   F5/F9 저장/로드", style);
+                "F1 디버그 표시   ·   1/2/3 배속   R 하루리셋   L 레벨업   N 오염+3   F5/F9 저장/로드", style);
             if (notice.Length > 0) GUI.Label(new Rect(18f, 162f, 1140f, 22f), notice, noticeStyle);
         }
     }

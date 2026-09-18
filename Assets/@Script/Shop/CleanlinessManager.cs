@@ -19,7 +19,19 @@ namespace DogShop.Shop
         public const int MaxSpots = MaxCleanliness / DirtPerSpot;
 
         public const int BaseDirtPerHour = 2;
+
+        /// <summary>반려견 한 마리가 만드는 오염.</summary>
         public const int DirtPerDogPerHour = 1;
+
+        /// <summary>
+        /// 손님이 만드는 오염. 예전에는 강아지 <b>수</b>가 오염을 결정했다(레벨업마다 +1마리).
+        /// 판매견을 없애 강아지가 1마리로 고정되자 후반 가게가 저절로 깨끗해지고,
+        /// 그게 손님 배율(0.6~1.0)을 타고 매출로 들어와 감시 지표를 밀어 올린다.
+        /// 오염원을 손님 수로 옮겨 "가게가 커질수록 더러워진다"는 압박을 유지한다.
+        ///   시간당 오염  예전(강아지) → 지금(손님)
+        ///   L1   4.0 → 3.2      L5   6.0 → 5.0      L10  8.0 → 8.0
+        /// </summary>
+        public const float DirtPerCustomerPerHour = 0.2f;
 
         /// <summary>청결도 0일 때 남는 손님 비율. 1.0을 넘겨서는 안 된다.</summary>
         public const float MinCustomerFactor = 0.6f;
@@ -60,8 +72,9 @@ namespace DogShop.Shop
 
         void HandleHour(int hour)
         {
-            int dogs = DogManager.Instance != null ? DogManager.Instance.Count : 0;
-            accumulated += BaseDirtPerHour + dogs * DirtPerDogPerHour;
+            int dogs = DogManager.Instance != null && DogManager.Instance.Hero != null ? 1 : 0;
+            int customers = ShopLevelManager.Instance != null ? ShopLevelManager.Instance.Current.customersPerDay : 0;
+            accumulated += BaseDirtPerHour + dogs * DirtPerDogPerHour + customers * DirtPerCustomerPerHour;
 
             while (accumulated >= DirtPerSpot && spots.Count < MaxSpots)
             {
