@@ -32,5 +32,15 @@ namespace DogShop.Dogs
             Current = anim;
             animator.SetInteger(AnimationIdParam, (int)anim);
         }
+
+        /// <summary>
+        /// 재생 배속. 이 킷의 클립에는 <b>루트 모션이 없어</b>(averageSpeed 0) 제자리에서만 움직인다 —
+        /// 이동 속도와 다리 회전이 따로 놀면 미끄러져 보이므로, 실제 속력에 맞춰 여기서 맞춘다.
+        /// </summary>
+        public void SetPlaybackSpeed(float speed)
+        {
+            if (animator == null) return;
+            animator.speed = Mathf.Clamp(speed, 0.5f, 2f);
+        }
     }
 }

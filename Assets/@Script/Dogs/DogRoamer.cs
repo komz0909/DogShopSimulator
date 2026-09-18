@@ -26,9 +26,40 @@ namespace DogShop.Dogs
         /// <summary>한 번에 어슬렁거릴 최대 거리.</summary>
         const float WanderRadius = 5f;
 
+        /// <summary>목적지에 닿았다고 볼 거리.</summary>
         const float ArriveTolerance = 0.45f;
-        const float WalkSpeed = 1.3f;
-        const float RunSpeed = 2.6f;
+
+        /// <summary>
+        /// 한 걸음 주기에 몸 길이의 몇 배를 가는가. 걷기·뛰기 속도는 이 값과
+        /// <b>실제로 잰 몸 길이</b>에서 역산한다 — 클립에 루트 모션이 없어서
+        /// (averageSpeed 0) 속도를 임의로 주면 다리가 도는 것보다 빨리 나가 미끄러진다.
+        ///
+        /// 상수로 박지 않는 이유: 견종마다 몸이 배 이상 차이 난다(치와와 0.30m ~ 셰퍼드 0.80m).
+        /// 시작할 때 고른 견종이 무엇이든 여기서 다시 계산된다.
+        /// </summary>
+        const float WalkStride = 1.2f;
+        const float RunStride = 2.0f;
+
+        /// <summary>클립을 못 찾았을 때 쓸 길이(초). 이 킷의 값이다.</summary>
+        const float WalkClipFallback = 1.67f;
+        const float RunClipFallback = 0.79f;
+
+        /// <summary>주인(3.2 m/s)이 계속 달리면 뛰기로도 못 따라잡는다. 멀어진 만큼 더 낸다.</summary>
+        const float MaxCatchUp = 1.6f;
+
+        /// <summary>
+        /// 이보다 벌어지면 주인 뒤로 옮겨 놓는다.
+        ///
+        /// 작은 견종은 뛰어도 주인을 못 따라간다 — 치와와는 뛰기가 0.99 m/s 라
+        /// 따라잡기 배수(1.6)를 다 써도 1.58 m/s 로 주인(3.2)의 절반이다.
+        /// 배수를 더 올리면 다리가 도는 것보다 빨리 나가 다시 미끄러지므로,
+        /// <b>걸음걸이는 정직하게 두고 너무 벌어졌을 때만 옮긴다.</b>
+        /// </summary>
+        const float LostRange = 12f;
+
+        float walkSpeed = 0.75f;
+        float runSpeed = 2.64f;
+        float heelDistance = HeelDistance;
 
         static readonly Vector2 PauseRange = new Vector2(1.5f, 4.5f);
 
@@ -50,8 +81,10 @@ namespace DogShop.Dogs
             animator = GetComponent<DogAnimator>();
             stats = GetComponent<DogStats>();
 
+            MeasureGait();
+
             agent.areaMask = NavMesh.AllAreas;   // 손님과 달리 직원 구역도 다닌다
-            agent.speed = WalkSpeed;
+            agent.speed = walkSpeed;
             agent.angularSpeed = 300f;
             agent.acceleration = 8f;
             agent.stoppingDistance = 0f;
@@ -70,6 +103,39 @@ namespace DogShop.Dogs
 
             Warp(transform.position);
             pauseTimer = Random.Range(PauseRange.x, PauseRange.y);
+        }
+
+        /// <summary>
+        /// 몸 길이와 클립 길이를 재어 걷기·뛰기 속도를 정한다.
+        /// 견종을 바꿔도(코기·셰퍼드·치와와…) 이 계산이 다시 돌아 보폭이 맞는다.
+        /// </summary>
+        void MeasureGait()
+        {
+            float body = 0.6f;
+            Renderer[] renderers = GetComponentsInChildren<Renderer>(true);
+            if (renderers.Length > 0)
+            {
+                Bounds b = renderers[0].bounds;
+                for (int i = 1; i < renderers.Length; i++) b.Encapsulate(renderers[i].bounds);
+                body = Mathf.Max(0.2f, Mathf.Max(b.size.x, b.size.z));
+            }
+
+            float walkClip = WalkClipFallback, runClip = RunClipFallback;
+            if (animator != null)
+            {
+                // 이 킷의 클립 이름은 <견종>_Walking01 / <견종>_Running 으로 통일돼 있다
+                Animator raw = GetComponentInChildren<Animator>();
+                if (raw != null && raw.runtimeAnimatorController != null)
+                    foreach (AnimationClip c in raw.runtimeAnimatorController.animationClips)
+                    {
+                        if (c.name.Contains("Walking01")) walkClip = c.length;
+                        else if (c.name.Contains("Running")) runClip = c.length;
+                    }
+            }
+
+            walkSpeed = body * WalkStride / Mathf.Max(0.1f, walkClip);
+            runSpeed = body * RunStride / Mathf.Max(0.1f, runClip);
+            heelDistance = Mathf.Max(0.9f, body * 1.4f);
         }
 
         /// <summary>세이브 복원처럼 순간이동시킬 때. NavMeshAgent는 transform 대입을 싫어한다.</summary>
@@ -92,7 +158,7 @@ namespace DogShop.Dogs
             if (shouldFollow != following)
             {
                 following = shouldFollow;
-                agent.speed = following ? RunSpeed : WalkSpeed;
+                agent.speed = following ? runSpeed : walkSpeed;
                 pauseTimer = 0f;
             }
 
@@ -125,16 +191,24 @@ namespace DogShop.Dogs
 
         void Follow(float toOwner)
         {
-            if (toOwner <= HeelDistance)
+            if (toOwner <= heelDistance)
             {
                 agent.isStopped = true;
                 return;
             }
 
+            // 너무 벌어졌으면 달리게 두지 말고 옮긴다 (위 LostRange 주석 참고)
+            if (toOwner > LostRange)
+            {
+                Warp(owner.position - owner.forward * heelDistance);
+                return;
+            }
+
             agent.isStopped = false;
+            agent.speed = runSpeed * Mathf.Clamp(toOwner / FollowRange, 1f, MaxCatchUp);
 
             // 주인 발밑이 아니라 주인 뒤쪽으로 간다 — 겹쳐 서면 몸이 파묻혀 보인다
-            Vector3 behind = owner.position - owner.forward * HeelDistance;
+            Vector3 behind = owner.position - owner.forward * heelDistance;
             NavMeshHit hit;
             if (NavMesh.SamplePosition(behind, out hit, 2f, NavMesh.AllAreas)) agent.SetDestination(hit.position);
         }
@@ -175,11 +249,24 @@ namespace DogShop.Dogs
 
             float speed = agent.velocity.magnitude;
 
-            if (speed > RunSpeed * 0.6f) animator.Play(DogAnim.Run);
-            else if (speed > 0.15f) animator.Play(DogAnim.Walk);
-            else if (stats != null && stats.GrowthBlocked) animator.Play(DogAnim.Angry);
-            else if (stats != null && stats.UpkeepAverage >= 80) animator.Play(DogAnim.WagTail);
-            else animator.Play(DogAnim.Idle);
+            // 다리 회전을 실제 속력에 맞춘다. 기준 속도에서 1배가 되고, 빠르면 더 빨리 돈다
+            if (speed > (walkSpeed + runSpeed) * 0.5f)
+            {
+                animator.Play(DogAnim.Run);
+                animator.SetPlaybackSpeed(speed / runSpeed);
+            }
+            else if (speed > 0.12f)
+            {
+                animator.Play(DogAnim.Walk);
+                animator.SetPlaybackSpeed(speed / walkSpeed);
+            }
+            else
+            {
+                animator.SetPlaybackSpeed(1f);
+                if (stats != null && stats.GrowthBlocked) animator.Play(DogAnim.Angry);
+                else if (stats != null && stats.UpkeepAverage >= 80) animator.Play(DogAnim.WagTail);
+                else animator.Play(DogAnim.Idle);
+            }
         }
     }
 }

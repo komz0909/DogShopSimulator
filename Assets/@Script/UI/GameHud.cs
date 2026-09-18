@@ -66,6 +66,9 @@ namespace DogShop.UI
 
         void Awake()
         {
+            // 클릭 메뉴(OnGUI)들도 같은 글꼴을 쓰게 넘겨 준다 — 폰트 참조를 들고 있는 건 여기뿐이다
+            if (uiFont != null) UiSkin.Font = uiFont;
+
             Build();
         }
 

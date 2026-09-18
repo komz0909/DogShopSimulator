@@ -1,4 +1,5 @@
 using DogShop.Core;
+using DogShop.UI;
 using UnityEngine;
 
 namespace DogShop.Shop
@@ -83,27 +84,21 @@ namespace DogShop.Shop
         {
             if (!IsOpen) return;
 
-            GUIStyle title = new GUIStyle(GUI.skin.label) { fontSize = 15, fontStyle = FontStyle.Bold };
-            title.normal.textColor = new Color(1f, 0.9f, 0.5f);
-            GUIStyle dim = new GUIStyle(GUI.skin.label) { fontSize = 13, wordWrap = true };
-            dim.normal.textColor = new Color(0.78f, 0.8f, 0.76f);
-            GUIStyle row = new GUIStyle(GUI.skin.button) { fontSize = 14 };
-
             float h = Height();
-            GUI.Box(new Rect(anchor.x, anchor.y, Width, h), GUIContent.none);
+            GUI.Box(new Rect(anchor.x, anchor.y, Width, h), GUIContent.none, UiSkin.Panel_);
 
             float x = anchor.x + Pad;
             float w = Width - Pad * 2f;
             float y = anchor.y + Pad;
 
-            GUI.Label(new Rect(x, y, w, RowHeight), headline, title);
+            GUI.Label(new Rect(x, y, w, RowHeight), headline, UiSkin.Title);
             y += RowHeight;
-            GUI.Label(new Rect(x, y, w, RowHeight * 1.6f), detail, dim);
+            GUI.Label(new Rect(x, y, w, RowHeight * 1.6f), detail, UiSkin.Label);
             y += RowHeight * 1.7f;
 
             float half = (w - Pad) * 0.5f;
-            if (GUI.Button(new Rect(x, y, half, RowHeight - 2f), "잠자기", row)) Sleep();
-            if (GUI.Button(new Rect(x + half + Pad, y, half, RowHeight - 2f), "취소", row)) Close();
+            if (GUI.Button(new Rect(x, y, half, RowHeight + 6f), "잠자기", UiSkin.Button(UiSkin.Green))) Sleep();
+            if (GUI.Button(new Rect(x + half + Pad, y, half, RowHeight + 6f), "취소", UiSkin.Button(UiSkin.Cream))) Close();
         }
     }
 }
