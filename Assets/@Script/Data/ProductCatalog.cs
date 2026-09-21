@@ -70,6 +70,13 @@ namespace DogShop.Data
         public Vector3 iconRotation;
 
         /// <summary>
+        /// 진열대 한 칸에 올릴 수 있는 <b>이 상품의</b> 최대 개수. 0 이면 진열대가 정한 값을 쓴다.
+        /// 강아지 침대처럼 한 칸을 거의 다 먹는 물건에 1 을 준다 — 크기는 진열 코드가
+        /// DisplaySize 로 똑같이 맞춰 버리므로, 부피는 이렇게 규칙으로 적어 둬야 한다.
+        /// </summary>
+        [Min(0)] public int shelfCapacity;
+
+        /// <summary>
         /// 운반 상자에서 차지하는 칸 수. 상자는 8칸이므로 1칸 상품은 8개, 2칸 상품은 4개까지 든다.
         /// AIPropWiring이 프롭 크기에서 자동으로 채운다(최대 변 0.40m 이상이면 2칸).
         /// </summary>

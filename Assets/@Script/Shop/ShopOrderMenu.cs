@@ -55,8 +55,16 @@ namespace DogShop.Shop
 
         int tab;
 
-        /// <summary>지금 칸에 보일 상품 번호. 칸을 바꿀 때마다 다시 모은다.</summary>
+        /// <summary>
+        /// 지금 칸에 보일 상품 번호를 <b>싼 것부터</b> 담는다. 칸을 바꿀 때마다 다시 모은다.
+        ///
+        /// 카탈로그 배열 순서로 그리지 않는 이유: 그 순서는 세이브 배열과 진열대 칸이 쓰는
+        /// <b>상품 번호</b>라 화면 사정으로 바꿀 수 없다. 정렬은 여기서만 한다.
+        /// </summary>
         readonly List<int> visible = new List<int>();
+
+        /// <summary>가구도 같은 규칙으로 싼 것부터. 가구 카탈로그 순서는 건드리지 않는다.</summary>
+        readonly List<int> furnitureOrder = new List<int>();
 
         string money = "";
         string footer = "";
@@ -118,8 +126,19 @@ namespace DogShop.Shop
 
             visible.Clear();
             if (!IsFurnitureTab)
+            {
                 for (int i = 0; i < catalog.Count; i++)
                     if (catalog.Get(i).category == Category) visible.Add(i);
+
+                visible.Sort((a, b) => catalog.Get(a).wholesale.CompareTo(catalog.Get(b).wholesale));
+            }
+
+            furnitureOrder.Clear();
+            if (furniture != null)
+            {
+                for (int i = 0; i < furniture.Count; i++) furnitureOrder.Add(i);
+                furnitureOrder.Sort((a, b) => furniture.Get(a).price.CompareTo(furniture.Get(b).price));
+            }
 
             int incomingCost = 0;
             for (int i = 0; i < catalog.Count; i++)
@@ -299,9 +318,9 @@ namespace DogShop.Shop
                 return;
             }
 
-            for (int i = 0; i < furniture.Count; i++)
+            for (int i = 0; i < furnitureOrder.Count; i++)
             {
-                FurnitureDef item = furniture.Get(i);
+                FurnitureDef item = furniture.Get(furnitureOrder[i]);
 
                 Rect card = CardAt(left, top, i);
                 GUI.Box(card, GUIContent.none, UiSkin.Panel_);

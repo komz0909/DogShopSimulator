@@ -91,11 +91,11 @@ namespace DogShop.Shop
                 GameObject prefab = catalog.Get(index).propPrefab;
                 if (prefab == null) continue;
 
-                BuildSlot(slot, prefab, table.CountAt(slot));
+                BuildSlot(slot, index, prefab, table.CountAt(slot));
             }
         }
 
-        void BuildSlot(int slot, GameObject prefab, int count)
+        void BuildSlot(int slot, int index, GameObject prefab, int count)
         {
             // 한 번 만들어 크기를 재고 그 값으로 격자를 짠다
             GameObject probe = Instantiate(prefab);
@@ -104,7 +104,9 @@ namespace DogShop.Shop
 
             // 칸 용량을 기준으로 격자를 잡는다. 지금 개수로 잡으면 하나 팔릴 때마다
             // 남은 물건의 크기와 자리가 통째로 바뀐다.
-            int capacity = Mathf.Max(1, table.CapacityPerSlot);
+            // 격자는 그 칸에 올릴 수 있는 <b>이 상품의</b> 개수로 짠다. 진열대 기본값으로 짜면
+            // 한 개만 올라가는 강아지 침대 자리에도 6칸짜리 격자를 그려 물건이 구석에 붙는다
+            int capacity = Mathf.Max(1, table.CapacityFor(index));
             int columns = 1, rows = 1;
             float scale = 0f;
 

@@ -574,7 +574,7 @@ namespace DogShop.Player
                         Vector3 at = table.transform.position + Vector3.up * (table.HeightOf(slot) + 0.34f);
 
                         string text = index >= 0
-                            ? inv.Catalog.Get(index).nameKo + "  " + table.CountAt(slot) + " / " + table.CapacityPerSlot
+                            ? inv.Catalog.Get(index).nameKo + "  " + table.CountAt(slot) + " / " + table.CapacityAt(slot)
                             : (table.AcceptedBulk == 1 ? "빈 칸 (작은 물건)" : table.AcceptedBulk == 2 ? "빈 칸 (큰 물건)" : "빈 칸");
 
                         DrawLabel(at, text, index >= 0 ? labelStyle : crateStyle, true);

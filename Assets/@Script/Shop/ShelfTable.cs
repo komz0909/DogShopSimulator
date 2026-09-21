@@ -55,6 +55,23 @@ namespace DogShop.Shop
 
         public int SlotCount => slotHeights.Length;
         public int CapacityPerSlot => capacityPerSlot;
+
+        /// <summary>
+        /// 이 진열대 한 칸에 그 상품을 몇 개까지 올릴 수 있는가.
+        /// 상품이 <see cref="DogShop.Data.ProductDef.shelfCapacity"/> 로 더 낮게 정할 수 있다 —
+        /// 강아지 침대는 한 칸을 거의 다 먹으므로 반 칸에 하나만 들어간다.
+        /// </summary>
+        public int CapacityFor(int productIndex)
+        {
+            if (InventoryManager.Instance == null || productIndex < 0) return capacityPerSlot;
+
+            int limit = InventoryManager.Instance.Catalog.Get(productIndex).shelfCapacity;
+            return limit > 0 ? Mathf.Min(limit, capacityPerSlot) : capacityPerSlot;
+        }
+
+        /// <summary>그 칸에 이미 놓인 상품 기준의 용량. 빈 칸이면 진열대 기본값.</summary>
+        public int CapacityAt(int slot) =>
+            Valid(slot) && product[slot] >= 0 ? CapacityFor(product[slot]) : capacityPerSlot;
         public float SlotWidth => slotWidth;
         public float SlotDepth => slotDepth;
         public int AcceptedBulk => acceptedBulk;
@@ -74,7 +91,7 @@ namespace DogShop.Shop
         }
         public int ProductAt(int slot) => Valid(slot) ? product[slot] : -1;
         public int CountAt(int slot) => Valid(slot) ? stock[slot] : 0;
-        public int RoomAt(int slot) => Valid(slot) ? capacityPerSlot - stock[slot] : 0;
+        public int RoomAt(int slot) => Valid(slot) ? CapacityAt(slot) - stock[slot] : 0;
 
         void Awake()
         {
@@ -114,7 +131,7 @@ namespace DogShop.Shop
                 return false;
             }
 
-            if (stock[slot] >= capacityPerSlot) { reason = "이 칸이 가득 찼다"; return false; }
+            if (stock[slot] >= CapacityFor(productIndex)) { reason = "이 칸이 가득 찼다"; return false; }
 
             reason = null;
             return true;
@@ -157,7 +174,7 @@ namespace DogShop.Shop
 
             int room = 0;
             for (int i = 0; i < SlotCount; i++)
-                if (product[i] == productIndex || product[i] < 0) room += capacityPerSlot - stock[i];
+                if (product[i] == productIndex || product[i] < 0) room += CapacityFor(productIndex) - stock[i];
             return room;
         }
 
@@ -185,7 +202,7 @@ namespace DogShop.Shop
             if (!AcceptsBulk(productIndex)) return -1;
 
             for (int i = 0; i < SlotCount; i++)
-                if (product[i] == productIndex && stock[i] < capacityPerSlot) return i;
+                if (product[i] == productIndex && stock[i] < CapacityFor(productIndex)) return i;
 
             for (int i = 0; i < SlotCount; i++)
                 if (product[i] < 0) return i;

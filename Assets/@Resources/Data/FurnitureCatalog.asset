@@ -29,22 +29,6 @@ MonoBehaviour:
     icon: {fileID: 2800000, guid: d59990fd6e97c354dbd82a049ea8ef70, type: 3}
     iconRotation: {x: 0, y: 180, z: 0}
     note: "\uBCBD\uC5D0 24\uCE78"
-  - nameKo: "\uAC15\uC544\uC9C0 \uCE68\uB300"
-    price: 180
-    unlockLevel: 1
-    prefab: {fileID: 919132149155446097, guid: 6006bbdf80424e047a0d78d5d71ba307, type: 3}
-    material: {fileID: 2100000, guid: d1ea2a8ed954fba409e1304864a941b8, type: 2}
-    icon: {fileID: 2800000, guid: 4cb6bdd549164674fa37e6001b2448b7, type: 3}
-    iconRotation: {x: 0, y: 180, z: 0}
-    note: "\uBC18\uB824\uACAC \uC790\uB9AC"
-  - nameKo: "\uCE68\uB300"
-    price: 300
-    unlockLevel: 1
-    prefab: {fileID: 919132149155446097, guid: 8734de21d6fee33419723b6d976ea9a6, type: 3}
-    material: {fileID: 2100000, guid: 4b74d8d6f1fd1d148ac1e0ef00a3a1fa, type: 2}
-    icon: {fileID: 2800000, guid: f5a6db2d03687e24382978adaf2feb88, type: 3}
-    iconRotation: {x: 0, y: 180, z: 0}
-    note: "\uC790\uBA74 \uD558\uB8E8 \uB05D"
   - nameKo: "\uAE30\uBCF8 \uC9C4\uC5F4\uB300"
     price: 380
     unlockLevel: 1
