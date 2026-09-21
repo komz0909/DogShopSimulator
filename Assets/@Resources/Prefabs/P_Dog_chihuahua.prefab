@@ -74,6 +74,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 2966845795971187337, guid: 3e9ebf26f6c110142a94d7ad4f46b9f1, type: 3}
       insertIndex: -1
       addedObject: {fileID: 7087867568724800048}
+    - targetCorrespondingSourceObject: {fileID: 2966845795971187337, guid: 3e9ebf26f6c110142a94d7ad4f46b9f1, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 9187491409090324125}
   m_SourcePrefab: {fileID: 100100000, guid: 3e9ebf26f6c110142a94d7ad4f46b9f1, type: 3}
 --- !u!1 &4275574794602895057 stripped
 GameObject:
@@ -171,3 +174,24 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f3eb30b106ba3d14897ed899972c70a1, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DogShop.Dogs.DogRoamer
+--- !u!65 &9187491409090324125
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4275574794602895057}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 0.19, y: 0.351, z: 0.315}
+  m_Center: {x: 0.001, y: 0.151, z: 0.042}

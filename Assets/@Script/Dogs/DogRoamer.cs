@@ -180,13 +180,23 @@ namespace DogShop.Dogs
             if (groundTimer > 0f) return;
             groundTimer = GroundCheckInterval;
 
-            RaycastHit floor;
-            if (!Physics.Raycast(transform.position + Vector3.up, Vector3.down, out floor, 4f, ~0, QueryTriggerInteraction.Ignore)) return;
+            // <b>자기 몸은 빼고</b> 본다. 사람이 뚫고 지나가지 못하게 단단한 콜라이더를 붙였더니
+            // 이 레이가 그걸 맞아 baseOffset 을 올리고, 올라간 자리에서 또 자기를 맞아
+            // 강아지가 공중으로 끝없이 떠올랐다.
+            RaycastHit[] hits = Physics.RaycastAll(transform.position + Vector3.up, Vector3.down, 4f, ~0, QueryTriggerInteraction.Ignore);
+
+            float floorY = float.MaxValue;
+            for (int i = 0; i < hits.Length; i++)
+            {
+                if (hits[i].collider.transform.IsChildOf(transform)) continue;
+                if (hits[i].point.y < floorY) floorY = hits[i].point.y;
+            }
+            if (floorY >= float.MaxValue) return;
 
             NavMeshHit nav;
             if (!NavMesh.SamplePosition(transform.position, out nav, 1f, NavMesh.AllAreas)) return;
 
-            agent.baseOffset = floor.point.y - nav.position.y;
+            agent.baseOffset = floorY - nav.position.y;
         }
 
         void Follow(float toOwner)

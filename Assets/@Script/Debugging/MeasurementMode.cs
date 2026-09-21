@@ -215,8 +215,10 @@ namespace DogShop.Debugging
             }
             if (cheapest < 0) return;
 
-            // 가구를 사고 나서도 하루치 재고는 살 수 있어야 한다
-            if (GameManager.Instance.Money - shop.Catalog.Get(cheapest).price < DailyRestockCost()) return;
+            // 가구를 사고 나서도 그날 팔려 나갈 만큼은 살 수 있어야 한다.
+            // 여기서 DailyRestockCost 를 쓰면 <b>진열하지도 못하는 상품까지 합산</b>해서
+            // 문턱이 올라가고, 그 바람에 정작 칸을 늘려 줄 진열대를 영영 못 산다 (24차: 손실률 32.6%).
+            if (GameManager.Instance.Money - shop.Catalog.Get(cheapest).price < DailyConsumptionCost()) return;
 
             shop.TryBuy(cheapest);
         }
@@ -272,6 +274,10 @@ namespace DogShop.Debugging
             ShopLevelManager.Instance.Level,
             ShopLevelManager.Instance.Current.customersPerDay);
 
+        int DailyConsumptionCost() => InventoryManager.Instance.DailyConsumptionCost(
+            ShopLevelManager.Instance.Level,
+            ShopLevelManager.Instance.Current.customersPerDay);
+
         int DemandTarget(int index) => InventoryManager.Instance.DemandTarget(index,
             ShopLevelManager.Instance.Level,
             ShopLevelManager.Instance.Current.customersPerDay);
@@ -284,9 +290,14 @@ namespace DogShop.Debugging
             OrderUpTo(inv, DogCare.FoodIndex, CareStock);
             OrderUpTo(inv, DogCare.ShampooIndex, CareStock);
 
-            // 나머지는 수요 비례로만 채운다
+            // 나머지는 수요 비례로만 채운다. 다만 <b>올려놓을 자리가 없는 상품은 사지 않는다</b> —
+            // 상품이 진열 칸보다 많아지면 팔 수도 없는 재고에 현금이 잠겨, 정작 진열한 물건을
+            // 다시 채울 돈이 없어진다 (24차: 손실률 32.6%, 훈련 지출이 2,700 으로 주저앉았다).
             for (int i = 0; i < inv.Catalog.Count; i++)
+            {
+                if (inv.ShelfOf(i) <= 0 && inv.ShelfRoom(i) <= 0) continue;
                 OrderUpTo(inv, i, DemandTarget(i));
+            }
         }
 
         void OrderUpTo(InventoryManager inv, int index, int target)
@@ -314,6 +325,12 @@ namespace DogShop.Debugging
         {
             ShopLevelManager s = ShopLevelManager.Instance;
             if (s.IsMaxLevel) return 0;
+
+            // <b>진열 목표치 총액</b>을 그대로 쓴다. 소진액(그날 팔려 나갈 만큼)으로 낮춰 보았지만
+            // 승급이 빨라지면서 봇이 L6 에 닿았고, 거기서 해금 상품 12종이 진열 칸 6~9개를
+            // 넘어서면서 손실률이 19%로 뛰었다(26차). **승급 속도를 푸는 것은 칸 배정을 고친 뒤다.**
+            //
+            // 지금은 이 값이 실질적으로 "칸이 감당할 수 있는 속도"로 승급을 눌러 주고 있다.
             return InventoryManager.Instance.DailyRestockCost(s.Level + 1, s.Next.customersPerDay);
         }
 
