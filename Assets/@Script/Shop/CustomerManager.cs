@@ -79,6 +79,19 @@ namespace DogShop.Shop
         float pending;
 
         /// <summary>
+        /// 도착 수를 정수로 끊을 때 얹어 주는 여유.
+        ///
+        /// 하루치가 <b>정확히 정수에 떨어지게</b> 설계돼 있다(손님/일 ÷ 9시간 × 9시간).
+        /// 그래서 마감 순간에 한 프레임치 조각만 잃어도 9.998 이 되어 손님 하나가 통째로 날아간다 —
+        /// 표의 6/8/10/12/15 에 실제로 5/7/9/11/14 명만 오던 원인이 이것이다.
+        /// 0.02는 손님 한 명의 2%라 없던 손님을 만들어 내지는 않는다.
+        /// </summary>
+        const float ArrivalEpsilon = 0.02f;
+
+        /// <summary>지난 프레임의 시각. 흐른 만큼만 손님을 부르려고 들고 있는다.</summary>
+        float lastClockHour;
+
+        /// <summary>
         /// NavMesh 표면은 바닥보다 조금 높게 구워진다(굽기 설정에 따라 1~10cm). 상쇄하지 않으면
         /// 손님 발이 그만큼 공중에 뜬다. 열릴 때 한 번 재서 모든 손님에게 물려준다 —
         /// NavMesh를 다시 구워도 값이 알아서 따라온다.
@@ -94,8 +107,8 @@ namespace DogShop.Shop
         void Start()
         {
             MeasureGroundOffset();
-            TimeManager.Instance.OnWholeHourChanged += HandleHour;
             TimeManager.Instance.OnDayStarted += ResetDaily;
+            lastClockHour = TimeManager.Instance.CurrentHour;
         }
 
         void MeasureGroundOffset()
@@ -118,7 +131,6 @@ namespace DogShop.Shop
         {
             if (TimeManager.Instance != null)
             {
-                TimeManager.Instance.OnWholeHourChanged -= HandleHour;
                 TimeManager.Instance.OnDayStarted -= ResetDaily;
             }
             if (Instance == this) Instance = null;
@@ -130,19 +142,39 @@ namespace DogShop.Shop
             LostToday = 0;
             RevenueToday = 0;
             pending = 0f;
+            if (TimeManager.Instance != null) lastClockHour = TimeManager.Instance.CurrentHour;
         }
 
-        void HandleHour(int hour)
+        /// <summary>
+        /// 손님은 <b>흐른 시간에 비례해</b> 도착한다. 정시마다 한 덩어리씩 오던 방식에는
+        /// 경계 문제가 있었다 — 09시에 열고 18시에 닫으면 18시 정각 틱이 "이미 닫힘"으로
+        /// 걸러져 아홉 시간 중 여덟 시간치만 들어왔다(표 6/8/10/12/15 에 실제 5/7/9/11/14).
+        ///
+        /// 연속 누적이면 경계가 사라진다. 09시 30분에 열면 딱 30분치만 잃고,
+        /// 18~20시의 줄어드는 구간도 매끄럽게 적분된다.
+        /// </summary>
+        void AccrueArrivals()
         {
+            TimeManager time = TimeManager.Instance;
+            if (time == null) return;
+
+            float now = time.CurrentHour;
+            float elapsed = now - lastClockHour;
+            lastClockHour = now;
+
+            // 새 하루로 넘어가면 시계가 뒤로 간다. 그 프레임은 건너뛴다
+            if (elapsed <= 0f || time.IsDayOver) return;
+
             // 문을 열지 않았으면 아무도 오지 않는다. 늦게 열면 그 시간 몫을 그냥 잃는다 —
             // 따로 벌점을 두지 않아도 늦잠이 손해가 된다.
             float hoursFactor = ShopHours.Instance != null ? ShopHours.Instance.ArrivalFactor : 1f;
             if (hoursFactor <= 0f) return;
 
             float dirtFactor = CleanlinessManager.Instance != null ? CleanlinessManager.Instance.CustomerFactor : 1f;
-            pending += ShopLevelManager.Instance.Current.customersPerDay / TimeManager.HoursPerDay * dirtFactor * hoursFactor;
+            pending += ShopLevelManager.Instance.Current.customersPerDay / TimeManager.HoursPerDay
+                     * dirtFactor * hoursFactor * elapsed;
 
-            int arrivals = Mathf.FloorToInt(pending);
+            int arrivals = Mathf.FloorToInt(pending + ArrivalEpsilon);
             pending -= arrivals;
 
             for (int i = 0; i < arrivals; i++) Spawn();
@@ -234,6 +266,8 @@ namespace DogShop.Shop
 
         void Update()
         {
+            AccrueArrivals();
+
             int speed = TimeManager.Instance.SpeedMultiplier;
             float step = Time.deltaTime * speed;
 
