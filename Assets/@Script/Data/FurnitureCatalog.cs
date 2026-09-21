@@ -15,8 +15,15 @@ namespace DogShop.Data
         public int price = 300;
         [Min(1)] public int unlockLevel = 1;
 
-        /// <summary>놓을 때 생성할 모델. 사진도 이걸 찍는다.</summary>
+        /// <summary>사진을 찍을 모델. 부품이 없는 맨 모델이어도 된다.</summary>
         public GameObject prefab;
+
+        /// <summary>
+        /// 사서 배달될 때 실제로 세울 프리팹. <see cref="prefab"/>과 나눈 이유는
+        /// <b>사진은 모델만 있으면 되지만 놓이는 물건은 콜라이더·진열 칸·배치 부품이 필요하기</b> 때문이다.
+        /// 비어 있으면 그 가구는 아직 살 수 없다.
+        /// </summary>
+        public GameObject placedPrefab;
 
         /// <summary>
         /// 모델에 입힐 재질. FBX를 그대로 꺼내면 <b>임포터가 만든 흰 기본 재질</b>이 붙어 있어

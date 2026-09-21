@@ -16,6 +16,15 @@ namespace DogShop.Core
         public int training;
     }
 
+    /// <summary>플레이어가 사서 놓아 둔 가구 하나. 무엇을 어디에 놓았는지만 있으면 다시 세울 수 있다.</summary>
+    [Serializable]
+    public class FurnitureSave
+    {
+        public int catalogIndex;
+        public Vector3 position;
+        public Vector3 rotation;
+    }
+
     [Serializable]
     public class SaveData
     {
@@ -74,6 +83,14 @@ namespace DogShop.Core
         public int[] crateContents = new int[0];
         public Vector3 cratePosition;
         public bool crateHeld;
+
+        /// <summary>
+        /// 산 가구. 대금을 냈지만 아직 안 온 것(<see cref="furnitureOrdered"/>)과
+        /// 이미 놓아 둔 것(<see cref="furniturePlaced"/>)을 따로 남긴다.
+        /// 안 남기면 진열대를 사서 늘려 둔 가게가 불러올 때마다 처음 둘로 돌아간다.
+        /// </summary>
+        public int[] furnitureOrdered = new int[0];
+        public FurnitureSave[] furniturePlaced = new FurnitureSave[0];
 
         public DogSave[] dogs = new DogSave[0];
     }

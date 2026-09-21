@@ -147,7 +147,11 @@ namespace DogShop.Shop
             money = "보유 " + GameManager.Instance.Money.ToString("N0") + "원";
 
             int outside = inv.DeliveredTotal;
-            if (outside > 0)
+            int furnitureOnWay = FurnitureShop.Instance != null ? FurnitureShop.Instance.OrderedCount : 0;
+
+            if (IsFurnitureTab && furnitureOnWay > 0)
+                footer = "가구 " + furnitureOnWay + "개가 내일 아침 가게 앞에 온다     F 로 들어 옮긴다";
+            else if (outside > 0)
                 footer = "가게 앞에 " + outside + "개가 와 있다     들여놓고 시킬 것";
             else if (inv.RushDelivery)
                 footer = "승급 특급 입고     오늘 주문한 것도 가게 앞으로 바로 온다";
@@ -320,19 +324,36 @@ namespace DogShop.Shop
 
             for (int i = 0; i < furnitureOrder.Count; i++)
             {
-                FurnitureDef item = furniture.Get(furnitureOrder[i]);
+                int index = furnitureOrder[i];
+                FurnitureDef item = furniture.Get(index);
+
+                FurnitureShop shop = FurnitureShop.Instance;
+                string reason;
+                bool canBuy = shop != null && shop.CanBuy(index, out reason);
+                bool unlocked = shop == null || shop.IsUnlocked(index);
 
                 Rect card = CardAt(left, top, i);
                 GUI.Box(card, GUIContent.none, UiSkin.Panel_);
 
-                DrawPhoto(card, item.icon, true);
+                DrawPhoto(card, item.icon, unlocked);
                 GUI.Label(new Rect(card.x + 4f, card.y + NameY, card.width - 8f, 20f), item.nameKo, UiSkin.Caption);
                 DrawTag(card, PriceY, item.price.ToString("N0") + "원", UiSkin.Cream);
                 GUI.Label(new Rect(card.x + 4f, card.y + RetailY, card.width - 8f, 18f), item.note, UiSkin.Caption);
 
-                // 가구는 가게 앞으로 배달 와서 직접 놓는 것이라, 받을 자리가 생겨야 살 수 있다.
-                // 눌리지 않는 버튼 대신 딱지를 둔다 — 못 누르는 버튼은 고장 난 것처럼 보인다
-                DrawTag(card, ActionY, "배달 준비 중", UiSkin.Sky);
+                if (!unlocked)
+                {
+                    DrawTag(card, ActionY, "Lv " + item.unlockLevel + " 에 열린다", UiSkin.Sky);
+                    continue;
+                }
+
+                // 몇 개든 살 수 있다. 자리와 돈이 유일한 한계다
+                GUI.enabled = canBuy;
+                if (GUI.Button(new Rect(card.x + 8f, card.y + ActionY, card.width - 16f, 26f), "사기", UiSkin.Button(UiSkin.Green)))
+                {
+                    shop.TryBuy(index);
+                    Rebuild();
+                }
+                GUI.enabled = true;
             }
         }
 

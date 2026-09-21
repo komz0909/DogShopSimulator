@@ -170,12 +170,55 @@ namespace DogShop.Debugging
             // 매출이 들어오기 전 하루 중 가장 가난한 순간에 운전자본을 판정해
             // 명성이 요구치의 19배가 되어도 레벨이 30일간 1에 멈춘다(3차 측정).
             TryUpgrade();
+            BuyShelfIfShort();
             Restock();
 
             // 승급 당일 특급 입고분은 Restock 안에서 문 앞에 떨어지므로 한 번 더 쓸어 담는다
             HaulDelivery();
 
             TrainHero();
+        }
+
+        /// <summary>
+        /// 진열할 자리가 상품 수보다 적으면 진열대를 하나 산다.
+        ///
+        /// 손님은 원하는 물건이 <b>진열대에 없으면 아예 오지 않으므로</b>(CustomerManager.Spawn),
+        /// 칸이 모자라면 해금된 상품이 그대로 손님 감소가 된다. 사람은 이걸 보고 가구를 사지만
+        /// 봇에게는 규칙이 필요하다.
+        ///
+        /// 싼 것부터 하나씩만 산다 — 한 번에 여러 개를 사면 그날 재고 살 돈이 사라진다.
+        /// 배달은 다음날이므로 급하게 몰아 살 이유도 없다.
+        /// </summary>
+        void BuyShelfIfShort()
+        {
+            FurnitureShop shop = FurnitureShop.Instance;
+            ShelfManager shelves = ShelfManager.Instance;
+            if (shop == null || shop.Catalog == null || shelves == null) return;
+
+            int level = ShopLevelManager.Instance.Level;
+            int unlocked = 0;
+            for (int i = 0; i < InventoryManager.Instance.Catalog.Count; i++)
+                if (InventoryManager.Instance.Catalog.Get(i).unlockLevel <= level) unlocked++;
+
+            int slots = 0;
+            for (int i = 0; i < shelves.Count; i++) slots += shelves.Get(i).SlotCount;
+
+            // 오는 중인 것도 자리로 친다. 안 그러면 배달 기다리는 동안 매일 하나씩 더 산다
+            if (slots + shop.OrderedCount * 2 >= unlocked) return;
+
+            int cheapest = -1;
+            for (int i = 0; i < shop.Catalog.Count; i++)
+            {
+                string reason;
+                if (!shop.CanBuy(i, out reason)) continue;
+                if (cheapest < 0 || shop.Catalog.Get(i).price < shop.Catalog.Get(cheapest).price) cheapest = i;
+            }
+            if (cheapest < 0) return;
+
+            // 가구를 사고 나서도 하루치 재고는 살 수 있어야 한다
+            if (GameManager.Instance.Money - shop.Catalog.Get(cheapest).price < DailyRestockCost()) return;
+
+            shop.TryBuy(cheapest);
         }
 
         /// <summary>

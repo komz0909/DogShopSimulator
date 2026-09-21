@@ -17,6 +17,7 @@ MonoBehaviour:
     price: 650
     unlockLevel: 1
     prefab: {fileID: 919132149155446097, guid: 130ba6cd3680efd419ffb2211e4dbc9e, type: 3}
+    placedPrefab: {fileID: 7376298414594794703, guid: a5af07ca0f99cfb41946ca4760a99b34, type: 3}
     material: {fileID: 2100000, guid: 178e4bc200543e54c9b3945e153df326, type: 2}
     icon: {fileID: 2800000, guid: dde8c4989960eb94385548fbda03940e, type: 3}
     iconRotation: {x: 0, y: 180, z: 0}
@@ -25,6 +26,7 @@ MonoBehaviour:
     price: 450
     unlockLevel: 1
     prefab: {fileID: 919132149155446097, guid: aef635263e110bf40b1f9ba2a04ac419, type: 3}
+    placedPrefab: {fileID: 7675455384805625425, guid: 05caa1796593796478b9366cfbf27866, type: 3}
     material: {fileID: 2100000, guid: 8c8542bd43156f6449fddc638180b426, type: 2}
     icon: {fileID: 2800000, guid: d59990fd6e97c354dbd82a049ea8ef70, type: 3}
     iconRotation: {x: 0, y: 180, z: 0}
@@ -33,15 +35,17 @@ MonoBehaviour:
     price: 380
     unlockLevel: 1
     prefab: {fileID: 919132149155446097, guid: a670474e61ad4974798fbb16bf027050, type: 3}
+    placedPrefab: {fileID: 2169633282978203303, guid: 83cb480775685e241b5d3b7f6a845e12, type: 3}
     material: {fileID: 0}
     icon: {fileID: 2800000, guid: 566e306ac1c3dc34e9b843bd55b41684, type: 3}
     iconRotation: {x: 0, y: 0, z: 0}
-    note: "\uAC00\uC6B4\uB370 \uB193\uB294\uB2E4"
+    note: "\uAC00\uC6B4\uB370 8\uCE78"
   - nameKo: "\uAE30\uBCF8 \uBCBD \uC9C4\uC5F4\uB300"
     price: 260
     unlockLevel: 1
     prefab: {fileID: 919132149155446097, guid: 21058c32c70e18c4f8527751f1ae124d, type: 3}
+    placedPrefab: {fileID: 9008281928277557662, guid: a54a6bf4e094d5e4b9fd9b421f344658, type: 3}
     material: {fileID: 0}
     icon: {fileID: 2800000, guid: 16d22f5fe2f463c4d8e57d08b15a24eb, type: 3}
     iconRotation: {x: 0, y: 0, z: 0}
-    note: "\uBCBD\uC5D0 \uBD99\uC778\uB2E4"
+    note: "\uBCBD\uC5D0 18\uCE78"
