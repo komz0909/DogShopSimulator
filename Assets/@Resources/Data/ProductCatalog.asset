@@ -189,7 +189,7 @@ MonoBehaviour:
     iconRotation: {x: 0, y: 0, z: 0}
     shelfCapacity: 0
     slotCost: 1
-  - nameKo: "\uAC15\uC544\uC9C0 \uCE68\uB300"
+  - nameKo: "\uACE0\uAE09 \uAC15\uC544\uC9C0 \uCE68\uB300"
     category: 1
     wholesale: 90
     retail: 185
@@ -198,5 +198,16 @@ MonoBehaviour:
     propPrefab: {fileID: 7744074048789943059, guid: 0bbe4edd973de4140af1b9f085866466, type: 3}
     icon: {fileID: 2800000, guid: 1f21ff9a09bd2b3489cf77c3639e32f6, type: 3}
     iconRotation: {x: 0, y: 180, z: 0}
+    shelfCapacity: 1
+    slotCost: 2
+  - nameKo: "\uAC15\uC544\uC9C0 \uCE68\uB300"
+    category: 1
+    wholesale: 70
+    retail: 145
+    demandWeight: 2
+    unlockLevel: 6
+    propPrefab: {fileID: 919132149155446097, guid: 0f2d40dac5f3dbf4d8658360e8d1f29d, type: 3}
+    icon: {fileID: 2800000, guid: 127e146d4e6722c4589e0b57a4606942, type: 3}
+    iconRotation: {x: 0, y: 0, z: 0}
     shelfCapacity: 1
     slotCost: 2
