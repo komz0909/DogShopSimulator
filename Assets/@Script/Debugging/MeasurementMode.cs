@@ -157,6 +157,13 @@ namespace DogShop.Debugging
         /// </summary>
         void RunDailyPlan()
         {
+            // 밤사이 온 배달을 <b>가장 먼저</b> 들인다. 이 줄이 뒤로 가면 두 가지가 한꺼번에 깨진다.
+            // 케어가 창고에서 사료·샴푸를 꺼내는데 그때 창고가 비어 있으면 유지 스탯이 40 아래로
+            // 떨어져 그날 성장이 0이 되고, 발주도 창고가 빈 줄 알고 문 앞의 물건을 또 시킨다.
+            // 16차 측정이 정확히 그 꼴이었다 — 30일 성장 17(정상 168), 훈련지출 590(정상 5,830),
+            // 안 쓴 돈 11,417원이 그대로 쌓였다.
+            HaulDelivery();
+
             CareHero();
 
             // 업그레이드가 발주보다 먼저다. 뒤에 두면 발주로 돈을 쓴 직후,
@@ -164,7 +171,33 @@ namespace DogShop.Debugging
             // 명성이 요구치의 19배가 되어도 레벨이 30일간 1에 멈춘다(3차 측정).
             TryUpgrade();
             Restock();
+
+            // 승급 당일 특급 입고분은 Restock 안에서 문 앞에 떨어지므로 한 번 더 쓸어 담는다
+            HaulDelivery();
+
             TrainHero();
+        }
+
+        /// <summary>
+        /// 가게 앞에 온 배달을 창고로 들인다. 사람은 상자를 들고 몇 번 왕복하지만
+        /// 봇은 상자를 쓰지 않으므로(진열도 창고에서 바로 한다) 한 번에 옮긴다.
+        ///
+        /// <b>이걸 빼면 측정이 통째로 무너진다</b> — 발주한 물건이 문 앞에 쌓이기만 하고
+        /// 창고가 영원히 비어 진열도 케어도 못 한다. 순서는 발주 뒤여야 한다(승급일 특급 입고 포함).
+        /// </summary>
+        void HaulDelivery()
+        {
+            InventoryManager inv = InventoryManager.Instance;
+
+            for (int i = 0; i < inv.Catalog.Count; i++)
+            {
+                int guard = 0;
+                while (inv.DeliveredOf(i) > 0 && guard++ < 999)
+                {
+                    if (!inv.TryTakeDelivered(i)) break;
+                    inv.Store(i);
+                }
+            }
         }
 
         /// <summary>
@@ -217,7 +250,8 @@ namespace DogShop.Debugging
         {
             if (!inv.IsUnlocked(index)) return;
 
-            int have = inv.StorageOf(index) + inv.IncomingOf(index);
+            // 문 앞에 놓인 것도 이미 산 물건이다. 빼먹으면 같은 것을 두 번 시킨다
+            int have = inv.StorageOf(index) + inv.IncomingOf(index) + inv.DeliveredOf(index);
             int want = target - have;
             if (want <= 0) return;
 

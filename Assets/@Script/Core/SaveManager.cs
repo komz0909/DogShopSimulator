@@ -51,6 +51,12 @@ namespace DogShop.Core
         public int[] shelf = new int[0];
         public int[] incoming = new int[0];
 
+        /// <summary>
+        /// 가게 앞에 배달되어 아직 안 들인 것. 저장하지 않으면 <b>대금은 냈는데 물건은
+        /// 어디에도 없는</b> 상태가 된다 — 운반 상자와 같은 이유로 반드시 남긴다.
+        /// </summary>
+        public int[] delivered = new int[0];
+
         /// <summary>진열대 칸별 상품과 개수. 진열대를 이어 붙인 한 줄이다. -1 은 빈 칸.</summary>
         public int[] shelfSlotProduct = new int[0];
         public int[] shelfSlotCount = new int[0];

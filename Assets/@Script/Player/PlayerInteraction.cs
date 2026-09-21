@@ -87,11 +87,23 @@ namespace DogShop.Player
                 return;
             }
 
+            DeliveryStack delivery = hit.collider.GetComponentInParent<DeliveryStack>();
+            if (delivery != null)
+            {
+                if (!inRange) { Reject("너무 멀다 — 배달 더미에 가까이 갈 것"); return; }
+                ActionRunner.TryRun(new TakeFromDeliveryAction(carry, delivery.ProductIndex));
+                return;
+            }
+
             StorageRack rack = hit.collider.GetComponentInParent<StorageRack>();
             if (rack != null)
             {
                 if (!inRange) { Reject("너무 멀다 — 창고 선반에 가까이 갈 것"); return; }
-                ActionRunner.TryRun(new TakeOneAction(carry, rack.ProductIndex));
+
+                // 그 상품을 들고 왔으면 넣는 것이고, 빈손이면 꺼내는 것이다.
+                // 진열대가 쓰는 규칙과 같다 — 키를 나누지 않아도 뜻이 갈린다.
+                if (HoldsProduct(rack.ProductIndex)) ActionRunner.TryRun(new StoreOneAction(carry, rack.ProductIndex));
+                else ActionRunner.TryRun(new TakeOneAction(carry, rack.ProductIndex));
                 return;
             }
 
@@ -201,7 +213,12 @@ namespace DogShop.Player
             InventoryManager inv = InventoryManager.Instance;
 
             if (hit.collider.GetComponentInParent<CarryCrate>() != null) hint = "[E] 상자 들기";
-            else if (hit.collider.GetComponentInParent<StorageRack>() != null) hint = "[E] 상자에 1개 담기";
+            else if (hit.collider.GetComponentInParent<DeliveryStack>() != null) hint = "[E] 상자에 1개 담기";
+            else if (hit.collider.GetComponentInParent<StorageRack>() != null)
+            {
+                StorageRack aimed = hit.collider.GetComponentInParent<StorageRack>();
+                hint = HoldsProduct(aimed.ProductIndex) ? "[E] 창고에 1개 넣기" : "[E] 상자에 1개 담기";
+            }
             else if (hit.collider.GetComponentInParent<ShelfTable>() != null)
             {
                 ShelfTable aimed = hit.collider.GetComponentInParent<ShelfTable>();
@@ -277,6 +294,84 @@ namespace DogShop.Player
                 if (!InventoryManager.Instance.TryConsumeStorage(productIndex)) return;
                 if (!carry.Held.AddOne(productIndex))
                     InventoryManager.Instance.Grant(productIndex, 1);
+            }
+        }
+
+        /// <summary>
+        /// 가게 앞 배달 더미에서 상자로 1개 옮긴다. 창고 선반에서 꺼내는 것과 같은 동작이고,
+        /// 다른 것은 <b>재고가 어디서 줄어드는가</b>뿐이다.
+        /// </summary>
+        sealed class TakeFromDeliveryAction : IPlayerAction
+        {
+            readonly PlayerCarry carry;
+            readonly int productIndex;
+
+            public TakeFromDeliveryAction(PlayerCarry carry, int productIndex)
+            {
+                this.carry = carry;
+                this.productIndex = productIndex;
+            }
+
+            public bool CanExecute(out string reason)
+            {
+                if (carry == null || !carry.IsHolding) { reason = "상자를 들고 와야 한다 (E)"; return false; }
+                if (!carry.Held.Accepts(productIndex))
+                {
+                    reason = "칸이 부족하다 — " + CarryCrate.SlotCostOf(productIndex)
+                           + "칸 필요, 남은 " + carry.Held.Room + "칸";
+                    return false;
+                }
+                if (InventoryManager.Instance.DeliveredOf(productIndex) <= 0)
+                {
+                    reason = "다 날랐다";
+                    return false;
+                }
+
+                reason = null;
+                return true;
+            }
+
+            public void Execute()
+            {
+                if (!InventoryManager.Instance.TryTakeDelivered(productIndex)) return;
+
+                // 상자가 안 받으면 배달 더미에 도로 놓는다 — 물건이 사라지는 경로를 만들지 않는다
+                if (!carry.Held.AddOne(productIndex)) InventoryManager.Instance.Store(productIndex);
+            }
+        }
+
+        /// <summary>
+        /// 상자에서 창고로 1개 옮긴다. <see cref="TakeOneAction"/> 의 반대 방향이다 —
+        /// 배달을 창고에 쌓아 두려면 이 길이 있어야 한다. 강아지 소모품은 창고에서만 나간다.
+        /// </summary>
+        sealed class StoreOneAction : IPlayerAction
+        {
+            readonly PlayerCarry carry;
+            readonly int productIndex;
+
+            public StoreOneAction(PlayerCarry carry, int productIndex)
+            {
+                this.carry = carry;
+                this.productIndex = productIndex;
+            }
+
+            public bool CanExecute(out string reason)
+            {
+                if (carry == null || !carry.IsHolding) { reason = "상자를 들고 와야 한다 (E)"; return false; }
+                if (carry.Held.CountOf(productIndex) <= 0)
+                {
+                    reason = "상자에 그 물건이 없다";
+                    return false;
+                }
+
+                reason = null;
+                return true;
+            }
+
+            public void Execute()
+            {
+                if (!carry.Held.RemoveOne(productIndex)) return;
+                InventoryManager.Instance.Store(productIndex);
             }
         }
 

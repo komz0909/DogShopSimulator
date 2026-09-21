@@ -23,6 +23,13 @@ namespace DogShop.Shop
         int[] incoming;
 
         /// <summary>
+        /// 가게 앞에 배달되어 아직 안 들인 것. <b>발주가 창고로 바로 들어가지 않는 이유</b>가 여기다 —
+        /// 주문한 물건은 아침에 문 앞에 놓이고, 플레이어가 상자로 날라야 창고나 진열대로 간다.
+        /// 아침에 한 번 나갔다 오는 그 동선이 발주의 값이고, 늦잠을 자면 그만큼 개점이 늦어진다.
+        /// </summary>
+        int[] delivered;
+
+        /// <summary>
         /// 승급 당일에만 켜지는 즉시 입고. 승급하면 손님이 한 번에 늘고 새 카테고리가 열리는데
         /// 리드타임이 1일이라 <b>그 수요를 받을 재고가 존재할 수 없다</b>. 매출 0인 하루가 생기면
         /// 다음날 재고를 두세 개밖에 못 사고 그대로 빈곤 함정에 빠진다
@@ -51,6 +58,20 @@ namespace DogShop.Shop
             return sum;
         }
         public int IncomingOf(int index) => incoming[index];
+
+        /// <summary>가게 앞에 놓여 있는 개수.</summary>
+        public int DeliveredOf(int index) => delivered[index];
+
+        /// <summary>가게 앞에 남은 총 개수. 아직 안 들인 배달이 있는지 한눈에 보려고.</summary>
+        public int DeliveredTotal
+        {
+            get
+            {
+                int sum = 0;
+                for (int i = 0; i < delivered.Length; i++) sum += delivered[i];
+                return sum;
+            }
+        }
         public int ShelfRoom(int index)
         {
             ShelfManager shelves = ShelfManager.Instance;
@@ -124,6 +145,7 @@ namespace DogShop.Shop
 
             storage = new int[catalog.Count];
             incoming = new int[catalog.Count];
+            delivered = new int[catalog.Count];
 
             for (int i = 0; i < catalog.Count; i++)
                 if (catalog.Get(i).unlockLevel <= 1) storage[i] = startingStoragePerProduct;
@@ -157,7 +179,9 @@ namespace DogShop.Shop
             int cost = catalog.Get(index).wholesale * quantity;
             if (!GameManager.Instance.TrySpend(cost)) return false;
 
-            if (rushDelivery) storage[index] += quantity;
+            // 특급 입고도 창고로 바로 넣지 않는다 — 트럭이 그날 안에 올 뿐이다.
+            // 문 앞까지 와도 들이는 것은 사람 몫이라는 규칙은 어느 날에도 같다.
+            if (rushDelivery) delivered[index] += quantity;
             else incoming[index] += quantity;
 
             OnStockChanged?.Invoke();
@@ -173,17 +197,37 @@ namespace DogShop.Shop
             ReceiveOrders();
         }
 
+        /// <summary>트럭이 왔다. 물건은 <b>가게 앞</b>에 내려놓고 간다 — 창고까지는 사람이 나른다.</summary>
         void ReceiveOrders()
         {
             bool any = false;
             for (int i = 0; i < incoming.Length; i++)
             {
                 if (incoming[i] <= 0) continue;
-                storage[i] += incoming[i];
+                delivered[i] += incoming[i];
                 incoming[i] = 0;
                 any = true;
             }
             if (any) OnStockChanged?.Invoke();
+        }
+
+        /// <summary>가게 앞 배달 더미에서 하나 집는다. 집은 것은 호출한 쪽이 상자에 넣는다.</summary>
+        public bool TryTakeDelivered(int index)
+        {
+            if (index < 0 || index >= delivered.Length || delivered[index] <= 0) return false;
+
+            delivered[index]--;
+            OnStockChanged?.Invoke();
+            return true;
+        }
+
+        /// <summary>상자에서 창고로 옮긴다. <see cref="TryConsumeStorage"/> 의 반대 방향이다.</summary>
+        public void Store(int index, int quantity = 1)
+        {
+            if (index < 0 || index >= storage.Length || quantity <= 0) return;
+
+            storage[index] += quantity;
+            OnStockChanged?.Invoke();
         }
 
         /// <summary>대금 없이 창고에 넣는다. 폐품 수집 같은 이벤트 보상용.</summary>
@@ -266,6 +310,7 @@ namespace DogShop.Shop
             data.storage = (int[])storage.Clone();
             ShelfManager.Instance?.CaptureInto(data);
             data.incoming = (int[])incoming.Clone();
+            data.delivered = (int[])delivered.Clone();
             data.rushDelivery = rushDelivery;
         }
 
@@ -274,6 +319,7 @@ namespace DogShop.Shop
             CopyInto(data.storage, storage);
             ShelfManager.Instance?.RestoreFrom(data);
             CopyInto(data.incoming, incoming);
+            CopyInto(data.delivered, delivered);
             rushDelivery = data.rushDelivery;
             OnStockChanged?.Invoke();
         }

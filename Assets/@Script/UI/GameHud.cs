@@ -58,6 +58,7 @@ namespace DogShop.UI
         Image reputationBar;
         Text todayText;
         Text cleanText;
+        Text deliveryText;
         Text queueText;
         Text toastText;
 
@@ -147,6 +148,11 @@ namespace DogShop.UI
             int waiting = c.QueueLength;
             queueText.text = waiting > 0 ? "계산 대기 " + waiting + "명" : "계산 대기 없음";
             queueText.color = waiting >= 3 ? WarnColor : (waiting > 0 ? MoneyColor : CalmColor);
+
+            // 배달은 가게 밖에 쌓인다. 화면 안에 없는 것은 잊어버리므로 남은 개수를 적어 둔다
+            InventoryManager inv = InventoryManager.Instance;
+            int waitingOutside = inv != null ? inv.DeliveredTotal : 0;
+            deliveryText.text = waitingOutside > 0 ? "가게 앞에 배달 " + waitingOutside + "개" : "";
         }
 
         void HandleRejected(IPlayerAction action, string reason) => Toast(reason, WarnColor);
@@ -242,7 +248,7 @@ namespace DogShop.UI
         /// <summary>좌하단 — 오늘 실적, 청결, 계산 대기.</summary>
         void BuildToday(RectTransform root, Font font)
         {
-            RectTransform panel = Panel(root, "Today", new Vector2(0f, 0f), new Vector2(24f, 24f), new Vector2(452f, 122f));
+            RectTransform panel = Panel(root, "Today", new Vector2(0f, 0f), new Vector2(24f, 24f), new Vector2(452f, 150f));
 
             todayText = Label(panel, "Today", font, 20, TextAnchor.MiddleLeft, TextColor);
             Anchor(todayText.rectTransform, new Vector2(0f, 1f), new Vector2(16f, -14f), new Vector2(420f, 24f));
@@ -252,10 +258,14 @@ namespace DogShop.UI
             cleanText = Label(panel, "Clean", font, 20, TextAnchor.MiddleLeft, CalmColor);
             Anchor(cleanText.rectTransform, new Vector2(0f, 1f), new Vector2(50f, -48f), new Vector2(386f, 24f));
 
-            Icon(panel, iconCustomer, new Vector2(0f, 0f), new Vector2(14f, 16f), 30f);
+            Icon(panel, iconCustomer, new Vector2(0f, 0f), new Vector2(14f, 44f), 30f);
 
             queueText = Label(panel, "Queue", font, 22, TextAnchor.MiddleLeft, CalmColor);
-            Anchor(queueText.rectTransform, new Vector2(0f, 0f), new Vector2(50f, 18f), new Vector2(386f, 26f));
+            Anchor(queueText.rectTransform, new Vector2(0f, 0f), new Vector2(50f, 46f), new Vector2(386f, 26f));
+
+            // 배달은 가게 밖에 있어서 화면에 안 잡힌다. 여기 없으면 아침에 나가 볼 이유를 모른다
+            deliveryText = Label(panel, "Delivery", font, 20, TextAnchor.MiddleLeft, MoneyColor);
+            Anchor(deliveryText.rectTransform, new Vector2(0f, 0f), new Vector2(16f, 16f), new Vector2(420f, 24f));
         }
 
         /// <summary>상단 중앙 — 레벨업·거절 사유 같은 한 줄 알림.</summary>

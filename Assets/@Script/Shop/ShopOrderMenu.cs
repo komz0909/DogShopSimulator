@@ -126,9 +126,14 @@ namespace DogShop.Shop
                 incomingCost += inv.IncomingOf(i) * catalog.Get(i).wholesale;
 
             money = "보유 " + GameManager.Instance.Money.ToString("N0") + "원";
-            footer = inv.RushDelivery
-                ? "승급 특급 입고     오늘 주문한 것은 바로 창고에 들어온다"
-                : "내일 09:00 입고 " + incomingCost.ToString("N0") + "원     리드타임 1일";
+
+            int outside = inv.DeliveredTotal;
+            if (outside > 0)
+                footer = "가게 앞에 " + outside + "개가 와 있다     들여놓고 시킬 것";
+            else if (inv.RushDelivery)
+                footer = "승급 특급 입고     오늘 주문한 것도 가게 앞으로 바로 온다";
+            else
+                footer = "내일 09:00 가게 앞 배달 " + incomingCost.ToString("N0") + "원     리드타임 1일";
         }
 
         /// <summary>지금 탭에 놓일 줄 수.</summary>
@@ -263,8 +268,11 @@ namespace DogShop.Shop
                     continue;
                 }
 
-                string stock = "창고 " + inv.StorageOf(index)
-                             + (inv.IncomingOf(index) > 0 ? "  (+" + inv.IncomingOf(index) + ")" : "");
+                // 문 앞에 놓인 것을 안 보여 주면 이미 산 물건을 또 시킨다.
+                // 칸이 좁으므로 지금 가서 들일 수 있는 쪽(앞)을 내일 올 것(+N)보다 앞세운다
+                string stock = "창고 " + inv.StorageOf(index);
+                if (inv.DeliveredOf(index) > 0) stock += "  앞 " + inv.DeliveredOf(index);
+                else if (inv.IncomingOf(index) > 0) stock += "  +" + inv.IncomingOf(index);
                 GUI.Label(new Rect(card.x + 4f, card.y + StockY, card.width - 8f, 18f), stock, UiSkin.Caption);
 
                 float buttonWidth = (card.width - 16f - 8f) / Quantities.Length;
