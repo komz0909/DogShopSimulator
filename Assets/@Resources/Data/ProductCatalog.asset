@@ -21,6 +21,7 @@ MonoBehaviour:
     unlockLevel: 1
     propPrefab: {fileID: 919132149155446097, guid: 194b1b15d72855b40b482591d65860be, type: 3}
     icon: {fileID: 2800000, guid: b7b3401e2ada75c44937d1b9495fd4cc, type: 3}
+    iconRotation: {x: 0, y: 0, z: 0}
     slotCost: 2
   - nameKo: "\uC0F4\uD478"
     category: 2
@@ -30,6 +31,7 @@ MonoBehaviour:
     unlockLevel: 1
     propPrefab: {fileID: 919132149155446097, guid: c88207a3359213640bc6145a712ce3f7, type: 3}
     icon: {fileID: 2800000, guid: ec2442c922bc38d4787146bdcf6f8932, type: 3}
+    iconRotation: {x: 0, y: 0, z: 0}
     slotCost: 1
   - nameKo: "\uAE30\uBCF8 \uC57D\uD488"
     category: 2
@@ -39,6 +41,7 @@ MonoBehaviour:
     unlockLevel: 2
     propPrefab: {fileID: 919132149155446097, guid: eed8e0181e5dbf0488f5784621c04c81, type: 3}
     icon: {fileID: 2800000, guid: 290d2564b7e5a2c4385b11b09e74ca45, type: 3}
+    iconRotation: {x: 0, y: 0, z: 0}
     slotCost: 1
   - nameKo: "\uBAA9\uC904"
     category: 1
@@ -48,6 +51,7 @@ MonoBehaviour:
     unlockLevel: 3
     propPrefab: {fileID: 919132149155446097, guid: b8ff7496a9d3f8441ae054bd13b0a5d2, type: 3}
     icon: {fileID: 2800000, guid: 1160ce7cb15ed90408b0f018a9355f0f, type: 3}
+    iconRotation: {x: 0, y: 0, z: 0}
     slotCost: 1
   - nameKo: "\uAC04\uC2DD"
     category: 0
@@ -55,8 +59,9 @@ MonoBehaviour:
     retail: 95
     demandWeight: 3
     unlockLevel: 4
-    propPrefab: {fileID: 919132149155446097, guid: a4f1c678617d96f419650dee3fdc1bae, type: 3}
-    icon: {fileID: 2800000, guid: 0aa362b5ce919674ab106ab6701acd6e, type: 3}
+    propPrefab: {fileID: 919132149155446097, guid: e6886379f94f95243b55194fa2128a2d, type: 3}
+    icon: {fileID: 2800000, guid: eccf90e18fbc28d4f8d78f35d9a4ebee, type: 3}
+    iconRotation: {x: 0, y: 0, z: 0}
     slotCost: 1
   - nameKo: "\uC7A5\uB09C\uAC10"
     category: 1
@@ -66,6 +71,7 @@ MonoBehaviour:
     unlockLevel: 4
     propPrefab: {fileID: 919132149155446097, guid: d601cd2f21f9078479abcc1444d7be89, type: 3}
     icon: {fileID: 2800000, guid: ba0a4adaa2aaa1b40bcfbb3d147e6254, type: 3}
+    iconRotation: {x: 0, y: 0, z: 0}
     slotCost: 1
   - nameKo: "\uACE0\uAE09 \uC0AC\uB8CC"
     category: 0
@@ -75,6 +81,7 @@ MonoBehaviour:
     unlockLevel: 6
     propPrefab: {fileID: 919132149155446097, guid: 3105ff18dcc80b14887a1ee10563766b, type: 3}
     icon: {fileID: 2800000, guid: 82a26e274e6234041aaccb32ff90f1fd, type: 3}
+    iconRotation: {x: 0, y: 0, z: 0}
     slotCost: 2
   - nameKo: "\uACE0\uAE09 \uAC04\uC2DD \uC138\uD2B8"
     category: 0
@@ -84,6 +91,7 @@ MonoBehaviour:
     unlockLevel: 6
     propPrefab: {fileID: 919132149155446097, guid: ad820fbfe621ab0459f47e3950507375, type: 3}
     icon: {fileID: 2800000, guid: 061803df6f38ae945b30f6f35d019800, type: 3}
+    iconRotation: {x: 0, y: 0, z: 0}
     slotCost: 1
   - nameKo: "\uC218\uC785 \uC0AC\uB8CC"
     category: 0
@@ -93,6 +101,7 @@ MonoBehaviour:
     unlockLevel: 8
     propPrefab: {fileID: 919132149155446097, guid: f544226a3e03fb946896122c6637b2a8, type: 3}
     icon: {fileID: 2800000, guid: a1d846ac5ad6df84a86595edfed39d23, type: 3}
+    iconRotation: {x: 0, y: 0, z: 0}
     slotCost: 2
   - nameKo: "\uD504\uB9AC\uBBF8\uC5C4 \uBBF8\uC6A9\uD0A4\uD2B8"
     category: 2
@@ -102,4 +111,65 @@ MonoBehaviour:
     unlockLevel: 8
     propPrefab: {fileID: 919132149155446097, guid: b0974393f522f654db2c23971cf5d28f, type: 3}
     icon: {fileID: 2800000, guid: 983ebb131a740054d8d8b1532f0d5564, type: 3}
+    iconRotation: {x: 0, y: 0, z: 0}
+    slotCost: 1
+  - nameKo: "\uAC15\uC544\uC9C0 \uD1B5\uC870\uB9BC"
+    category: 0
+    wholesale: 35
+    retail: 75
+    demandWeight: 3
+    unlockLevel: 6
+    propPrefab: {fileID: 919132149155446097, guid: 31b6289242473664ba6b114065f7a4ad, type: 3}
+    icon: {fileID: 2800000, guid: f70f17bcf7f403744ae9bfb70a7d1266, type: 3}
+    iconRotation: {x: 0, y: 0, z: 0}
+    slotCost: 1
+  - nameKo: "\uBF08\uB2E4\uADC0 \uC7A5\uB09C\uAC10"
+    category: 1
+    wholesale: 40
+    retail: 85
+    demandWeight: 3
+    unlockLevel: 6
+    propPrefab: {fileID: 919132149155446097, guid: b0086d32e15235e42bc7aa52bcab9099, type: 3}
+    icon: {fileID: 2800000, guid: 26f5c8592fd467c41a8273006c63438b, type: 3}
+    iconRotation: {x: 0, y: 0, z: 0}
+    slotCost: 1
+  - nameKo: "\uC0AC\uB8CC \uADF8\uB987"
+    category: 1
+    wholesale: 50
+    retail: 105
+    demandWeight: 2
+    unlockLevel: 7
+    propPrefab: {fileID: 919132149155446097, guid: 89c209135e6b2154a987864ae11eea64, type: 3}
+    icon: {fileID: 2800000, guid: 4fe2cc2ceeaa788459dff540f1169a32, type: 3}
+    iconRotation: {x: 0, y: 0, z: 0}
+    slotCost: 1
+  - nameKo: "\uACE0\uAE30 \uC778\uD615"
+    category: 1
+    wholesale: 55
+    retail: 115
+    demandWeight: 2
+    unlockLevel: 8
+    propPrefab: {fileID: 919132149155446097, guid: 97a0256dc06b5dd44a63ef20d1efe12f, type: 3}
+    icon: {fileID: 2800000, guid: 0fb904d275bd4f34bbd3aa65e18ce073, type: 3}
+    iconRotation: {x: 0, y: 0, z: 0}
+    slotCost: 1
+  - nameKo: "\uACE0\uC591\uC774 \uD1B5\uC870\uB9BC"
+    category: 0
+    wholesale: 38
+    retail: 80
+    demandWeight: 2
+    unlockLevel: 9
+    propPrefab: {fileID: 919132149155446097, guid: 0cde1fb1e4a3ad24ca40d33f4304783b, type: 3}
+    icon: {fileID: 2800000, guid: 557dd50cb68dc074eafbf84707a1c0bb, type: 3}
+    iconRotation: {x: 0, y: 0, z: 0}
+    slotCost: 1
+  - nameKo: "\uB300\uC6A9\uB7C9 \uD1B5\uC870\uB9BC"
+    category: 0
+    wholesale: 65
+    retail: 135
+    demandWeight: 2
+    unlockLevel: 10
+    propPrefab: {fileID: 919132149155446097, guid: 6d566f0fb4a0c6647b18fe1b59968bb5, type: 3}
+    icon: {fileID: 2800000, guid: ce7f222eac27df741995b09411b762df, type: 3}
+    iconRotation: {x: 0, y: 0, z: 0}
     slotCost: 1

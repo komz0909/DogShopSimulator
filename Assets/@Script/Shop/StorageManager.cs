@@ -15,12 +15,18 @@ namespace DogShop.Shop
         /// 선반을 두 줄로 세운다. 캐릭터 키만큼 키우면서 폭도 0.99m 가 되어
         /// 한 줄에 10개를 세우면 창고 폭 8m 를 넘는다.
         /// </summary>
-        const float BackRowZ = 9.3f;
-        const float FrontRowZ = 8.0f;
-        const int PerRow = 5;
+        /// <summary>
+        /// 선반 줄의 z. 상품이 16종으로 늘면서 두 줄(10자리)로는 모자라 세 줄이 됐다 —
+        /// 자리가 없으면 새 선반이 앞 선반 위에 겹쳐 생긴다.
+        /// 창고는 z 5.8~10 이므로 6.7 이 앞쪽 한계다.
+        /// </summary>
+        static readonly float[] RowZ = { 9.3f, 8.0f, 6.7f };
+        const int PerRow = 6;
 
         const float FirstRackX = 0.9f;
-        const float RackSpacing = 1.35f;
+
+        /// <summary>줄당 6개가 창고 폭 8m 안에 들어가는 간격. 0.9 + 5×1.25 = 7.15m.</summary>
+        const float RackSpacing = 1.25f;
 
         /// <summary>
         /// 선반 높이의 절반. 프리팹 콜라이더가 중심 기준(-0.45~+0.45)이라
@@ -89,7 +95,7 @@ namespace DogShop.Shop
 
                 GameObject instance = Instantiate(rackPrefab, transform);
                 int column = i % PerRow;
-                float rowZ = i < PerRow ? BackRowZ : FrontRowZ;
+                float rowZ = RowZ[Mathf.Min(i / PerRow, RowZ.Length - 1)];
                 instance.transform.localPosition = new Vector3(FirstRackX + column * RackSpacing, RackHalfHeight, rowZ);
                 instance.name = "Rack_" + catalog.Get(i).nameKo;
 

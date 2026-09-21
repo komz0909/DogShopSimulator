@@ -80,7 +80,7 @@ namespace DogShop.EditorTools
                 GameObject source = catalog.Get(i).propPrefab;
                 if (source == null) { missing++; continue; }
 
-                string path = Shoot(source);
+                string path = Shoot(source, null, catalog.Get(i).iconRotation);
                 if (path == null) { missing++; continue; }
 
                 imported.Add(path);
@@ -100,7 +100,7 @@ namespace DogShop.EditorTools
                 GameObject source = catalog.Get(i).prefab;
                 if (source == null) { missing++; continue; }
 
-                string path = Shoot(source, catalog.Get(i).material, catalog.Get(i).iconYaw);
+                string path = Shoot(source, catalog.Get(i).material, catalog.Get(i).iconRotation);
                 if (path == null) { missing++; continue; }
 
                 imported.Add(path);
@@ -111,12 +111,15 @@ namespace DogShop.EditorTools
 
         // ---- 촬영 ----
 
-        static string Shoot(GameObject source, Material material = null, float yaw = 0f)
+        static string Shoot(GameObject source, Material material, Vector3 extraRotation)
         {
             GameObject instance = Object.Instantiate(source);
             instance.hideFlags = HideFlags.HideAndDontSave;
             instance.transform.position = Stage;
-            instance.transform.rotation = Quaternion.Euler(0f, yaw, 0f);
+
+            // 프리팹이 들고 있는 회전을 <b>덮어쓰지 않고 그 위에 얹는다</b>. 프롭 프리팹의 루트는
+            // (90,0,0) 인데 이게 FBX 축 보정이라, identity 로 밀면 물건이 전부 앞으로 넘어진다.
+            instance.transform.rotation = Quaternion.Euler(extraRotation) * instance.transform.rotation;
 
             try
             {

@@ -63,6 +63,13 @@ namespace DogShop.Data
         public Texture2D icon;
 
         /// <summary>
+        /// 사진 찍을 때 <b>프리팹 회전에 얹을</b> 각도. 프리팹 루트의 (90,0,0)은 FBX 축 보정이라
+        /// 덮어쓰면 물건이 앞으로 넘어진다 — 여기 값은 그 위에 곱해진다.
+        /// 목줄처럼 눕혀야 잘 보이는 것, 장난감처럼 가로로 돌려야 하는 것에 쓴다.
+        /// </summary>
+        public Vector3 iconRotation;
+
+        /// <summary>
         /// 운반 상자에서 차지하는 칸 수. 상자는 8칸이므로 1칸 상품은 8개, 2칸 상품은 4개까지 든다.
         /// AIPropWiring이 프롭 크기에서 자동으로 채운다(최대 변 0.40m 이상이면 2칸).
         /// </summary>

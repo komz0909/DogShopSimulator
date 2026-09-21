@@ -29,10 +29,11 @@ namespace DogShop.Data
         public Texture2D icon;
 
         /// <summary>
-        /// 사진 찍을 때 돌려놓을 각도. 기본 각도에서는 모델의 뒷면이 카메라를 보는 경우가 있다 —
-        /// 아일랜드 진열대는 뼈다귀 그림이 한쪽 면에만 있어서 180도 돌려야 그림이 보인다.
+        /// 사진 찍을 때 <b>모델 회전에 얹을</b> 각도. 기본 각도에서는 뒷면이 카메라를 보는
+        /// 모델이 있다 — 아일랜드 진열대는 뼈다귀 그림이 한쪽 면에만 있어 180도 돌려야 보인다.
+        /// 덮어쓰지 않고 곱하므로 FBX 축 보정이 살아 있다.
         /// </summary>
-        public float iconYaw;
+        public Vector3 iconRotation;
 
         /// <summary>창에 한 줄 붙는 설명. 무엇에 쓰는 물건인지.</summary>
         public string note = "";
