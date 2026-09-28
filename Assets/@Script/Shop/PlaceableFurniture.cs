@@ -211,7 +211,47 @@ namespace DogShop.Shop
             position = floorPoint + normal * (RawHalfExtents.z - centerZ - gap);
             position.y = floorPoint.y + BottomOffset;
 
+            // 등 뒤가 <b>폭 전체에</b> 벽이어야 한다. 광선 하나로는 벽 <b>끝의 옆면</b>을 맞고도
+            // 붙었다고 보게 되는데, 그러면 가구가 벽을 벗어나 문간에 선다 —
+            // 28차 측정에서 봇이 산 벽 진열대가 정확히 출입구(x 3.0~5.0)를 막고 섰다.
+            return BackedByWall(position, rotation, normal);
+        }
+
+        /// <summary>등 뒤 좌·중·우가 모두 벽인가. 한 군데라도 비면 그 자리는 벽이 아니다.</summary>
+        bool BackedByWall(Vector3 position, Quaternion rotation, Vector3 normal)
+        {
+            Vector3 center = CenterAt(position, rotation);
+            Vector3 right = rotation * Vector3.right;
+
+            // 뒷면에서 살짝 더 뒤. 벽 두께(0.2) 안쪽이라 벽이 있으면 반드시 걸린다
+            float back = RawHalfExtents.z + 0.06f;
+
+            for (int i = -1; i <= 1; i++)
+            {
+                Vector3 probe = center - normal * back + right * (RawHalfExtents.x * 0.85f * i);
+                probe.y = position.y + Mathf.Max(0.2f, RawHalfExtents.y * 0.5f);
+
+                if (!SolidAt(probe)) return false;
+            }
             return true;
+        }
+
+        /// <summary>그 점에 벽 같은 굳은 것이 있는가. 가구·사람·상자는 벽이 아니다.</summary>
+        bool SolidAt(Vector3 probe)
+        {
+            Collider[] hits = Physics.OverlapSphere(probe, 0.1f, ~0, QueryTriggerInteraction.Ignore);
+
+            for (int i = 0; i < hits.Length; i++)
+            {
+                if (hits[i].transform.IsChildOf(transform)) continue;
+                if (hits[i].GetComponentInParent<PlaceableFurniture>() != null) continue;
+                if (hits[i].GetComponentInParent<CharacterController>() != null) continue;
+                if (hits[i].GetComponentInParent<UnityEngine.AI.NavMeshAgent>() != null) continue;
+                if (hits[i].attachedRigidbody != null) continue;
+
+                return true;
+            }
+            return false;
         }
 
         /// <summary>

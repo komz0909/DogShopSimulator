@@ -53,6 +53,16 @@ namespace DogShop.Shop
         /// <summary>손님이 실제로 서는 자리. 진열대 중심은 콜라이더 안이라 도달할 수 없다.</summary>
         public Vector3 ApproachPoint { get; private set; }
 
+        /// <summary>
+        /// 손님이 이 진열대 앞까지 올 수 있는가.
+        ///
+        /// 창고·옆방·가게 앞마당은 <b>직원 구역</b>이라 손님이 못 들어간다. 거기 세워 둔
+        /// 진열대에 물건을 올리면 손님은 그 상품을 사러 왔다가 길을 못 찾고 그냥 나간다 —
+        /// 28차 측정에서 봇이 산 진열대가 배달 자리(가게 앞)에 그대로 서 있었고,
+        /// 그 세 상품 때문에 손실률이 22.4%까지 올랐다.
+        /// </summary>
+        public bool CustomersCanReach { get; private set; } = true;
+
         public int SlotCount => slotHeights.Length;
         public int CapacityPerSlot => capacityPerSlot;
 
@@ -131,6 +141,16 @@ namespace DogShop.Shop
                 return false;
             }
 
+            // 빈 칸이라고 아무나 가져가지 못한다 — 한 칸도 못 받은 상품이 먼저다
+            if (product[slot] < 0 && ShelfManager.Instance != null
+                && !ShelfManager.Instance.CanClaimEmptySlot(productIndex, acceptedBulk))
+            {
+                string waiting = ShelfManager.Instance.WaitingName(acceptedBulk);
+                reason = (waiting != null ? waiting : "아직 한 칸도 못 받은 상품")
+                       + " 자리다 — 진열대를 더 놓아야 한다";
+                return false;
+            }
+
             if (stock[slot] >= CapacityFor(productIndex)) { reason = "이 칸이 가득 찼다"; return false; }
 
             reason = null;
@@ -167,15 +187,30 @@ namespace DogShop.Shop
             return sum;
         }
 
-        /// <summary>그 상품을 더 받을 수 있는 여유. 빈 칸도 여유로 센다.</summary>
-        public int RoomFor(int productIndex)
+        /// <summary>
+        /// <b>이미 그 상품이 올려진</b> 칸에 남은 여유. 빈 칸은 세지 않는다 —
+        /// 빈 칸을 새로 가져가도 되는지는 진열대 하나가 아니라 가게 전체를 봐야 정해지므로
+        /// <see cref="ShelfManager.RoomFor"/>가 두 몫을 합친다.
+        /// </summary>
+        public int RoomInOwned(int productIndex)
         {
             if (!AcceptsBulk(productIndex)) return 0;
 
             int room = 0;
             for (int i = 0; i < SlotCount; i++)
-                if (product[i] == productIndex || product[i] < 0) room += CapacityFor(productIndex) - stock[i];
+                if (product[i] == productIndex) room += CapacityFor(productIndex) - stock[i];
             return room;
+        }
+
+        /// <summary>이 진열대에서 그 상품이 쓸 수 있는 빈 칸 수. 가져가도 되는지는 여기서 안 따진다.</summary>
+        public int EmptySlotsFor(int productIndex)
+        {
+            if (!AcceptsBulk(productIndex)) return 0;
+
+            int count = 0;
+            for (int i = 0; i < SlotCount; i++)
+                if (product[i] < 0) count++;
+            return count;
         }
 
         /// <summary>손님 구매. 그 상품이 있는 칸에서 1개 뺀다.</summary>
@@ -196,13 +231,24 @@ namespace DogShop.Shop
             return true;
         }
 
-        /// <summary>그 상품을 놓을 수 있는 첫 칸. 이미 같은 상품이 있는 칸을 먼저 본다.</summary>
+        /// <summary>
+        /// 그 상품을 놓을 수 있는 첫 칸. 이미 같은 상품이 있는 칸을 먼저 본다.
+        ///
+        /// 빈 칸을 <b>새로</b> 가져가는 건 아무 때나 되지 않는다. 예전에는 됐고, 그래서 수요 큰
+        /// 기본 사료가 칸을 둘셋 먹는 동안 나머지 상품은 한 칸도 못 받았다. 진열되지 않은 상품은
+        /// 손님조차 생기지 않으므로(<see cref="CustomerManager"/>의 소환 가드) 칸이 상품 수만큼
+        /// 있어도 손실률이 37%까지 올랐다(25차 측정). 판정은 가게 전체를 봐야 하므로
+        /// <see cref="ShelfManager.CanClaimEmptySlot"/>에 맡긴다.
+        /// </summary>
         public int FirstSlotFor(int productIndex)
         {
             if (!AcceptsBulk(productIndex)) return -1;
 
             for (int i = 0; i < SlotCount; i++)
                 if (product[i] == productIndex && stock[i] < CapacityFor(productIndex)) return i;
+
+            if (ShelfManager.Instance != null
+                && !ShelfManager.Instance.CanClaimEmptySlot(productIndex, acceptedBulk)) return -1;
 
             for (int i = 0; i < SlotCount; i++)
                 if (product[i] < 0) return i;
@@ -236,8 +282,7 @@ namespace DogShop.Shop
 
         public void Bind(float proximityMultiplier, Vector3 approachPoint)
         {
-            ProximityMultiplier = proximityMultiplier;
-            ApproachPoint = approachPoint;
+            SetApproach(approachPoint, proximityMultiplier);
         }
 
         /// <summary>옮겨 놓은 뒤 손님이 설 자리를 다시 잡는다.</summary>
@@ -245,6 +290,10 @@ namespace DogShop.Shop
         {
             ApproachPoint = approachPoint;
             ProximityMultiplier = proximityMultiplier;
+
+            UnityEngine.AI.NavMeshHit hit;
+            CustomersCanReach = UnityEngine.AI.NavMesh.SamplePosition(
+                approachPoint, out hit, 1f, Customer.WalkableAreas);
         }
 
         // ---- 세이브 ----

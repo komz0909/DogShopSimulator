@@ -39,6 +39,10 @@ namespace DogShop.Core
         public int day;
         public int shopLevel = 1;
         public int trainingSlotsUsed;
+
+        /// <summary>오늘 이미 쓴 훈련(하루 쿨타임). 없으면 저장·로드만으로 쿨이 풀린다.</summary>
+        public bool[] trainingUsedToday = new bool[0];
+
         public int dirtSpots;
 
         /// <summary>하루 중 시각과 마감 여부. 없으면 로드가 항상 09:00으로 되돌아간다.</summary>

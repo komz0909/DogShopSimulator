@@ -16,81 +16,81 @@ MonoBehaviour:
   - requiredReputation: 0
     upgradeCost: 0
     customersPerDay: 6
-    basketPriceTarget: 69
-    dogSlots: 2
+    basketPriceTarget: 95
     trainingSlots: 2
     heroStatGate: 0
+    floorWidth: 8
     unlockKo: "\uC0AC\uB8CC\xB7\uC6A9\uD488"
   - requiredReputation: 12
     upgradeCost: 250
     customersPerDay: 8
-    basketPriceTarget: 79
-    dogSlots: 2
+    basketPriceTarget: 110
     trainingSlots: 2
     heroStatGate: 0
+    floorWidth: 8
     unlockKo: "\uC57D\uD488 \uCE74\uD14C\uACE0\uB9AC"
   - requiredReputation: 28
     upgradeCost: 450
     customersPerDay: 10
-    basketPriceTarget: 83
-    dogSlots: 2
+    basketPriceTarget: 115
     trainingSlots: 3
     heroStatGate: 0
+    floorWidth: 8
     unlockKo: "\uD6C8\uB828 \uC2AC\uB86F +1"
   - requiredReputation: 50
     upgradeCost: 650
     customersPerDay: 12
-    basketPriceTarget: 90
-    dogSlots: 2
+    basketPriceTarget: 125
     trainingSlots: 4
     heroStatGate: 0
+    floorWidth: 9.5
     unlockKo: "\uAC04\uC2DD\xB7\uC7A5\uB09C\uAC10 \xB7 \uD6C8\uB828 \uC2AC\uB86F
       +1"
   - requiredReputation: 80
     upgradeCost: 900
     customersPerDay: 15
-    basketPriceTarget: 90
-    dogSlots: 2
+    basketPriceTarget: 125
     trainingSlots: 4
     heroStatGate: 0
+    floorWidth: 9.5
     unlockKo: "\uC804\uBB38 \uD6C8\uB828 \uD574\uAE08"
   - requiredReputation: 118
     upgradeCost: 1200
     customersPerDay: 18
-    basketPriceTarget: 109
-    dogSlots: 2
+    basketPriceTarget: 155
     trainingSlots: 4
     heroStatGate: 150
+    floorWidth: 9.5
     unlockKo: "\uACE0\uAE09 \uC0AC\uB8CC\xB7\uAC04\uC2DD \uC138\uD2B8"
   - requiredReputation: 165
     upgradeCost: 1600
     customersPerDay: 21
-    basketPriceTarget: 109
-    dogSlots: 2
+    basketPriceTarget: 155
     trainingSlots: 4
     heroStatGate: 0
+    floorWidth: 11
     unlockKo: "\uCC3D\uACE0 \uD655\uC7A5"
   - requiredReputation: 222
     upgradeCost: 2100
     customersPerDay: 24
-    basketPriceTarget: 133
-    dogSlots: 2
+    basketPriceTarget: 185
     trainingSlots: 4
     heroStatGate: 0
+    floorWidth: 11
     unlockKo: "\uB9C8\uC2A4\uD130 \uD6C8\uB828 \uD574\uAE08"
   - requiredReputation: 290
     upgradeCost: 2700
     customersPerDay: 27
-    basketPriceTarget: 133
-    dogSlots: 2
+    basketPriceTarget: 185
     trainingSlots: 4
     heroStatGate: 400
+    floorWidth: 12
     unlockKo: "\uB2E8\uACE8 \uD655\uB300 \u2014 \uC190\uB2D8 +3"
   - requiredReputation: 420
     upgradeCost: 3400
     customersPerDay: 30
-    basketPriceTarget: 133
-    dogSlots: 2
+    basketPriceTarget: 185
     trainingSlots: 5
     heroStatGate: 0
+    floorWidth: 12
     unlockKo: "\uD6C8\uB828\uC804\uBB38\uAC00 \u2014 \uD6C8\uB828 \uC2AC\uB86F +1"

@@ -72,14 +72,15 @@ namespace DogShop.Shop
                 return sum;
             }
         }
+        /// <summary>
+        /// 그 상품을 더 진열할 수 있는 여유. 빈 칸을 전부 세지 않는다 —
+        /// 한 칸도 못 받은 상품이 남아 있으면 그 칸은 내 것이 아니다
+        /// (<see cref="ShelfManager.RoomFor"/>).
+        /// </summary>
         public int ShelfRoom(int index)
         {
             ShelfManager shelves = ShelfManager.Instance;
-            if (shelves == null) return 0;
-
-            int room = 0;
-            for (int i = 0; i < shelves.Count; i++) room += shelves.Get(i).RoomFor(index);
-            return room;
+            return shelves != null ? shelves.RoomFor(index) : 0;
         }
 
         /// <summary>오늘 발주가 즉시 입고되는가. 승급한 날 하루만 참이다.</summary>
@@ -122,6 +123,25 @@ namespace DogShop.Shop
                 cost += customersPerDay * (p.demandWeight / (float)totalWeight) * p.wholesale;
             }
             return Mathf.CeilToInt(cost);
+        }
+
+        /// <summary>
+        /// 그 레벨에서 <b>새로 열리는</b> 상품을 처음 한 번 채우는 데 드는 도매 합계.
+        ///
+        /// 승급하면 없던 상품이 생기고, 그건 진짜로 한 번 목돈이 든다. 반면
+        /// <see cref="DailyRestockCost"/> 는 <b>이미 쌓아 둔 상품까지</b> 매일 여유분(+2)째로
+        /// 새로 사는 값을 매겨, 상품이 늘수록 승급 문턱만 부풀린다 —
+        /// 해금 사다리를 앞당길 때마다 봇이 그 레벨에 묶인 원인이 이것이다(18·24·31차).
+        /// </summary>
+        public int FirstStockCost(int level, int customersPerDay)
+        {
+            int total = 0;
+            for (int i = 0; i < catalog.Count; i++)
+            {
+                if (catalog.Get(i).unlockLevel != level) continue;
+                total += DemandTarget(i, level, customersPerDay) * catalog.Get(i).wholesale;
+            }
+            return total;
         }
 
         /// <summary>그 상품이 하루에 몇 개 팔릴지 — 손님 수 × (수요가중치 / 전체 가중치) + 여유 1.</summary>

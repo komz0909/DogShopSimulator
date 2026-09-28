@@ -26,8 +26,14 @@ namespace DogShop.Debugging
     /// </summary>
     public class EconomyMonitor : MonoBehaviour
     {
-        /// <summary>Plan.md 10레벨 곡선의 가정. 여기만 고치면 지표 전체가 따라온다.</summary>
-        public const float MarginRate = 0.5f;
+        /// <summary>
+        /// Plan.md 10레벨 곡선의 가정. 여기만 고치면 지표 전체가 따라온다.
+        ///
+        /// 카탈로그 실측치다. 판매가를 도매의 2.07배에서 <b>2.90배</b>로 올리면서
+        /// 0.5 → 0.655 가 됐다(2026-09-21). 이 값이 실제 마진과 어긋나면
+        /// A_max 가 통째로 틀어져 감시 지표를 못 믿는다.
+        /// </summary>
+        public const float MarginRate = 0.655f;
 
         /// <summary>
         /// 반려견 유지비. 판매견을 없애 <b>항상 1마리</b>다 —
@@ -53,16 +59,39 @@ namespace DogShop.Debugging
             Instance = this;
         }
 
+        /// <summary>
+        /// 문 열 때 잰 진열 상태. <b>마감 뒤에 세면 쓸모가 없다</b> —
+        /// 잘 팔린 날일수록 칸이 비어 "한 종도 진열 안 됨"으로 찍힌다(30차 D27·D29).
+        /// 알고 싶은 것은 "오늘 장사를 몇 종으로 시작했는가"다.
+        /// </summary>
+        int openSlots, openShown, openStranded;
+
         void Start()
         {
             TimeManager.Instance.OnDayEnded += AppendRow;
+            TimeManager.Instance.OnDayStarted += CaptureShelves;
+
+            if (ShopHours.Instance != null) ShopHours.Instance.OnPhaseChanged += HandlePhase;
+            CaptureShelves();
         }
 
         void OnDestroy()
         {
-            if (TimeManager.Instance != null) TimeManager.Instance.OnDayEnded -= AppendRow;
+            if (TimeManager.Instance != null)
+            {
+                TimeManager.Instance.OnDayEnded -= AppendRow;
+                TimeManager.Instance.OnDayStarted -= CaptureShelves;
+            }
+            if (ShopHours.Instance != null) ShopHours.Instance.OnPhaseChanged -= HandlePhase;
             if (Instance == this) Instance = null;
         }
+
+        void HandlePhase()
+        {
+            if (ShopHours.Instance != null && ShopHours.Instance.Current == ShopHours.Phase.Open) CaptureShelves();
+        }
+
+        void CaptureShelves() => CountShelves(out openSlots, out openShown, out openStranded);
 
         // ---- 지표 ----
 
@@ -158,7 +187,18 @@ namespace DogShop.Debugging
             Append(row, hero != null ? hero.Beauty : 0);
             Append(row, hero != null ? hero.Training : 0);
             Append(row, hero != null ? hero.GrowthTotal : 0);
-            Append(row, hero != null ? hero.UpkeepAverage : 0, last: true);
+            Append(row, hero != null ? hero.UpkeepAverage : 0);
+
+            // 문 열 때의 진열 상태. 28차 측정에서 봇이 산 진열대가 손님이 못 가는 가게 앞에
+            // 서 있었는데 매출·손실률만 보고는 그걸 알 수 없었다 — 몇 종으로 장사를 시작했는지 적는다
+            Append(row, openSlots);
+            Append(row, openShown);
+            Append(row, openStranded);
+
+            // 하루 쿨타임이 생긴 뒤로는 "슬롯 × 최고가"가 상한이 아니다.
+            // 훈련이 실제로 흡수할 수 있는 돈과, 그날 쓸 수 있었던 돈을 나란히 남긴다
+            Append(row, tm.DailyCapacity);
+            Append(row, AMaxActual, last: true);
 
             try
             {
@@ -179,7 +219,36 @@ namespace DogShop.Debugging
             + "dogs,cleanliness,slotsTotal,slotsUsed,spentTraining,spentBeauty,"
             + "topCostTraining,topCostBeauty,aMaxTarget,aMaxActual,"
             + "ratioTrainTarget,ratioTrainActual,ratioBeautyTarget,ratioBeautyActual,"
-            + "heroBeauty,heroTraining,heroGrowthTotal,heroUpkeep";
+            + "heroBeauty,heroTraining,heroGrowthTotal,heroUpkeep,"
+            + "openSlots,openShown,openStranded,trainCapacity,aMaxToday";
+
+        /// <summary>
+        /// 진열 칸 수와, 해금 상품 중 <b>손님이 닿는 자리에</b> 올라와 있는 종수를 센다.
+        /// 창고·가게 앞처럼 손님이 못 가는 곳의 진열대는 세지 않는다 — 거기 있는 상품은
+        /// 진열된 것이 아니다.
+        /// </summary>
+        static void CountShelves(out int slots, out int shown, out int stranded)
+        {
+            slots = 0;
+            shown = 0;
+            stranded = 0;
+
+            ShelfManager shelves = ShelfManager.Instance;
+            InventoryManager inv = InventoryManager.Instance;
+            if (shelves == null || inv == null) return;
+
+            for (int i = 0; i < shelves.Count; i++)
+                if (shelves.Get(i).CustomersCanReach) slots += shelves.Get(i).SlotCount;
+
+            int level = ShopLevelManager.Instance != null ? ShopLevelManager.Instance.Level : 1;
+            for (int p = 0; p < inv.Catalog.Count; p++)
+            {
+                if (inv.Catalog.Get(p).unlockLevel > level) continue;
+
+                if (shelves.FindFor(p) != null) shown++;
+                else stranded++;
+            }
+        }
 
         static void Append(StringBuilder row, int value, bool last = false)
         {

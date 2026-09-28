@@ -101,6 +101,15 @@ namespace DogShop.Player
             // 물건이 올려진 진열대는 못 옮긴다. 옮기려면 상자로 다 비워야 한다 —
             // 진열을 지우고 옮기면 재고가 어디로 갔는지 설명할 방법이 없고,
             // 그 수고가 배치를 함부로 바꾸지 않게 만드는 비용이기도 하다.
+            // 계산 중인 줄을 두고 계산대를 들면 손님이 갈 곳을 잃는다.
+            // 진열대를 비워야 옮길 수 있는 것과 같은 규칙이다
+            if (target.GetComponent<ShopCounter>() != null
+                && CustomerManager.Instance != null && CustomerManager.Instance.QueueLength > 0)
+            {
+                reason = "줄 선 손님 " + CustomerManager.Instance.QueueLength + "명을 먼저 받을 것";
+                return;
+            }
+
             ShelfTable shelf = target.GetComponent<ShelfTable>();
             if (shelf != null)
             {
@@ -188,9 +197,18 @@ namespace DogShop.Player
             PlaceableFurniture placed = held;
             Release();
 
+            // 계산대에는 직원 구역(NavMeshModifierVolume)이 딸려 있는데, 그건 <b>구울 때만</b>
+            // 반영된다. 옮겨만 놓고 다시 굽지 않으면 손님이 계산대 뒤로 걸어 들어온다.
+            if (placed.GetComponent<ShopCounter>() != null && ShopSpace.Instance != null)
+                ShopSpace.Instance.Rebake();
+
             // 콜라이더를 다시 켠 뒤라야 NavMesh가 깎이고, 그래야 설 자리를 제대로 찾는다.
             // 창고 선반은 손님이 가지 않으므로 접근점이 필요 없다.
             if (ShelfManager.Instance != null) ShelfManager.Instance.RefreshApproach(placed);
+
+            // 옮긴 계산대 앞으로 줄을 다시 세운다
+            if (placed.GetComponent<ShopCounter>() != null && CustomerManager.Instance != null)
+                CustomerManager.Instance.RefreshQueue();
         }
 
         void Cancel()

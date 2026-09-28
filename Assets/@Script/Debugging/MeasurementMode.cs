@@ -40,6 +40,15 @@ namespace DogShop.Debugging
         /// <summary>마감 이벤트는 전단지(명성 +4)로 고정한다 — 난수를 하나 줄인다.</summary>
         const int FlyerCard = 1;
 
+        /// <summary>
+        /// 봇이 여기까지만 승급한다. 0이면 제한 없음.
+        ///
+        /// 진단용 손잡이다. 봇은 올릴 수 있으면 무조건 올리는데, 승급비를 모으는 동안
+        /// 훈련을 건너뛴다 — 32차에서 30일 중 17일이 훈련 0이었다. 그게 <b>봇의 정책</b> 때문인지
+        /// <b>상품이 늘어 운전자본이 묶인</b> 탓인지는 승급만 멈춰 보면 갈린다.
+        /// </summary>
+        [SerializeField] int stopUpgradingAt;
+
         public static MeasurementMode Instance { get; private set; }
 
         public bool Active { get; private set; }
@@ -164,6 +173,10 @@ namespace DogShop.Debugging
             // 안 쓴 돈 11,417원이 그대로 쌓였다.
             HaulDelivery();
 
+            // 어젯밤 배달 온 가구를 매장 안으로 들여놓는다. 진열보다 먼저여야
+            // 그날 아침부터 손님이 닿는 자리에서 팔린다
+            HaulFurniture();
+
             CareHero();
 
             // 업그레이드가 발주보다 먼저다. 뒤에 두면 발주로 돈을 쓴 직후,
@@ -186,8 +199,14 @@ namespace DogShop.Debugging
         /// 칸이 모자라면 해금된 상품이 그대로 손님 감소가 된다. 사람은 이걸 보고 가구를 사지만
         /// 봇에게는 규칙이 필요하다.
         ///
-        /// 싼 것부터 하나씩만 산다 — 한 번에 여러 개를 사면 그날 재고 살 돈이 사라진다.
-        /// 배달은 다음날이므로 급하게 몰아 살 이유도 없다.
+        /// 싼 것부터 사되 <b>모자란 만큼 사들인다</b>. 하루 하나씩만 사던 때는 승급 한 번에
+        /// 상품이 3종씩 늘어나는 속도를 따라잡지 못해, L7~L9 에서 매일 두세 종이 자리를 못 받고
+        /// 손실률이 15%에 머물렀다(35차). 한 번에 여러 개를 사면 재고 살 돈이 마른다는 것이
+        /// 하나씩 사던 이유였는데, 그 판정은 아래 소진액 문턱이 이미 하고 있다.
+        ///
+        /// 다만 <b>부피가 모자란 쪽</b>을 산다. 칸 총수만 세면 제일 싼 기본 벽 진열대(260원,
+        /// 작은 것 전용)만 계속 사게 되는데, 사료·침대 같은 큰 물건은 L8 에 다섯 종이 되도록
+        /// 받아 줄 칸이 아일랜드 진열대 둘뿐이라 절반이 영영 진열되지 못한다.
         /// </summary>
         void BuyShelfIfShort()
         {
@@ -196,31 +215,182 @@ namespace DogShop.Debugging
             if (shop == null || shop.Catalog == null || shelves == null) return;
 
             int level = ShopLevelManager.Instance.Level;
-            int unlocked = 0;
+            int wantSmall = 0, wantBulky = 0;
             for (int i = 0; i < InventoryManager.Instance.Catalog.Count; i++)
-                if (InventoryManager.Instance.Catalog.Get(i).unlockLevel <= level) unlocked++;
+            {
+                if (InventoryManager.Instance.Catalog.Get(i).unlockLevel > level) continue;
+                if (CarryCrate.SlotCostOf(i) == 2) wantBulky++; else wantSmall++;
+            }
 
-            int slots = 0;
-            for (int i = 0; i < shelves.Count; i++) slots += shelves.Get(i).SlotCount;
+            int haveAny = 0, haveSmall = 0, haveBulky = 0;
+            for (int i = 0; i < shelves.Count; i++) CountSlots(shelves.Get(i), ref haveAny, ref haveSmall, ref haveBulky);
 
             // 오는 중인 것도 자리로 친다. 안 그러면 배달 기다리는 동안 매일 하나씩 더 산다
-            if (slots + shop.OrderedCount * 2 >= unlocked) return;
+            for (int i = 0; i < shop.OrderedCount; i++)
+            {
+                GameObject prefab = shop.Catalog.Get(shop.OrderedAt(i)).placedPrefab;
+                if (prefab == null) continue;
+                CountSlots(prefab.GetComponent<ShelfTable>(), ref haveAny, ref haveSmall, ref haveBulky);
+            }
+
+            // 모자란 만큼 사들인다. 한 번 사면 칸이 늘어나므로 다시 세어 가며 반복한다
+            int guard = 0;
+            while (guard++ < 8 && BuyOneShelf(shop, wantSmall, wantBulky, ref haveAny, ref haveSmall, ref haveBulky)) { }
+        }
+
+        /// <summary>모자란 부피의 진열대를 하나 산다. 샀으면 참.</summary>
+        bool BuyOneShelf(FurnitureShop shop, int wantSmall, int wantBulky,
+                         ref int haveAny, ref int haveSmall, ref int haveBulky)
+        {
+            int shortSmall = Mathf.Max(0, wantSmall - haveSmall);
+            int shortBulky = Mathf.Max(0, wantBulky - haveBulky);
+            if (shortSmall + shortBulky <= haveAny) return false;   // 아무거나 받는 칸이 메운다
+
+            // 더 급한 쪽을 산다. 같으면 큰 물건 쪽 — 그쪽 상품이 늘 더 비싸다
+            int needBulk = shortBulky >= shortSmall ? 2 : 1;
 
             int cheapest = -1;
             for (int i = 0; i < shop.Catalog.Count; i++)
             {
                 string reason;
                 if (!shop.CanBuy(i, out reason)) continue;
+
+                GameObject prefab = shop.Catalog.Get(i).placedPrefab;
+                ShelfTable table = prefab != null ? prefab.GetComponent<ShelfTable>() : null;
+                if (table == null || table.SlotCount <= 0) continue;
+                if (table.AcceptedBulk != 0 && table.AcceptedBulk != needBulk) continue;
+
                 if (cheapest < 0 || shop.Catalog.Get(i).price < shop.Catalog.Get(cheapest).price) cheapest = i;
             }
-            if (cheapest < 0) return;
+            if (cheapest < 0) return false;
 
             // 가구를 사고 나서도 그날 팔려 나갈 만큼은 살 수 있어야 한다.
             // 여기서 DailyRestockCost 를 쓰면 <b>진열하지도 못하는 상품까지 합산</b>해서
             // 문턱이 올라가고, 그 바람에 정작 칸을 늘려 줄 진열대를 영영 못 산다 (24차: 손실률 32.6%).
-            if (GameManager.Instance.Money - shop.Catalog.Get(cheapest).price < DailyConsumptionCost()) return;
+            if (GameManager.Instance.Money - shop.Catalog.Get(cheapest).price < DailyConsumptionCost()) return false;
 
-            shop.TryBuy(cheapest);
+            if (!shop.TryBuy(cheapest)) return false;
+
+            // 산 만큼 칸을 미리 더해 둔다 — 안 그러면 같은 부족분을 보고 여덟 번 산다
+            CountSlots(shop.Catalog.Get(cheapest).placedPrefab.GetComponent<ShelfTable>(),
+                       ref haveAny, ref haveSmall, ref haveBulky);
+            return true;
+        }
+
+        /// <summary>
+        /// 산 가구를 들여놓을 자리를 찾을 범위. <b>매장이 넓어지면 같이 넓어진다</b> —
+        /// 상수로 박아 두면 확장한 오른쪽 절반을 봇이 영영 쓰지 못한다.
+        /// 벽에서 0.4m 는 남겨 둔다(가구 절반 깊이).
+        /// </summary>
+        static Rect ShopFloor
+        {
+            get
+            {
+                Rect floor = ShopSpace.Instance != null
+                    ? ShopSpace.Instance.FloorRect
+                    : new Rect(0f, 0f, 8f, 6f);
+                return new Rect(floor.xMin + 0.4f, floor.yMin + 0.4f, floor.width - 0.8f, floor.height - 0.8f);
+            }
+        }
+
+        /// <summary>자리를 훑는 간격. 촘촘하게 볼수록 느리고, 이 정도면 가구 하나가 들어간다.</summary>
+        const float HaulStep = 0.4f;
+
+        /// <summary>
+        /// 출입구 앞은 비워 둔다. 문틈은 x 3.0~5.0 하나뿐이라 여기에 가구를 세우면
+        /// 손님이 들어오다 엉켜 <see cref="CustomerManager.TravelTimeout"/>에 걸린다 —
+        /// 29차 측정에서 자리 없는 상품이 0인 날에도 하루 8명을 놓쳤다.
+        /// </summary>
+        static readonly Rect Doorway = new Rect(2.6f, -0.5f, 2.8f, 2.4f);
+
+        /// <summary>
+        /// 배달 온 가구를 <b>매장 안으로 들여놓는다.</b>
+        ///
+        /// 사람은 가구를 들어서 원하는 자리에 놓지만 봇은 그러지 않아, 산 진열대가
+        /// 배달 자리(가게 앞마당)에 그대로 서 있었다. 그런데 앞마당은 손님이 못 들어가는
+        /// 직원 구역이라, 거기 올린 상품은 <b>손님이 사러 왔다가 그냥 나간다</b> —
+        /// 28차 측정에서 이것 하나로 손실률이 0.3%에서 22.4%로 뛰었다.
+        /// </summary>
+        void HaulFurniture()
+        {
+            ShelfManager shelves = ShelfManager.Instance;
+            if (shelves == null) return;
+
+            for (int i = 0; i < shelves.Count; i++)
+            {
+                ShelfTable table = shelves.Get(i);
+                if (table.CustomersCanReach) continue;
+
+                PlaceableFurniture furniture = table.GetComponent<PlaceableFurniture>();
+                if (furniture == null) continue;
+
+                MoveInside(furniture);
+            }
+        }
+
+        /// <summary>입구에서 가까운 빈 자리를 찾아 옮긴다. 가까울수록 잘 팔린다.</summary>
+        void MoveInside(PlaceableFurniture furniture)
+        {
+            Vector3 entrance = new Vector3(4f, 0f, 0f);
+
+            Vector3 bestPosition = Vector3.zero;
+            Quaternion bestRotation = furniture.transform.rotation;
+            float bestDistance = float.MaxValue;
+
+            for (float x = ShopFloor.xMin; x <= ShopFloor.xMax; x += HaulStep)
+                for (float z = ShopFloor.yMin; z <= ShopFloor.yMax; z += HaulStep)
+                {
+                    Vector3 floor = new Vector3(x, 0f, z);
+                    float distance = Vector3.Distance(floor, entrance);
+                    if (distance >= bestDistance) continue;
+
+                    Vector3 position = floor;
+                    Quaternion rotation = furniture.transform.rotation;
+
+                    // 벽걸이형은 등을 붙일 벽이 있어야 한다
+                    if (furniture.WallMounted
+                        && !furniture.TrySnapToWall(floor, out position, out rotation)) continue;
+
+                    if (BlocksDoorway(furniture, position, rotation)) continue;
+
+                    string reason;
+                    if (!furniture.Fits(position, rotation, null, out reason)) continue;
+
+                    bestPosition = position;
+                    bestRotation = rotation;
+                    bestDistance = distance;
+                }
+
+            if (bestDistance >= float.MaxValue) return;
+
+            furniture.transform.SetPositionAndRotation(bestPosition, bestRotation);
+            ShelfManager.Instance.RefreshApproach(furniture);
+        }
+
+        /// <summary>그 자리에 놓으면 문 앞을 막는가. 발자국이 통로에 조금이라도 걸리면 막는 것이다.</summary>
+        static bool BlocksDoorway(PlaceableFurniture furniture, Vector3 position, Quaternion rotation)
+        {
+            Vector3 center = furniture.CenterAt(position, rotation);
+            Vector3 half = furniture.RawHalfExtents;
+
+            // 회전한 발자국의 XZ 외접 사각형. 정확히 맞물릴 필요 없이 넉넉히 보면 된다
+            Vector3 x = rotation * new Vector3(half.x, 0f, 0f);
+            Vector3 z = rotation * new Vector3(0f, 0f, half.z);
+            float spanX = Mathf.Abs(x.x) + Mathf.Abs(z.x);
+            float spanZ = Mathf.Abs(x.z) + Mathf.Abs(z.z);
+
+            Rect footprint = new Rect(center.x - spanX, center.z - spanZ, spanX * 2f, spanZ * 2f);
+            return footprint.Overlaps(Doorway);
+        }
+
+        /// <summary>진열대 하나의 칸을 부피 조건별로 더한다.</summary>
+        static void CountSlots(ShelfTable table, ref int any, ref int small, ref int bulky)
+        {
+            if (table == null) return;
+
+            if (table.AcceptedBulk == 1) small += table.SlotCount;
+            else if (table.AcceptedBulk == 2) bulky += table.SlotCount;
+            else any += table.SlotCount;
         }
 
         /// <summary>
@@ -295,17 +465,33 @@ namespace DogShop.Debugging
             // 다시 채울 돈이 없어진다 (24차: 손실률 32.6%, 훈련 지출이 2,700 으로 주저앉았다).
             for (int i = 0; i < inv.Catalog.Count; i++)
             {
-                if (inv.ShelfOf(i) <= 0 && inv.ShelfRoom(i) <= 0) continue;
-                OrderUpTo(inv, i, DemandTarget(i));
+                int displayable = inv.ShelfOf(i) + inv.ShelfRoom(i);
+                if (displayable <= 0) continue;
+
+                // <b>진열할 수 있는 만큼만</b> 산다. 강아지 침대는 칸당 1개라 수요 목표가 7이면
+                // 칸 7개를 요구하는데, 실제로 받을 수 있는 칸은 하나뿐이라 나머지 6개 값은
+                // 창고에 잠긴 채 돌아오지 않는다
+                //
+                // <b>진열대 위도 재고로 센다.</b> 창고만 보면, 아침마다 진열을 끝내 창고가 빈
+                // 상태로 다시 목표치를 사들여 안 팔리는 상품이 끝없이 쌓인다 —
+                // 36차에서 기본 약품(수요 최저)이 15개까지 불어나 칸 3개를 먹는 동안
+                // 샴푸(수요 3)는 매일 말라붙었다.
+                OrderUpTo(inv, i, Mathf.Min(DemandTarget(i), displayable), countShelf: true);
             }
         }
 
-        void OrderUpTo(InventoryManager inv, int index, int target)
+        /// <param name="countShelf">
+        /// 진열대 위도 재고로 셀 것인가. 판매용 발주는 참이다 — 총량을 목표치에 맞춘다.
+        /// 케어용(사료·샴푸)은 거짓이다. 그건 <b>창고에서만</b> 꺼내 쓰므로,
+        /// 진열대에 쌓인 걸 세면 창고가 빈 채로 밥을 못 준다.
+        /// </param>
+        void OrderUpTo(InventoryManager inv, int index, int target, bool countShelf = false)
         {
             if (!inv.IsUnlocked(index)) return;
 
             // 문 앞에 놓인 것도 이미 산 물건이다. 빼먹으면 같은 것을 두 번 시킨다
             int have = inv.StorageOf(index) + inv.IncomingOf(index) + inv.DeliveredOf(index);
+            if (countShelf) have += inv.ShelfOf(index);
             int want = target - have;
             if (want <= 0) return;
 
@@ -326,12 +512,19 @@ namespace DogShop.Debugging
             ShopLevelManager s = ShopLevelManager.Instance;
             if (s.IsMaxLevel) return 0;
 
-            // <b>진열 목표치 총액</b>을 그대로 쓴다. 소진액(그날 팔려 나갈 만큼)으로 낮춰 보았지만
-            // 승급이 빨라지면서 봇이 L6 에 닿았고, 거기서 해금 상품 12종이 진열 칸 6~9개를
-            // 넘어서면서 손실률이 19%로 뛰었다(26차). **승급 속도를 푸는 것은 칸 배정을 고친 뒤다.**
+            // <b>그날 팔려 나갈 만큼 + 새로 열리는 상품의 첫 채움.</b> 이게 승급 직후 실제로
+            // 나가는 돈이다.
             //
-            // 지금은 이 값이 실질적으로 "칸이 감당할 수 있는 속도"로 승급을 눌러 주고 있다.
-            return InventoryManager.Instance.DailyRestockCost(s.Level + 1, s.Next.customersPerDay);
+            // 예전에는 진열 목표치 총액(DailyRestockCost)을 썼다. 그건 <b>이미 쌓아 둔 상품까지</b>
+            // 여유분(+2)째로 새로 사는 값이라, 상품이 늘 때마다 문턱만 부풀어
+            // 해금 사다리를 앞당길 때마다 봇이 그 레벨에 묶였다 — 31차에서는 L4→L5 문턱이
+            // 2,710원으로 올라 봇이 30일 내내 L4에 갇혔다(진열은 6/6 완벽, 손실률 0.0%였는데도).
+            //
+            // 소진액만으로 낮췄던 26차가 실패한 것은 이 값 때문이 아니라 <b>진열 칸</b> 때문이었다.
+            // 그때는 L6 해금 12종이 칸을 넘었고, 봇이 산 진열대는 손님이 못 가는 가게 앞에
+            // 서 있었다. 둘 다 고친 뒤라 다시 푼다.
+            return InventoryManager.Instance.DailyConsumptionCost(s.Level + 1, s.Next.customersPerDay)
+                 + InventoryManager.Instance.FirstStockCost(s.Level + 1, s.Next.customersPerDay);
         }
 
         /// <summary>
@@ -343,6 +536,7 @@ namespace DogShop.Debugging
         {
             ShopLevelManager level = ShopLevelManager.Instance;
             if (level.IsMaxLevel) return;
+            if (stopUpgradingAt > 0 && level.Level >= stopUpgradingAt) return;
 
             string reason;
             if (!level.CanLevelUp(out reason)) return;
@@ -408,6 +602,7 @@ namespace DogShop.Debugging
             {
                 TrainingDef def = tm.Catalog.Get(i);
                 if (def.axis != axis || !tm.IsUnlocked(i)) continue;
+                if (tm.UsedToday(i)) continue;              // 같은 훈련은 하루 한 번
                 if (def.cost > budget || def.cost <= bestCost) continue;
 
                 best = i;

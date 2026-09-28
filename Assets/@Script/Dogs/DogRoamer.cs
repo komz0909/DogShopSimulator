@@ -61,6 +61,19 @@ namespace DogShop.Dogs
         float runSpeed = 2.64f;
         float heelDistance = HeelDistance;
 
+        /// <summary>
+        /// 주인과 이보다 가까우면 <b>주인 쪽으로는 더 가지 않는다.</b>
+        ///
+        /// 사람은 CharacterController 라 중력 때문에 매 프레임 Move 를 부르고, 그때마다
+        /// 겹친 콜라이더에서 자기를 밀어낸다. 그래서 반려견이 몸으로 파고들면
+        /// <b>사람이 옆으로 밀려난다</b> — 서 있기만 해도 떠밀린다.
+        /// 반대로 사람이 반려견을 미는 일은 없다. 반려견에는 Rigidbody가 없어서
+        /// CharacterController가 밀어낼 대상이 아니고, 부딪히면 사람이 그냥 막힌다.
+        ///
+        /// 두 몸 반지름을 더해 잡는다. 견종마다 몸이 배 이상 차이 나므로 상수로 박지 않는다.
+        /// </summary>
+        float bodyClearance = 0.7f;
+
         static readonly Vector2 PauseRange = new Vector2(1.5f, 4.5f);
 
         /// <summary>바닥 높이를 다시 재는 주기.</summary>
@@ -101,6 +114,7 @@ namespace DogShop.Dogs
             }
             owner = player != null ? player.transform : null;
 
+            MeasureBodies(player);
             Warp(transform.position);
             pauseTimer = Random.Range(PauseRange.x, PauseRange.y);
         }
@@ -138,6 +152,53 @@ namespace DogShop.Dogs
             heelDistance = Mathf.Max(0.9f, body * 1.4f);
         }
 
+        /// <summary>
+        /// 두 몸의 반지름을 재어 서로 닿지 않을 거리를 잡는다.
+        /// 반려견 쪽은 <b>단단한 콜라이더</b>에서 잰다 — 조준용 트리거가 더 크게 잡혀 있다.
+        /// </summary>
+        void MeasureBodies(GameObject player)
+        {
+            float dogRadius = agent.radius;
+            foreach (BoxCollider box in GetComponentsInChildren<BoxCollider>(true))
+            {
+                if (box.isTrigger) continue;
+
+                Vector3 size = Vector3.Scale(box.size, box.transform.lossyScale) * 0.5f;
+                dogRadius = Mathf.Max(dogRadius, Mathf.Max(size.x, size.z));
+            }
+
+            float ownerRadius = 0.3f;
+            if (player != null)
+            {
+                CharacterController controller = player.GetComponent<CharacterController>();
+                if (controller != null) ownerRadius = controller.radius * Mathf.Max(
+                    Mathf.Abs(player.transform.lossyScale.x), Mathf.Abs(player.transform.lossyScale.z));
+            }
+
+            bodyClearance = dogRadius + ownerRadius + 0.05f;
+        }
+
+        /// <summary>
+        /// 주인 몸에 닿았는데 <b>그쪽으로 더 가려 하는가</b>.
+        ///
+        /// 그냥 가까우면 멈추게 하면, 주인이 옆에 서 있는 동안 반려견이 얼어붙는다.
+        /// 멀어지는 방향은 막지 않아야 스스로 빠져나온다.
+        /// </summary>
+        bool CrowdingOwner(float toOwner)
+        {
+            if (owner == null || toOwner > bodyClearance) return false;
+
+            Vector3 toward = owner.position - transform.position;
+            toward.y = 0f;
+            if (toward.sqrMagnitude < 0.0001f) return true;   // 정확히 겹쳤다
+
+            Vector3 desired = agent.desiredVelocity;
+            desired.y = 0f;
+            if (desired.sqrMagnitude < 0.0001f) return true;   // 갈 데가 없으면 그냥 선다
+
+            return Vector3.Dot(desired.normalized, toward.normalized) > 0f;
+        }
+
         /// <summary>세이브 복원처럼 순간이동시킬 때. NavMeshAgent는 transform 대입을 싫어한다.</summary>
         public void Warp(Vector3 position)
         {
@@ -162,7 +223,21 @@ namespace DogShop.Dogs
                 pauseTimer = 0f;
             }
 
-            if (following) Follow(toOwner);
+            // 주인 몸에 닿았으면 그쪽으로는 더 가지 않는다. 밀고 들어가면 사람이 떠밀린다
+            if (CrowdingOwner(toOwner))
+            {
+                agent.isStopped = true;
+                agent.velocity = Vector3.zero;
+
+                // 어슬렁거리던 길이 주인에게 막혔으면 그 길을 버린다. 안 그러면 주인이
+                // 비켜 줄 때까지 코를 박고 서 있는다 — 길을 풀면 다음 프레임에 다른 데를 고른다
+                if (!following)
+                {
+                    agent.ResetPath();
+                    pauseTimer = 0f;
+                }
+            }
+            else if (following) Follow(toOwner);
             else Wander();
 
             StickToGround();

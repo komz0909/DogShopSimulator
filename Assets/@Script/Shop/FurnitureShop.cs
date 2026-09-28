@@ -30,6 +30,9 @@ namespace DogShop.Shop
         public FurnitureCatalog Catalog => catalog;
         public int OrderedCount => ordered.Count;
 
+        /// <summary>배달을 기다리는 가구의 카탈로그 번호. 오는 물건이 어떤 칸을 달고 오는지 보려고.</summary>
+        public int OrderedAt(int i) => i >= 0 && i < ordered.Count ? ordered[i] : -1;
+
         void Awake()
         {
             if (Instance != null && Instance != this) { Destroy(this); return; }

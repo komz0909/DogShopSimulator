@@ -28,9 +28,25 @@ namespace DogShop.Shop
             Instance = this;
         }
 
+        void Start()
+        {
+            // 세이브를 불러오기 전이라도 지금 레벨에 맞는 넓이로 맞춰 둔다
+            ApplyFloor();
+        }
+
         void OnDestroy()
         {
             if (Instance == this) Instance = null;
+        }
+
+        /// <summary>
+        /// 지금 레벨의 넓이로 판매장을 맞춘다. 넓이는 <b>레벨에서 파생</b>되므로 세이브에
+        /// 따로 담지 않는다 — 레벨만 복원하면 벽이 제자리를 찾는다.
+        /// </summary>
+        void ApplyFloor()
+        {
+            if (ShopSpace.Instance == null) return;
+            ShopSpace.Instance.ApplyWidth(Current.floorWidth);
         }
 
         public ShopLevelDef Next => IsMaxLevel ? null : table.Get(Level + 1);
@@ -76,6 +92,15 @@ namespace DogShop.Shop
             // 세이브를 불러올 때마다 특급 입고가 공짜로 붙으면 안 된다.
             if (InventoryManager.Instance != null) InventoryManager.Instance.BeginRushDelivery();
 
+            // 새로 열린 상품이 설 칸을 만들어 준다. 칸을 둘 이상 쥔 상품에게서 하나를 걷어
+            // 창고로 돌린다 — 안 그러면 다 팔릴 때까지 며칠씩 새 상품이 진열되지 못한다.
+            // RestoreFrom 은 부르지 않는다. 세이브를 불러올 때마다 칸이 흔들리면 안 된다
+            if (ShelfManager.Instance != null) ShelfManager.Instance.ReleaseSurplus();
+
+            // 가게가 넓어지는 레벨이면 벽을 밀어낸다. 칸을 걷어낸 <b>뒤</b>여야 한다 —
+            // 넓어진 자리에 진열대를 놓는 것은 플레이어의 몫이고, 칸 정리는 지금 있는 진열대의 일이다
+            ApplyFloor();
+
             OnLevelUp?.Invoke(Level);
             return true;
         }
@@ -88,6 +113,7 @@ namespace DogShop.Shop
             if (target == Level) return;
 
             Level = target;
+            ApplyFloor();
             OnLevelUp?.Invoke(Level);
         }
 

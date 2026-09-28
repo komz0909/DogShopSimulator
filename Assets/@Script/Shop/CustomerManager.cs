@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using DogShop.Core;
 using DogShop.Data;
 using UnityEngine;
+using UnityEngine.AI;
 
 namespace DogShop.Shop
 {
@@ -40,16 +41,11 @@ namespace DogShop.Shop
         /// NavMesh가 반경 0.5로 구워져 장애물에서 0.5m가 깎인다 — 계산대 면(6.205)에서
         /// 0.71m 떨어진 5.50이 손님이 설 수 있는 가장 앞자리다(몸 앞면과 계산대 사이 0.43m).
         /// </summary>
-        static readonly Vector3[] QueueSlots =
-        {
-            new Vector3(5.50f, 0f, 1.00f),
-            new Vector3(4.80f, 0f, 1.00f),
-            new Vector3(4.10f, 0f, 1.00f),
-            new Vector3(3.40f, 0f, 1.00f)
-        };
-
-        /// <summary>줄에 선 손님이 바라볼 방향 — 계산대는 손님 줄의 오른쪽(+x)에 있다.</summary>
-        static readonly Vector3 CounterFacing = Vector3.right;
+        /// <summary>
+        /// 계산대가 없을 때 쓸 줄 자리. 계산대는 씬에 항상 있지만, 없더라도
+        /// 손님이 원점으로 몰려가 뭉치는 꼴은 보이지 않게 한다.
+        /// </summary>
+        static readonly Vector3 FallbackQueue = new Vector3(5.50f, 0f, 1.00f);
 
         public static CustomerManager Instance { get; private set; }
 
@@ -324,7 +320,7 @@ namespace DogShop.Shop
 
             c.State = CustomerState.Waiting;
             c.WaitRemaining = Patience;
-            c.FaceDirection(CounterFacing);
+            c.FaceDirection(ShopCounter.Instance != null ? ShopCounter.Instance.CustomerFacing : Vector3.right);
         }
 
         /// <summary>
@@ -387,13 +383,27 @@ namespace DogShop.Shop
             RelayoutQueue();
         }
 
+        /// <summary>계산대를 옮긴 뒤 줄을 다시 세운다.</summary>
+        public void RefreshQueue() => RelayoutQueue();
+
+        /// <summary>
+        /// 줄을 계산대 앞에 다시 세운다. 자리는 <see cref="ShopCounter.QueueSlot"/>이 정한다 —
+        /// 계산대를 옮기면 줄도 따라간다.
+        /// </summary>
         void RelayoutQueue()
         {
+            ShopCounter counter = ShopCounter.Instance;
+
             for (int i = 0; i < queue.Count; i++)
             {
-                Vector3 slot = QueueSlots[Mathf.Min(i, QueueSlots.Length - 1)];
-                // 줄이 슬롯보다 길어지면 문 쪽(-x)으로 계속 이어 붙인다
-                if (i >= QueueSlots.Length) slot += new Vector3(-0.7f * (i - QueueSlots.Length + 1), 0f, 0f);
+                Vector3 slot = counter != null
+                    ? counter.QueueSlot(i)
+                    : FallbackQueue + Vector3.left * (0.7f * i);
+
+                // 옮긴 계산대 앞이 벽이나 가구에 막혀 있을 수 있다. NavMesh 위로 끌어다 놓는다
+                NavMeshHit hit;
+                if (NavMesh.SamplePosition(slot, out hit, 2f, Customer.WalkableAreas)) slot = hit.position;
+
                 queue[i].MoveTo(slot);
             }
         }

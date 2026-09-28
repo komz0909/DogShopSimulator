@@ -119,7 +119,10 @@ namespace DogShop.Dogs
                 trainEnabled[i] = tm.CanTrain(target, i, out reason);
                 trainLabels[i] = def.nameKo
                                + "   " + def.cost + "원"
-                               + "   " + (def.axis == GrowthAxis.Beauty ? "미모" : "훈련도") + " +" + def.gain;
+                               + "   " + (def.axis == GrowthAxis.Beauty ? "미모" : "훈련도") + " +" + def.gain
+                               // 왜 못 누르는지 줄 안에서 바로 보여 준다. 슬롯이 남았는데
+                               // 회색인 이유가 쿨타임이라는 걸 알 길이 없으면 고장으로 보인다
+                               + (tm.UsedToday(i) ? "   (오늘 완료)" : "");
             }
         }
 
