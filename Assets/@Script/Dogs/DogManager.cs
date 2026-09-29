@@ -38,7 +38,13 @@ namespace DogShop.Dogs
         void Start()
         {
             TimeManager.Instance.OnDayStarted += HandleDayStarted;
-            if (Hero == null) Spawn(heroBreedIndex);
+
+            // 메인 화면에서 고른 견종이 있으면 그쪽이 이긴다. 이어하기면 여기서 무엇을 내든
+            // 곧바로 SaveManager 가 세이브의 견종으로 다시 생성한다.
+            // 가게 씬을 에디터에서 바로 열어 눌렀을 때는 씬에 박아 둔 값이 그대로 쓰인다
+            int breed = GameStart.FromMenu && !GameStart.Continue ? GameStart.BreedIndex : heroBreedIndex;
+
+            if (Hero == null) Spawn(breed);
         }
 
         void OnDestroy()

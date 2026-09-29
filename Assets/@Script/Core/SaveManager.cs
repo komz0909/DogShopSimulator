@@ -116,7 +116,13 @@ namespace DogShop.Core
 
         static string SavePath => Path.Combine(Application.persistentDataPath, "save.json");
 
-        public bool HasSave => File.Exists(SavePath);
+        /// <summary>
+        /// 세이브 파일이 있는가. <b>정적이다</b> — 메인 화면에는 SaveManager 가 없는데
+        /// "이어하기"를 켤지 꺼둘지는 거기서 정해야 한다.
+        /// </summary>
+        public static bool HasSaveFile => File.Exists(SavePath);
+
+        public bool HasSave => HasSaveFile;
 
         /// <summary>저장/로드가 끝난 뒤. UI 갱신용.</summary>
         public event Action OnLoaded;
@@ -125,6 +131,21 @@ namespace DogShop.Core
         {
             if (Instance != null && Instance != this) { Destroy(this); return; }
             Instance = this;
+        }
+
+        /// <summary>
+        /// 메인 화면에서 "이어하기"로 들어왔으면 세이브를 불러온다.
+        ///
+        /// Start 여야 한다 — 다른 매니저들이 Awake 에서 자기 인스턴스를 세우고
+        /// Start 에서 강아지를 생성하므로, 그보다 먼저 복원하면 빈 가게에 값을 덮어쓴다.
+        /// 스크립트 실행 순서에 기대지 않으려고 한 프레임 미룬다.
+        /// </summary>
+        System.Collections.IEnumerator Start()
+        {
+            if (!GameStart.FromMenu || !GameStart.Continue) yield break;
+
+            yield return null;   // 모든 Start 가 끝난 뒤
+            Load();
         }
 
         void OnDestroy()
