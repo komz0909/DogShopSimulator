@@ -58,6 +58,11 @@ namespace DogShop.Dogs
             anchor = new Vector2(
                 Mathf.Min(screenPos.x + 12f, Screen.width - Width - Pad),
                 Mathf.Max(Screen.height - screenPos.y - 12f, Pad));
+
+            // 말을 걸었으면 이쪽을 본다. 등을 보인 채로 메뉴가 뜨면 무시당하는 것처럼 보인다
+            DogRoamer roamer = dog != null ? dog.GetComponent<DogRoamer>() : null;
+            if (roamer != null) roamer.FaceOwner();
+
             Rebuild();
         }
 
@@ -76,6 +81,10 @@ namespace DogShop.Dogs
 
             PointerMenus.SetOpen(this, IsOpen);
             if (target == null) return;
+
+            // 메뉴가 열려 있는 동안은 계속 이쪽을 본다. 하던 동작(훈련 연출)은 건드리지 않는다
+            DogRoamer roamer = target.GetComponent<DogRoamer>();
+            if (roamer != null) roamer.FaceOwner();
 
             refreshTimer += Time.unscaledDeltaTime;
             if (refreshTimer >= RefreshInterval)

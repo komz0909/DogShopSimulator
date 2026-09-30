@@ -70,9 +70,18 @@ namespace DogShop.Core
         /// </summary>
         public int[] delivered = new int[0];
 
+        /// <summary>등급품 재고. 상품마다 등급 수(7)만큼 칸을 쓴다. 랜덤박스에서만 나온다.</summary>
+        public int[] graded = new int[0];
+
         /// <summary>진열대 칸별 상품과 개수. 진열대를 이어 붙인 한 줄이다. -1 은 빈 칸.</summary>
         public int[] shelfSlotProduct = new int[0];
         public int[] shelfSlotCount = new int[0];
+
+        /// <summary>칸에 올라간 물건의 등급. <b>옛 세이브 전용</b> — 칸마다 등급이 하나였던 시절.</summary>
+        public int[] shelfSlotGrade = new int[0];
+
+        /// <summary>칸마다 등급별 개수. 첨자는 <c>칸 * 8 + 등급레인</c>(0 = 발주품).</summary>
+        public int[] shelfSlotStock = new int[0];
 
         /// <summary>승급 당일 특급 입고가 켜져 있는가. 없던 시절 세이브는 false 로 복원되고 그게 맞다.</summary>
         public bool rushDelivery;

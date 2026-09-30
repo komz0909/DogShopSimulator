@@ -26,6 +26,15 @@ namespace DogShop.Shop
         /// </summary>
         [SerializeField] bool wallMounted;
 
+        /// <summary>
+        /// 이 모델의 <b>열린 면(앞)이 로컬 −Z</b>인가.
+        ///
+        /// 킷마다 모델을 세운 방향이 달라서 하나로 가정할 수 없다 — 실측해 보니
+        /// <c>P_WallShelf</c>는 앞이 +Z인데 <c>P_BasicWallShelf</c>는 앞이 −Z다.
+        /// 벽에 붙일 때 이 값을 안 보면 평평한 뒤판이 매장을 보고 칸이 벽 속으로 들어간다.
+        /// </summary>
+        [SerializeField] bool frontFacesMinusZ;
+
         /// <summary>벽을 찾는 반경. 이보다 먼 곳을 조준하면 붙일 벽이 없다고 본다.</summary>
         public const float WallSearchRadius = 1.6f;
 
@@ -198,17 +207,21 @@ namespace DogShop.Shop
 
             if (nearest == float.MaxValue) return false;
 
-            // 벽 법선이 매장 안쪽을 향하므로 가구의 <b>정면</b>이 그 방향을 보게 한다
+            // 벽 법선이 매장 안쪽을 향하므로 가구의 <b>열린 면</b>이 그 방향을 보게 한다.
+            // 앞이 −Z 인 모델은 반 바퀴 더 돌려야 칸이 매장을 본다
             Vector3 normal = new Vector3(hitNormal.x, 0f, hitNormal.z).normalized;
             rotation = Quaternion.LookRotation(normal, Vector3.up);
+            if (frontFacesMinusZ) rotation *= Quaternion.Euler(0f, 180f, 0f);
 
             // 벽을 따라가는 위치는 <b>조준점을 그대로 쓰고</b>, 벽에서 떨어진 거리만 고친다.
             // 히트 지점을 그대로 쓰면 가구가 광선이 닿은 자리로 끌려가 문틀 안으로 들어갔다.
             // 원점이 발자국 한가운데가 아닌 가구(뒤판만 있는 선반 따위)도 있으므로
             // 절반 깊이에서 중심이 밀린 만큼을 뺀다 — 기준은 원점이 아니라 <b>뒷면</b>이다.
-            float centerZ = Vector3.Scale(localCenter, transform.lossyScale).z;
+            // 회전이 뒤집히면 중심이 밀린 방향도 뒤집히므로 <b>돌린 뒤에</b> 법선으로 투영해 잰다.
+            Vector3 offset = rotation * Vector3.Scale(localCenter, transform.lossyScale);
+            float centerAlongNormal = Vector3.Dot(offset, normal);
             float gap = Vector3.Dot(floorPoint - hitPoint, normal);
-            position = floorPoint + normal * (RawHalfExtents.z - centerZ - gap);
+            position = floorPoint + normal * (RawHalfExtents.z - centerAlongNormal - gap);
             position.y = floorPoint.y + BottomOffset;
 
             // 등 뒤가 <b>폭 전체에</b> 벽이어야 한다. 광선 하나로는 벽 <b>끝의 옆면</b>을 맞고도

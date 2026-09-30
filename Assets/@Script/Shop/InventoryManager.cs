@@ -166,6 +166,7 @@ namespace DogShop.Shop
             storage = new int[catalog.Count];
             incoming = new int[catalog.Count];
             delivered = new int[catalog.Count];
+            graded = new int[catalog.Count * ItemGrades.Count];
 
             for (int i = 0; i < catalog.Count; i++)
                 if (catalog.Get(i).unlockLevel <= 1) storage[i] = startingStoragePerProduct;
@@ -258,13 +259,62 @@ namespace DogShop.Shop
             OnStockChanged?.Invoke();
         }
 
+        // ---- 등급품 (랜덤박스에서만 나온다) ----
+
+        /// <summary>
+        /// 등급이 붙은 재고. 상품마다 등급 수만큼 칸을 쓴다.
+        ///
+        /// 발주로 들여온 물건과 <b>섞지 않는다</b> — 같은 기본 사료라도 S등급은 5배에 팔리므로
+        /// 한 덩어리로 세면 어느 값에 팔아야 할지 알 수 없다.
+        /// </summary>
+        int[] graded;
+
+        int GradeSlot(int index, ItemGrade grade) => index * ItemGrades.Count + (int)grade;
+
+        public int GradedOf(int index, ItemGrade grade) =>
+            graded != null && grade != ItemGrade.None ? graded[GradeSlot(index, grade)] : 0;
+
+        /// <summary>등급 상관없이 그 상품의 등급품 총합. HUD와 발주 판단에 쓴다.</summary>
+        public int GradedTotalOf(int index)
+        {
+            if (graded == null) return 0;
+
+            int sum = 0;
+            for (int g = 0; g < ItemGrades.Count; g++) sum += graded[GradeSlot(index, g == 0 ? ItemGrade.F : (ItemGrade)g)];
+            return sum;
+        }
+
+        /// <summary>랜덤박스가 깐 물건을 창고에 넣는다.</summary>
+        public void StoreGraded(int index, ItemGrade grade, int quantity = 1)
+        {
+            if (graded == null || index < 0 || index >= catalog.Count) return;
+            if (grade == ItemGrade.None || quantity <= 0) return;
+
+            graded[GradeSlot(index, grade)] += quantity;
+            OnStockChanged?.Invoke();
+        }
+
+        public bool TryConsumeGraded(int index, ItemGrade grade)
+        {
+            if (graded == null || grade == ItemGrade.None) return false;
+
+            int slot = GradeSlot(index, grade);
+            if (graded[slot] <= 0) return false;
+
+            graded[slot]--;
+            OnStockChanged?.Invoke();
+            return true;
+        }
+
         // ---- 진열: 상자 -> 테이블 ----
 
         /// <summary>
         /// 플레이어가 들고 온 상자에서 진열대로 옮긴다. 창고에서 직접 채우는 경로는 없다 —
         /// 창고 선반에서 상자에 담아 걸어와야 하고, 그 동선이 진열의 비용이다.
         /// </summary>
-        public void PlaceOnShelf(int index, int quantity)
+        public void PlaceOnShelf(int index, int quantity) => PlaceOnShelf(index, quantity, ItemGrade.None);
+
+        public void PlaceOnShelf(int index, int quantity, ItemGrade grade)
         {
             ShelfManager shelves = ShelfManager.Instance;
             if (shelves == null) return;
@@ -275,10 +325,11 @@ namespace DogShop.Shop
                 ShelfTable table = shelves.Get(i);
                 while (left > 0)
                 {
-                    int slot = table.FirstSlotFor(index);
+                    // 등급이 다르면 다른 칸이다 — 섞으면 값을 가릴 수 없다
+                    int slot = table.FirstSlotFor(index, grade);
                     if (slot < 0) break;
 
-                    table.Place(slot, index);
+                    table.Place(slot, index, grade);
                     left--;
                 }
             }
@@ -291,28 +342,48 @@ namespace DogShop.Shop
         /// <summary>손님 구매. 테이블에서만 나간다 — 창고에 있어도 테이블이 비면 놓친다.</summary>
         public bool TryConsumeShelf(int index)
         {
+            ItemGrade taken;
+            return TryConsumeShelf(index, out taken);
+        }
+
+        /// <summary>손님이 집어 간 물건의 등급까지 돌려준다. 값이 등급마다 다르다.</summary>
+        public bool TryConsumeShelf(int index, out ItemGrade taken)
+        {
+            taken = ItemGrade.None;
+
             ShelfManager shelves = ShelfManager.Instance;
             if (shelves == null) return false;
 
             for (int i = 0; i < shelves.Count; i++)
             {
-                if (!shelves.Get(i).Consume(index)) continue;
+                if (!shelves.Get(i).Consume(index, out taken)) continue;
                 OnStockChanged?.Invoke();
                 return true;
             }
             return false;
         }
 
-        /// <summary>손님이 물건을 두고 나갔다. 테이블이 가득하면 창고로 돌린다.</summary>
-        public void ReturnToShelf(int index)
+        /// <summary>
+        /// 손님이 물건을 두고 나갔다. 테이블이 가득하면 창고로 돌린다.
+        ///
+        /// 들고 있던 <b>등급 그대로</b> 되돌린다 — 안 그러면 S등급을 집었다 놓친 손님 때문에
+        /// 그 물건이 평범한 발주품으로 바뀌어 사라진다.
+        /// </summary>
+        public void ReturnToShelf(int index, ItemGrade grade = ItemGrade.None)
         {
             ShelfManager shelves = ShelfManager.Instance;
 
             bool placed = false;
             for (int i = 0; shelves != null && i < shelves.Count && !placed; i++)
-                placed = shelves.Get(i).Restore(index);
+                placed = shelves.Get(i).Restore(index, grade);
 
-            if (!placed) storage[index]++;   // 놓을 칸이 없으면 창고로 돌린다
+            // 놓을 칸이 없으면 창고로 돌린다
+            if (!placed)
+            {
+                if (grade == ItemGrade.None) storage[index]++;
+                else graded[GradeSlot(index, grade)]++;
+            }
+
             OnStockChanged?.Invoke();
         }
 
@@ -331,6 +402,7 @@ namespace DogShop.Shop
             ShelfManager.Instance?.CaptureInto(data);
             data.incoming = (int[])incoming.Clone();
             data.delivered = (int[])delivered.Clone();
+            data.graded = (int[])graded.Clone();
             data.rushDelivery = rushDelivery;
         }
 
@@ -340,6 +412,7 @@ namespace DogShop.Shop
             ShelfManager.Instance?.RestoreFrom(data);
             CopyInto(data.incoming, incoming);
             CopyInto(data.delivered, delivered);
+            CopyInto(data.graded, graded);
             rushDelivery = data.rushDelivery;
             OnStockChanged?.Invoke();
         }

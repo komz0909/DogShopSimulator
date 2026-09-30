@@ -43,8 +43,25 @@ namespace DogShop.Debugging
         /// </summary>
         public const int UpkeepPerDog = 33;
 
+        /// <summary>
+        /// <b>선택 압력</b>의 대역. 재는 것이 바뀌었으므로 뜻도 바뀌었다.
+        ///
+        /// 예전에는 "훈련이 하루 돈을 다 흡수하는가"를 쟀고, 천장을 넘으면 밸런스 버그로 봤다.
+        /// 그 규칙은 <b>훈련이 유일한 돈 구멍이고 같은 훈련을 반복할 수 있던 시절</b>의 것이다.
+        /// 지금은 둘 다 아니다 — 가구·진열대·승급·발주가 모두 돈을 먹고, 하루 쿨타임 때문에
+        /// 같은 훈련을 두 번 못 한다.
+        ///
+        /// 그래서 이제 재는 것은 <b>"쓸 데가 여럿인데 다 못 해서 골라야 하는가"</b>다.
+        /// 분자는 필수 지출(그날 팔려 나갈 재고)을 뺀 <b>진짜 여윳돈</b>이다.
+        ///
+        /// 아래(0.4)를 밑돌면 훈련을 채울 여력조차 없다 — 선택이 아니라 궁핍이다.
+        /// 위(1.5)를 넘으면 훈련을 다 하고도 돈이 남는다. 그 자체는 버그가 아니다 —
+        /// 남은 돈을 모을지 가게에 넣을지가 플레이어의 선택이기 때문이다.
+        /// 다만 <b>남는 돈이 갈 데가 없으면</b> 선택이 아니라 사장된 자원이므로,
+        /// 이 값이 높을수록 돈 구멍(가구·랜덤박스)이 더 필요하다는 신호다.
+        /// </summary>
         public const float RatioFloor = 0.4f;
-        public const float RatioCeiling = 0.95f;
+        public const float RatioCeiling = 1.5f;
 
         const string FileName = "EconomyLog.csv";
 
@@ -111,16 +128,58 @@ namespace DogShop.Debugging
             Mathf.RoundToInt(CustomerManager.Instance.RevenueToday * MarginRate)
             - UpkeepPerDog;
 
-        public float RatioTarget(GrowthAxis axis) => Ratio(AMaxTarget, axis);
-        public float RatioActual(GrowthAxis axis) => Ratio(AMaxActual, axis);
+        /// <summary>
+        /// 하루 가용액이 <b>훈련이 흡수할 수 있는 양</b>의 몇 배인가.
+        ///
+        /// 분모가 예전에는 <c>슬롯 수 x 그 축의 최고가</c>였다. 같은 훈련을 슬롯 수만큼
+        /// 반복할 수 있던 시절에는 그게 곧 하루 상한이었다. <b>하루 쿨타임이 생기면서
+        /// 그 식은 거짓이 됐다</b> — 예를 들어 L4 는 슬롯이 4개인데 해금된 훈련이 축마다
+        /// 3종뿐이라, 같은 것을 반복할 수 없으면 두 축을 섞어야 슬롯을 다 쓴다.
+        /// 옛 식은 4 x 150 = 600 이라고 했지만 실제로 쓸 수 있는 돈은 150+150+60+60 = 420 이다.
+        ///
+        /// 축을 나누지 않는다. 하루 가용액은 두 축이 <b>나눠 쓰는 한 주머니</b>라,
+        /// 한쪽 축의 상한과만 견주면 같은 돈을 두 번 세게 된다.
+        /// 실제로도 두 축의 비용표가 같아서 예전 네 값은 늘 똑같이 나왔다.
+        /// </summary>
+        public float RatioTarget => Ratio(SurplusTarget);
+        public float RatioActual => Ratio(SurplusActual);
 
-        static float Ratio(int aMax, GrowthAxis axis)
+        /// <summary>
+        /// 그날 <b>마음대로 쓸 수 있는 돈</b>. 하루 가용액에서 필수 재고비를 뺀다.
+        ///
+        /// 재고는 선택이 아니다 — 안 채우면 내일 팔 물건이 없다. 그걸 빼지 않으면
+        /// 여유가 실제보다 커 보이고, "훈련이냐 저축이냐"를 재는 데 쓸 수 없다.
+        /// </summary>
+        public int SurplusTarget => AMaxTarget - Restock();
+        public int SurplusActual => AMaxActual - Restock();
+
+        static int Restock()
         {
-            TrainingManager tm = TrainingManager.Instance;
-            int denominator = tm.SlotsTotal * tm.TopCostOf(axis);
-            return denominator > 0 ? aMax / (float)denominator : 0f;
+            InventoryManager inv = InventoryManager.Instance;
+            ShopLevelManager s = ShopLevelManager.Instance;
+            if (inv == null || s == null) return 0;
+
+            return inv.DailyConsumptionCost(s.Level, s.Current.customersPerDay);
         }
 
+        static float Ratio(int surplus)
+        {
+            TrainingManager tm = TrainingManager.Instance;
+            if (tm == null) return 0f;
+
+            int capacity = tm.DailyCapacity;
+            return capacity > 0 ? surplus / (float)capacity : 0f;
+        }
+
+        /// <summary>
+        /// 대역 안인가.
+        ///
+        /// 아래(0.4)를 밑돌면 슬롯이 남아돌아 상위 훈련이 사장된다 — 예전과 같다.
+        /// 위(1.0)를 넘으면 <b>돈이 아니라 훈련 가짓수가 병목</b>이라는 뜻이다.
+        /// 천장을 0.95 에서 1.0 으로 올린 이유: 쿨타임이 생긴 뒤로는 돈이 남아도
+        /// "어느 훈련을 어떤 순서로 쓸까"라는 선택이 남는다. 예전 천장은
+        /// "돈이 남으면 매일 최고가만 반복한다"를 막던 값인데, 이제 반복이 불가능하다.
+        /// </summary>
         public static bool InBand(float ratio) => ratio > RatioFloor && ratio < RatioCeiling;
 
         /// <summary>
@@ -132,12 +191,13 @@ namespace DogShop.Debugging
         {
             bool measured = CustomerManager.Instance != null && CustomerManager.Instance.RevenueToday > 0;
 
-            return "감시비율(0.40~0.95)  훈련도 목표 " + Mark(RatioTarget(GrowthAxis.Training))
-                 + " / 실측 " + (measured ? Mark(RatioActual(GrowthAxis.Training)) : "—")
-                 + "   미모 목표 " + Mark(RatioTarget(GrowthAxis.Beauty))
-                 + " / 실측 " + (measured ? Mark(RatioActual(GrowthAxis.Beauty)) : "—")
+            TrainingManager tm = TrainingManager.Instance;
+
+            return "선택압력(0.40~1.50)  목표 " + Mark(RatioTarget)
+                 + " / 실측 " + (measured ? Mark(RatioActual) : "-")
                  + "   A_max 목표 " + AMaxTarget
-                 + " / 실측 " + (measured ? AMaxActual.ToString() : "—");
+                 + " / 실측 " + (measured ? AMaxActual.ToString() : "-")
+                 + "   훈련상한 " + (tm != null ? tm.DailyCapacity.ToString() : "-");
         }
 
         /// <summary>대역을 벗어나면 !를 붙인다.</summary>
@@ -180,10 +240,10 @@ namespace DogShop.Debugging
             Append(row, tm.TopCostOf(GrowthAxis.Beauty));
             Append(row, AMaxTarget);
             Append(row, AMaxActual);
-            Append(row, RatioTarget(GrowthAxis.Training));
-            Append(row, RatioActual(GrowthAxis.Training));
-            Append(row, RatioTarget(GrowthAxis.Beauty));
-            Append(row, RatioActual(GrowthAxis.Beauty));
+            // 축을 나누지 않는다. 두 축이 한 주머니를 나눠 쓰므로 비율은 하나다 —
+            // 예전 네 값은 비용표가 같아서 늘 똑같이 나왔다
+            Append(row, RatioTarget);
+            Append(row, RatioActual);
             Append(row, hero != null ? hero.Beauty : 0);
             Append(row, hero != null ? hero.Training : 0);
             Append(row, hero != null ? hero.GrowthTotal : 0);
@@ -195,10 +255,17 @@ namespace DogShop.Debugging
             Append(row, openShown);
             Append(row, openStranded);
 
-            // 하루 쿨타임이 생긴 뒤로는 "슬롯 × 최고가"가 상한이 아니다.
-            // 훈련이 실제로 흡수할 수 있는 돈과, 그날 쓸 수 있었던 돈을 나란히 남긴다
+            // 감시비율의 분모. 훈련이 하루에 실제로 흡수할 수 있는 돈이다
             Append(row, tm.DailyCapacity);
-            Append(row, AMaxActual, last: true);
+
+            // 그날 마음대로 쓸 수 있었던 돈. money 열과 나란히 보면
+            // "벌어서 쓴 것"과 "갈 데가 없어 쌓인 것"이 갈린다
+            Append(row, SurplusActual);
+
+            // 상자에 흘러간 돈. 남는 돈이 실제로 이 구멍으로 빠지는지 본다
+            RandomBox box = RandomBox.Instance;
+            Append(row, box != null ? box.OpenedTotal : 0);
+            Append(row, box != null ? box.SpentTotal : 0, last: true);
 
             try
             {
@@ -218,9 +285,9 @@ namespace DogShop.Debugging
             "day,level,reputation,money,revenue,sold,lost,basketActual,basketTarget,customersTarget,"
             + "dogs,cleanliness,slotsTotal,slotsUsed,spentTraining,spentBeauty,"
             + "topCostTraining,topCostBeauty,aMaxTarget,aMaxActual,"
-            + "ratioTrainTarget,ratioTrainActual,ratioBeautyTarget,ratioBeautyActual,"
+            + "ratioTarget,ratioActual,"
             + "heroBeauty,heroTraining,heroGrowthTotal,heroUpkeep,"
-            + "openSlots,openShown,openStranded,trainCapacity,aMaxToday";
+            + "openSlots,openShown,openStranded,trainCapacity,surplus,boxOpened,boxSpent";
 
         /// <summary>
         /// 진열 칸 수와, 해금 상품 중 <b>손님이 닿는 자리에</b> 올라와 있는 종수를 센다.

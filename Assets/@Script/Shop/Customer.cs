@@ -32,6 +32,9 @@ namespace DogShop.Shop
 
         public CustomerState State { get; set; }
         public int WantedProduct { get; set; } = -1;
+
+        /// <summary>집어 든 물건의 등급. 값이 등급마다 다르므로 계산할 때 이걸 본다.</summary>
+        public Data.ItemGrade PickedGrade { get; set; } = Data.ItemGrade.None;
         public bool HasItem { get; set; }
         /// <summary>인내 시간이 남은 만큼. 손님은 떠나지 않으므로 이 값은 음수까지 내려간다.</summary>
         public float WaitRemaining { get; set; }

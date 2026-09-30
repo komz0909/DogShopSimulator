@@ -48,16 +48,37 @@ namespace DogShop.Shop
             EnsureCounts();
         }
 
+        /// <summary>상품 하나가 쓰는 칸 수. 발주품(None) + 등급 7종.</summary>
+        const int Lanes = ItemGrades.Count + 1;
+
+        static int Lane(int productIndex, ItemGrade grade) => productIndex * Lanes + ((int)grade + 1);
+
         void EnsureCounts()
         {
-            int size = InventoryManager.Instance != null ? InventoryManager.Instance.Catalog.Count : 0;
+            int size = InventoryManager.Instance != null ? InventoryManager.Instance.Catalog.Count * Lanes : 0;
             if (counts == null || counts.Length != size) counts = new int[size];
         }
 
+        /// <summary>등급 상관없이 그 상품이 몇 개 담겼나. 화면 표시와 "가진 것"판정에 쓴다.</summary>
         public int CountOf(int productIndex)
         {
             EnsureCounts();
-            return productIndex >= 0 && productIndex < counts.Length ? counts[productIndex] : 0;
+            if (productIndex < 0) return 0;
+
+            int sum = 0;
+            for (int g = -1; g < ItemGrades.Count; g++)
+            {
+                int lane = Lane(productIndex, (ItemGrade)g);
+                if (lane >= 0 && lane < counts.Length) sum += counts[lane];
+            }
+            return sum;
+        }
+
+        public int CountOf(int productIndex, ItemGrade grade)
+        {
+            EnsureCounts();
+            int lane = Lane(productIndex, grade);
+            return lane >= 0 && lane < counts.Length ? counts[lane] : 0;
         }
 
         /// <summary>종류는 가리지 않는다. 남은 칸이 그 상품의 칸 수만큼 있는지만 본다.</summary>
@@ -70,13 +91,17 @@ namespace DogShop.Shop
             return Mathf.Clamp(catalog.Get(productIndex).slotCost, 1, 2);
         }
 
-        public bool AddOne(int productIndex)
+        public bool AddOne(int productIndex) => AddOne(productIndex, ItemGrade.None);
+
+        public bool AddOne(int productIndex, ItemGrade grade)
         {
             EnsureCounts();
-            if (productIndex < 0 || productIndex >= counts.Length) return false;
+
+            int lane = Lane(productIndex, grade);
+            if (productIndex < 0 || lane < 0 || lane >= counts.Length) return false;
             if (!Accepts(productIndex)) return false;
 
-            counts[productIndex]++;
+            counts[lane]++;
             Total++;
             UsedSlots += SlotCostOf(productIndex);
             RefreshVisual();
@@ -84,17 +109,48 @@ namespace DogShop.Shop
             return true;
         }
 
-        public bool RemoveOne(int productIndex)
+        public bool RemoveOne(int productIndex) => RemoveOne(productIndex, ItemGrade.None);
+
+        public bool RemoveOne(int productIndex, ItemGrade grade)
         {
             EnsureCounts();
-            if (CountOf(productIndex) <= 0) return false;
+            if (CountOf(productIndex, grade) <= 0) return false;
 
-            counts[productIndex]--;
+            counts[Lane(productIndex, grade)]--;
             Total--;
             UsedSlots = Mathf.Max(0, UsedSlots - SlotCostOf(productIndex));
             RefreshVisual();
             OnChanged?.Invoke();
             return true;
+        }
+
+        /// <summary>
+        /// 그 상품 중 담겨 있는 <b>가장 좋은 등급</b>. 진열할 때 무엇부터 꺼낼지 정한다 —
+        /// 좋은 것부터 내놓아야 손님이 비싼 값을 치른다.
+        /// </summary>
+        public ItemGrade BestGradeOf(int productIndex)
+        {
+            EnsureCounts();
+
+            // 값 기준이다. 등급 열거형 순서로 고르면 발주품(1.0배)보다 싼
+            // F(0.6배)·E(0.8배)를 먼저 내놓게 된다
+            ItemGrade best = ItemGrade.None;
+            float bestValue = -1f;
+            bool found = false;
+
+            for (int g = -1; g < ItemGrades.Count; g++)
+            {
+                ItemGrade grade = (ItemGrade)g;
+                if (CountOf(productIndex, grade) <= 0) continue;
+
+                float value = ItemGrades.ValueOf(grade);
+                if (found && value <= bestValue) continue;
+
+                best = grade;
+                bestValue = value;
+                found = true;
+            }
+            return best;
         }
 
         /// <summary>

@@ -161,6 +161,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::DogShop.Shop.PlaceableFurniture
   displayName: "\uAE30\uBCF8 \uBCBD \uC9C4\uC5F4\uB300"
   wallMounted: 1
+  frontFacesMinusZ: 1
 --- !u!114 &8375598683299487424
 MonoBehaviour:
   m_ObjectHideFlags: 0

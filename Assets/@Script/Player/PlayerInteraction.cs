@@ -291,9 +291,22 @@ namespace DogShop.Player
 
             public void Execute()
             {
-                if (!InventoryManager.Instance.TryConsumeStorage(productIndex)) return;
-                if (!carry.Held.AddOne(productIndex))
-                    InventoryManager.Instance.Grant(productIndex, 1);
+                InventoryManager inv = InventoryManager.Instance;
+
+                // 등급품이 있으면 <b>좋은 것부터</b> 집는다. 발주품은 언제든 다시 살 수 있지만
+                // 상자에서 나온 물건은 그 하나뿐이라, 창고에 묵혀 두면 값을 못 받는다
+                for (int g = ItemGrades.Count - 1; g >= 0; g--)
+                {
+                    ItemGrade grade = (ItemGrade)g;
+                    if (inv.GradedOf(productIndex, grade) <= 0) continue;
+                    if (!inv.TryConsumeGraded(productIndex, grade)) continue;
+
+                    if (!carry.Held.AddOne(productIndex, grade)) inv.StoreGraded(productIndex, grade);
+                    return;
+                }
+
+                if (!inv.TryConsumeStorage(productIndex)) return;
+                if (!carry.Held.AddOne(productIndex)) inv.Grant(productIndex, 1);
             }
         }
 
@@ -434,9 +447,13 @@ namespace DogShop.Player
             {
                 int productIndex = Pick();
                 if (productIndex < 0) return;
-                if (!carry.Held.RemoveOne(productIndex)) return;
 
-                table.Place(slot, productIndex);
+                // 좋은 등급부터 내놓는다. 손님은 진열대에서 가장 좋은 것을 집어 가므로
+                // 창고에 남겨 두면 그만큼 늦게 팔린다
+                ItemGrade grade = carry.Held.BestGradeOf(productIndex);
+                if (!carry.Held.RemoveOne(productIndex, grade)) return;
+
+                table.Place(slot, productIndex, grade);
             }
         }
 

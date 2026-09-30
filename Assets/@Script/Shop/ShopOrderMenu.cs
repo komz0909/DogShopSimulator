@@ -49,6 +49,9 @@ namespace DogShop.Shop
         /// </summary>
         [SerializeField] FurnitureCatalog furniture;
 
+        /// <summary>랜덤 상자 버튼에 얹을 그림.</summary>
+        [SerializeField] Texture2D boxIcon;
+
         IPointerMenu[] menus;
         bool open;
         float refreshTimer;
@@ -259,7 +262,45 @@ namespace DogShop.Shop
             else DrawProducts(inv, x, y);
 
             float footerY = window.yMax - Pad - FooterHeight;
-            GUI.Label(new Rect(x, footerY, inner, FooterHeight), footer, UiSkin.Caption);
+            DrawBoxButton(x, footerY, inner);
+            GUI.Label(new Rect(x, footerY, inner * 0.62f, FooterHeight), footer, UiSkin.Caption);
+        }
+
+        /// <summary>
+        /// 랜덤 상자. 탭으로 만들지 않는다 — 상품 카테고리가 아니라 <b>도박</b>이고,
+        /// ProductCategory 에 끼워 넣으면 수요가중치·진열 칸 계산까지 따라 들어간다.
+        /// </summary>
+        void DrawBoxButton(float left, float top, float inner)
+        {
+            RandomBox box = RandomBox.Instance;
+            if (box == null || !box.IsUnlocked) return;
+
+            string reason;
+            bool can = box.CanOpen(out reason);
+
+            var rect = new Rect(left + inner - 210f, top - 10f, 210f, FooterHeight + 20f);
+            if (GUI.Button(rect, GUIContent.none, UiSkin.Button(can ? UiSkin.Coral : UiSkin.Cream)) && can)
+                box.Open();
+
+            // 상자 그림을 버튼 왼쪽에 얹는다. 글자만 있으면 발주 목록에 묻힌다
+            if (boxIcon != null)
+            {
+                float side = rect.height - 6f;
+                Color prev = GUI.color;
+                if (!can) GUI.color = new Color(1f, 1f, 1f, 0.45f);
+                GUI.DrawTexture(new Rect(rect.x + 6f, rect.y + 3f, side, side), boxIcon, ScaleMode.ScaleToFit, true);
+                GUI.color = prev;
+            }
+
+            var label = new GUIStyle(UiSkin.Caption) { fontSize = 15, alignment = TextAnchor.MiddleLeft };
+            label.normal.textColor = UiSkin.Ink;
+            GUI.Label(new Rect(rect.x + rect.height + 4f, rect.y, rect.width - rect.height - 10f, rect.height),
+                "랜덤 상자  " + box.Price + "원", label);
+
+            // 결과 창이 떠 있을 때는 사유를 적지 않는다 — 그 창이 이미 같은 말을 하고 있고,
+            // 하단 안내와 글자가 겹친다
+            if (!can && !box.HasResult && !string.IsNullOrEmpty(reason))
+                GUI.Label(new Rect(rect.x - 156f, top, 152f, FooterHeight), reason, RightCaption);
         }
 
         void DrawProducts(InventoryManager inv, float left, float top)

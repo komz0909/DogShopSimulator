@@ -190,6 +190,38 @@ namespace DogShop.Debugging
             HaulDelivery();
 
             TrainHero();
+
+            // 상자는 <b>맨 마지막</b>이다. 재고·진열대·승급·훈련을 다 하고도 남는 돈으로만 산다
+            BuyBoxes();
+        }
+
+        /// <summary>
+        /// 남는 돈으로 랜덤 상자를 깐다.
+        ///
+        /// 상자는 <b>가장 나중에 오는 선택지</b>로 잡았다 — 가게를 키우는 일(재고·진열대·승급)과
+        /// 강아지를 키우는 일(훈련)을 먼저 하고, 그러고도 남는 돈만 건다.
+        /// 이건 "가게 우선" 플레이어를 흉내 낸 것이다. 상자를 먼저 사는 도박꾼도 있을 수 있지만,
+        /// 그 쪽을 재면 <b>경제의 상한</b>이 아니라 운을 재게 된다.
+        ///
+        /// 승급 적립금도 남겨 둔다. 그걸 안 남기면 상자가 승급을 영원히 늦춰,
+        /// "모아서 가게를 키운다"는 선택지가 봇에게서 사라진다.
+        /// </summary>
+        void BuyBoxes()
+        {
+            RandomBox box = RandomBox.Instance;
+            if (box == null || !box.IsUnlocked) return;
+
+            int floor = DailyConsumptionCost() * 2 + UpgradeReserve();
+
+            int guard = 0;
+            while (guard++ < 20 && GameManager.Instance.Money - box.Price >= floor)
+            {
+                if (!box.Open()) break;
+
+                // 봇은 결과 창을 읽지 않는다. 확인하지 않으면 다음 상자를 못 열고
+                // 창이 30일 내내 화면에 남는다
+                box.Acknowledge();
+            }
         }
 
         /// <summary>
@@ -626,6 +658,20 @@ namespace DogShop.Debugging
             for (int i = 0; i < inv.Catalog.Count; i++)
             {
                 if (!inv.IsUnlocked(i)) continue;
+
+                // 상자에서 나온 등급품을 <b>좋은 것부터</b> 먼저 올린다. 손님은 진열대에서
+                // 가장 좋은 것을 집어 가므로, 창고에 묵혀 두면 그 값을 못 받는다
+                for (int g = ItemGrades.Count - 1; g >= 0; g--)
+                {
+                    ItemGrade grade = (ItemGrade)g;
+                    int have = inv.GradedOf(i, grade);
+                    for (int n = 0; n < have; n++)
+                    {
+                        if (inv.ShelfRoom(i) <= 0) break;
+                        if (!inv.TryConsumeGraded(i, grade)) break;
+                        inv.PlaceOnShelf(i, 1, grade);
+                    }
+                }
 
                 int room = inv.ShelfRoom(i);
                 int move = Mathf.Min(room, inv.StorageOf(i));

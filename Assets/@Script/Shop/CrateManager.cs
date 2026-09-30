@@ -60,7 +60,9 @@ namespace DogShop.Shop
 
         public void CaptureInto(SaveData data)
         {
-            int count = InventoryManager.Instance.Catalog.Count;
+            // 상품마다 등급 수만큼 칸을 쓴다(발주품 + 등급 7종)
+            const int lanes = DogShop.Data.ItemGrades.Count + 1;
+            int count = InventoryManager.Instance.Catalog.Count * lanes;
             data.crateContents = new int[count];
 
             if (crate == null)
@@ -70,7 +72,9 @@ namespace DogShop.Shop
                 return;
             }
 
-            for (int i = 0; i < count; i++) data.crateContents[i] = crate.CountOf(i);
+            for (int p = 0; p < InventoryManager.Instance.Catalog.Count; p++)
+                for (int g = -1; g < DogShop.Data.ItemGrades.Count; g++)
+                    data.crateContents[p * lanes + g + 1] = crate.CountOf(p, (DogShop.Data.ItemGrade)g);
 
             PlayerCarry carry = FindCarry();
             data.crateHeld = carry != null && carry.Held == crate;
@@ -91,9 +95,17 @@ namespace DogShop.Shop
             crate.Clear();
             if (data.crateContents != null)
             {
+                const int lanes = DogShop.Data.ItemGrades.Count + 1;
                 for (int i = 0; i < data.crateContents.Length; i++)
+                {
+                    // 등급 칸이 없던 옛 세이브는 상품당 한 칸이므로 전부 발주품으로 읽는다
+                    bool old = data.crateContents.Length <= InventoryManager.Instance.Catalog.Count;
+                    int product = old ? i : i / lanes;
+                    var grade = old ? DogShop.Data.ItemGrade.None : (DogShop.Data.ItemGrade)(i % lanes - 1);
+
                     for (int n = 0; n < data.crateContents[i]; n++)
-                        if (!crate.AddOne(i)) break;
+                        if (!crate.AddOne(product, grade)) break;
+                }
             }
 
             crate.transform.SetParent(transform, true);

@@ -88,6 +88,19 @@ namespace DogShop.Dogs
         float groundTimer;
         bool following;
 
+        /// <summary>
+        /// 연출이 남은 시간. 0보다 크면 배회·따라오기를 멈추고 주인을 보며 정해진 동작을 한다.
+        ///
+        /// 이게 없으면 훈련 애니메이션이 <b>한 프레임도 보이지 않는다</b> —
+        /// <see cref="Animate"/>가 매 프레임 속력을 보고 Idle 로 덮어쓰기 때문이다.
+        /// 예전에는 TrainingManager 가 Play 를 불러 놓고 그다음 Update 에서 지워졌다.
+        /// </summary>
+        float showTimer;
+        DogAnim showAnim = DogAnim.Idle;
+
+        /// <summary>주인 쪽으로 도는 속도(도/초).</summary>
+        const float TurnSpeed = 540f;
+
         void Awake()
         {
             agent = GetComponent<NavMeshAgent>();
@@ -178,6 +191,19 @@ namespace DogShop.Dogs
             bodyClearance = dogRadius + ownerRadius + 0.05f;
         }
 
+        /// <summary>주인을 향해 부드럽게 돈다. 획 돌아서면 목이 꺾인 것처럼 보인다.</summary>
+        void TurnToOwner()
+        {
+            if (owner == null) return;
+
+            Vector3 toward = owner.position - transform.position;
+            toward.y = 0f;
+            if (toward.sqrMagnitude < 0.0004f) return;
+
+            transform.rotation = Quaternion.RotateTowards(
+                transform.rotation, Quaternion.LookRotation(toward), TurnSpeed * Time.deltaTime);
+        }
+
         /// <summary>
         /// 주인 몸에 닿았는데 <b>그쪽으로 더 가려 하는가</b>.
         ///
@@ -206,9 +232,65 @@ namespace DogShop.Dogs
             if (NavMesh.SamplePosition(position, out hit, 3f, NavMesh.AllAreas)) agent.Warp(hit.position);
         }
 
+        /// <summary>
+        /// 주인을 보며 <paramref name="anim"/>을 <paramref name="seconds"/>초 동안 한다.
+        /// 훈련·상호작용 연출용 — 그동안은 걷지도 목적지를 고르지도 않는다.
+        /// </summary>
+        public void Show(DogAnim anim, float seconds)
+        {
+            bool wasIdle = showTimer <= 0f;
+
+            showAnim = anim;
+            showTimer = Mathf.Max(showTimer, seconds);
+
+            // 길은 <b>시작할 때 한 번만</b> 버린다. 매 프레임 버리면 경로 계산이 쉴 새 없이 돈다
+            if (wasIdle && agent != null && agent.isOnNavMesh)
+            {
+                agent.isStopped = true;
+                agent.velocity = Vector3.zero;
+                agent.ResetPath();
+            }
+        }
+
+        /// <summary>
+        /// 주인 쪽으로 돌아선 채 붙잡아 둔다. 말 걸었을 때 등을 보이고 있으면
+        /// 대화가 아니라 무시로 보인다.
+        ///
+        /// <b>하던 동작은 덮어쓰지 않는다.</b> 메뉴를 열어 둔 채 훈련을 누르면
+        /// 매 프레임 이 함수가 불리는데, 여기서 동작을 바꾸면 훈련 연출이 그 자리에서 지워진다.
+        /// </summary>
+        public void FaceOwner(float seconds = 0.4f)
+        {
+            if (showTimer > 0f)
+            {
+                showTimer = Mathf.Max(showTimer, seconds);
+                return;
+            }
+
+            Show(DogAnim.Idle, seconds);
+        }
+
         void Update()
         {
             if (agent == null || !agent.isOnNavMesh) return;
+
+            if (showTimer > 0f)
+            {
+                showTimer -= Time.deltaTime;
+
+                agent.isStopped = true;
+                agent.velocity = Vector3.zero;
+                TurnToOwner();
+
+                if (animator != null)
+                {
+                    animator.SetPlaybackSpeed(1f);
+                    animator.Play(showAnim);
+                }
+
+                StickToGround();
+                return;
+            }
 
             float toOwner = owner != null
                 ? Vector3.Distance(transform.position, owner.position)

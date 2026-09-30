@@ -71,12 +71,16 @@ namespace DogShop.Shop
             for (int i = 0; i < tables.Count; i++) total += tables[i].SlotCount;
 
             data.shelfSlotProduct = new int[total];
-            data.shelfSlotCount = new int[total];
+            data.shelfSlotStock = new int[total * (DogShop.Data.ItemGrades.Count + 1)];
+
+            // 옛 칸(칸마다 등급 하나)은 더 쓰지 않는다. 옛 세이브를 읽을 때만 본다
+            data.shelfSlotCount = new int[0];
+            data.shelfSlotGrade = new int[0];
 
             int offset = 0;
             for (int i = 0; i < tables.Count; i++)
             {
-                tables[i].CaptureInto(data.shelfSlotProduct, data.shelfSlotCount, offset);
+                tables[i].CaptureInto(data.shelfSlotProduct, data.shelfSlotStock, offset);
                 offset += tables[i].SlotCount;
             }
         }
@@ -88,7 +92,8 @@ namespace DogShop.Shop
             int offset = 0;
             for (int i = 0; i < tables.Count; i++)
             {
-                tables[i].RestoreFrom(data.shelfSlotProduct, data.shelfSlotCount, offset);
+                tables[i].RestoreFrom(data.shelfSlotProduct, data.shelfSlotStock,
+                                      data.shelfSlotCount, data.shelfSlotGrade, offset);
                 offset += tables[i].SlotCount;
             }
         }

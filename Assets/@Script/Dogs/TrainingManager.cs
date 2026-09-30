@@ -186,7 +186,7 @@ namespace DogShop.Dogs
             if (!GameManager.Instance.TrySpend(def.cost)) return false;
 
             dog.Stats.AddGrowth(def.axis, def.gain);
-            dog.Animator.Play(def.axis == GrowthAxis.Training ? DogAnim.Run : DogAnim.WagTail);
+            ShowTraining(dog, def);
 
             SlotsUsed++;
             if (usedToday != null && index < usedToday.Length) usedToday[index] = true;
@@ -194,6 +194,58 @@ namespace DogShop.Dogs
             else SpentTodayTraining += def.cost;
             OnSlotsChanged?.Invoke();
             return true;
+        }
+
+        /// <summary>훈련 한 번이 화면에 보이는 시간. 클립 한 바퀴(1.6초)보다 조금 길게.</summary>
+        const float ShowSeconds = 2.2f;
+
+        /// <summary>
+        /// 훈련하면 그 자리에 서서 <b>훈련마다 다른 동작</b>을 한다.
+        ///
+        /// 예전에는 여기서 <c>Animator.Play</c>만 불렀는데, 다음 프레임에
+        /// <see cref="DogRoamer"/>가 속력을 보고 Idle 로 덮어써서 아무것도 안 보였다.
+        /// 이제 로머에게 "이 동작을 몇 초 동안 해라"라고 맡긴다.
+        ///
+        /// 어떤 동작을 할지는 <b>그 축에서 몇 번째로 비싼 훈련인가</b>로 고른다.
+        /// 카탈로그 첨자로 박으면 훈련을 하나 끼워 넣는 순간 전부 어긋난다.
+        /// </summary>
+        void ShowTraining(Dog dog, TrainingDef def)
+        {
+            DogRoamer roamer = dog.GetComponent<DogRoamer>();
+            DogAnim anim = ShowFor(def.axis, TierOf(def));
+
+            if (roamer != null) roamer.Show(anim, ShowSeconds);
+            else dog.Animator.Play(anim);   // 로머가 없는 강아지(테스트용)라면 그냥 재생한다
+        }
+
+        /// <summary>같은 축에서 이 훈련보다 싼 것이 몇 개인가 — 0이 가장 싼 훈련이다.</summary>
+        int TierOf(TrainingDef def)
+        {
+            int tier = 0;
+            for (int i = 0; i < catalog.Count; i++)
+            {
+                TrainingDef other = catalog.Get(i);
+                if (other.axis == def.axis && other.cost < def.cost) tier++;
+            }
+            return tier;
+        }
+
+        static DogAnim ShowFor(GrowthAxis axis, int tier)
+        {
+            // 짖기(Angry)는 비싼 훈련에만 준다 — 매번 으르렁대면 사나운 개로 보인다
+            if (axis == GrowthAxis.Training)
+            {
+                switch (tier)
+                {
+                    case 0: return DogAnim.Run;       // 산책
+                    case 1: return DogAnim.Sit;       // 복종 훈련
+                    case 2: return DogAnim.Run;       // 어질리티 특훈
+                    default: return DogAnim.Angry;    // 전문·마스터 훈련
+                }
+            }
+
+            // 미용은 얌전한 동작만. 꼬리를 흔들거나 앉아서 받는다
+            return tier % 2 == 0 ? DogAnim.WagTail : DogAnim.Sit;
         }
 
         public sealed class TrainAction : IPlayerAction

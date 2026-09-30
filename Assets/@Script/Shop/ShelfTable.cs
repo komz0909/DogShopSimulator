@@ -1,4 +1,5 @@
 using System;
+using DogShop.Data;
 using UnityEngine;
 
 namespace DogShop.Shop
@@ -44,7 +45,25 @@ namespace DogShop.Shop
         [SerializeField] float slotDepth = 0.4f;
 
         int[] product;
+
+        /// <summary>
+        /// 칸마다 <b>등급별 개수</b>. 첨자는 <c>칸 * Lanes + 등급레인</c>.
+        ///
+        /// 한 칸이 등급을 섞어 담는다. 예전에는 칸마다 등급을 하나만 허용했는데,
+        /// 그러면 상자에서 나온 <b>낱개 하나가 6개짜리 칸을 통째로 먹었다</b> —
+        /// L5에 칸이 9개뿐인데 등급품 10개가 들어오자 매장이 낱개로 도배되어
+        /// 하루 손님 15명 중 7명이 빈손으로 나갔다(39차 D15).
+        ///
+        /// 섞어도 값을 가릴 수 있는 이유: 손님은 <see cref="Consume"/>에서 <b>가장 좋은 등급부터</b>
+        /// 집어 가고, 그때 어느 등급이었는지를 돌려주므로 결제가 흐려지지 않는다.
+        /// </summary>
         int[] stock;
+
+        /// <summary>발주품(등급 없음) + 등급 7종.</summary>
+        const int Lanes = ItemGrades.Count + 1;
+
+        static int LaneOf(ItemGrade grade) => (int)grade + 1;
+        static ItemGrade GradeOfLane(int lane) => (ItemGrade)(lane - 1);
 
         public event Action OnChanged;
 
@@ -100,13 +119,58 @@ namespace DogShop.Shop
             return slotCenterX[Mathf.Clamp(slot, 0, slotCenterX.Length - 1)];
         }
         public int ProductAt(int slot) => Valid(slot) ? product[slot] : -1;
-        public int CountAt(int slot) => Valid(slot) ? stock[slot] : 0;
-        public int RoomAt(int slot) => Valid(slot) ? CapacityAt(slot) - stock[slot] : 0;
+
+        /// <summary>그 칸에 든 총 개수. 등급을 가리지 않는다.</summary>
+        public int CountAt(int slot)
+        {
+            if (!Valid(slot)) return 0;
+
+            int sum = 0;
+            for (int lane = 0; lane < Lanes; lane++) sum += stock[slot * Lanes + lane];
+            return sum;
+        }
+
+        public int CountAt(int slot, ItemGrade grade) =>
+            Valid(slot) ? stock[slot * Lanes + LaneOf(grade)] : 0;
+
+        public int RoomAt(int slot) => Valid(slot) ? CapacityAt(slot) - CountAt(slot) : 0;
+
+        /// <summary>
+        /// 그 칸에 든 것 중 <b>가장 비싼 등급</b>. 표시와 손님 구매에 쓴다.
+        ///
+        /// 등급 열거형 순서가 아니라 <see cref="ItemGrades.ValueOf"/>로 고른다 —
+        /// F·E는 발주품보다 싸므로 열거형으로 재면 싼 것을 먼저 내보내게 된다.
+        /// </summary>
+        public ItemGrade BestGradeAt(int slot)
+        {
+            if (!Valid(slot)) return ItemGrade.None;
+
+            ItemGrade best = ItemGrade.None;
+            float bestValue = -1f;
+            bool found = false;
+
+            for (int lane = 0; lane < Lanes; lane++)
+            {
+                if (stock[slot * Lanes + lane] <= 0) continue;
+
+                ItemGrade g = GradeOfLane(lane);
+                float value = ItemGrades.ValueOf(g);
+                if (found && value <= bestValue) continue;
+
+                best = g;
+                bestValue = value;
+                found = true;
+            }
+            return best;
+        }
+
+        /// <summary>예전 이름. 칸이 등급을 섞어 담게 된 뒤로는 <b>가장 좋은 등급</b>을 뜻한다.</summary>
+        public ItemGrade GradeAt(int slot) => BestGradeAt(slot);
 
         void Awake()
         {
             product = new int[SlotCount];
-            stock = new int[SlotCount];
+            stock = new int[SlotCount * Lanes];
             for (int i = 0; i < SlotCount; i++) product[i] = -1;
         }
 
@@ -157,22 +221,34 @@ namespace DogShop.Shop
             return true;
         }
 
-        public void Place(int slot, int productIndex)
+        public void Place(int slot, int productIndex) => Place(slot, productIndex, ItemGrade.None);
+
+        public void Place(int slot, int productIndex, ItemGrade itemGrade)
         {
             if (!Valid(slot)) return;
 
             product[slot] = productIndex;
-            stock[slot]++;
+            stock[slot * Lanes + LaneOf(itemGrade)]++;
             OnChanged?.Invoke();
         }
 
-        /// <summary>1개 뺀다. 칸이 비면 배정도 함께 풀려 다른 상품을 올릴 수 있게 된다.</summary>
-        public bool Take(int slot)
-        {
-            if (!Valid(slot) || stock[slot] <= 0) return false;
+        /// <summary>
+        /// 1개 뺀다. <b>가장 좋은 등급부터</b> 나간다 — 손님은 진열대에서 좋은 것을 집는다.
+        /// 칸이 비면 배정도 함께 풀려 다른 상품을 올릴 수 있게 된다.
+        /// </summary>
+        public bool Take(int slot) => Take(slot, BestGradeAt(slot));
 
-            stock[slot]--;
-            if (stock[slot] == 0) product[slot] = -1;
+        /// <summary>등급을 골라서 1개 뺀다. 상자로 되담을 때처럼 무엇을 빼는지 정해진 경우다.</summary>
+        public bool Take(int slot, ItemGrade itemGrade)
+        {
+            if (!Valid(slot)) return false;
+
+            int lane = slot * Lanes + LaneOf(itemGrade);
+            if (stock[lane] <= 0) return false;
+
+            stock[lane]--;
+            if (CountAt(slot) == 0) product[slot] = -1;
+
             OnChanged?.Invoke();
             return true;
         }
@@ -183,7 +259,7 @@ namespace DogShop.Shop
         {
             int sum = 0;
             for (int i = 0; i < SlotCount; i++)
-                if (product[i] == productIndex) sum += stock[i];
+                if (product[i] == productIndex) sum += CountAt(i);
             return sum;
         }
 
@@ -198,7 +274,7 @@ namespace DogShop.Shop
 
             int room = 0;
             for (int i = 0; i < SlotCount; i++)
-                if (product[i] == productIndex) room += CapacityFor(productIndex) - stock[i];
+                if (product[i] == productIndex) room += CapacityFor(productIndex) - CountAt(i);
             return room;
         }
 
@@ -216,18 +292,40 @@ namespace DogShop.Shop
         /// <summary>손님 구매. 그 상품이 있는 칸에서 1개 뺀다.</summary>
         public bool Consume(int productIndex)
         {
-            for (int i = 0; i < SlotCount; i++)
-                if (product[i] == productIndex && stock[i] > 0) return Take(i);
-            return false;
+            ItemGrade taken;
+            return Consume(productIndex, out taken);
         }
 
-        /// <summary>기다리다 포기한 손님이 물건을 도로 놓는다.</summary>
-        public bool Restore(int productIndex)
+        /// <summary>
+        /// 손님 구매. <b>어느 등급을 집어 갔는지 돌려준다</b> — 값이 등급마다 다르므로
+        /// 결제하는 쪽이 그걸 알아야 한다.
+        ///
+        /// 좋은 등급부터 나간다. 진열대에 S와 F가 같이 있으면 손님은 좋은 것을 집는다.
+        /// </summary>
+        public bool Consume(int productIndex, out ItemGrade taken)
         {
-            int target = FirstSlotFor(productIndex);
+            taken = ItemGrade.None;
+
+            int best = -1;
+            for (int i = 0; i < SlotCount; i++)
+            {
+                if (product[i] != productIndex || CountAt(i) <= 0) continue;
+                if (best < 0
+                    || ItemGrades.ValueOf(BestGradeAt(i)) > ItemGrades.ValueOf(BestGradeAt(best))) best = i;
+            }
+            if (best < 0) return false;
+
+            taken = BestGradeAt(best);
+            return Take(best, taken);
+        }
+
+        /// <summary>기다리다 포기한 손님이 물건을 도로 놓는다. 들고 있던 등급 그대로 돌아간다.</summary>
+        public bool Restore(int productIndex, ItemGrade itemGrade = ItemGrade.None)
+        {
+            int target = FirstSlotFor(productIndex, itemGrade);
             if (target < 0) return false;
 
-            Place(target, productIndex);
+            Place(target, productIndex, itemGrade);
             return true;
         }
 
@@ -240,12 +338,16 @@ namespace DogShop.Shop
         /// 있어도 손실률이 37%까지 올랐다(25차 측정). 판정은 가게 전체를 봐야 하므로
         /// <see cref="ShelfManager.CanClaimEmptySlot"/>에 맡긴다.
         /// </summary>
-        public int FirstSlotFor(int productIndex)
+        public int FirstSlotFor(int productIndex) => FirstSlotFor(productIndex, ItemGrade.None);
+
+        public int FirstSlotFor(int productIndex, ItemGrade itemGrade)
         {
             if (!AcceptsBulk(productIndex)) return -1;
 
+            // 등급은 칸을 가르지 않는다. 같은 상품이면 한 칸에 섞어 담는다 —
+            // 등급마다 칸을 따로 주면 상자에서 나온 낱개 하나가 칸 하나를 통째로 먹는다
             for (int i = 0; i < SlotCount; i++)
-                if (product[i] == productIndex && stock[i] < CapacityFor(productIndex)) return i;
+                if (product[i] == productIndex && CountAt(i) < CapacityFor(productIndex)) return i;
 
             if (ShelfManager.Instance != null
                 && !ShelfManager.Instance.CanClaimEmptySlot(productIndex, acceptedBulk)) return -1;
@@ -298,22 +400,44 @@ namespace DogShop.Shop
 
         // ---- 세이브 ----
 
+        /// <summary>칸 수만큼 상품을, 칸 x 등급레인 만큼 개수를 적는다.</summary>
         public void CaptureInto(int[] outProduct, int[] outStock, int offset)
         {
             for (int i = 0; i < SlotCount; i++)
             {
                 outProduct[offset + i] = product[i];
-                outStock[offset + i] = stock[i];
+                for (int lane = 0; lane < Lanes; lane++)
+                    outStock[(offset + i) * Lanes + lane] = stock[i * Lanes + lane];
             }
         }
 
-        public void RestoreFrom(int[] inProduct, int[] inStock, int offset)
+        /// <summary>
+        /// <paramref name="oldCount"/>·<paramref name="oldGrade"/>는 <b>칸마다 등급 하나</b>였던
+        /// 옛 세이브용이다. 새 세이브는 <paramref name="inStock"/>만 채워져 온다.
+        /// </summary>
+        public void RestoreFrom(int[] inProduct, int[] inStock, int[] oldCount, int[] oldGrade, int offset)
         {
             for (int i = 0; i < SlotCount; i++)
             {
                 if (offset + i >= inProduct.Length) break;
                 product[i] = inProduct[offset + i];
-                stock[i] = inStock[offset + i];
+
+                for (int lane = 0; lane < Lanes; lane++) stock[i * Lanes + lane] = 0;
+
+                int baseIndex = (offset + i) * Lanes;
+                if (inStock != null && baseIndex + Lanes <= inStock.Length)
+                {
+                    for (int lane = 0; lane < Lanes; lane++)
+                        stock[i * Lanes + lane] = inStock[baseIndex + lane];
+                }
+                else if (oldCount != null && offset + i < oldCount.Length)
+                {
+                    // 옛 세이브: 칸 하나에 등급 하나
+                    ItemGrade g = oldGrade != null && offset + i < oldGrade.Length
+                        ? (ItemGrade)oldGrade[offset + i]
+                        : ItemGrade.None;
+                    stock[i * Lanes + LaneOf(g)] = oldCount[offset + i];
+                }
             }
             OnChanged?.Invoke();
         }

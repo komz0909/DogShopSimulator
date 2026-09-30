@@ -298,11 +298,17 @@ namespace DogShop.Shop
             if (!c.Arrived) return;
 
             InventoryManager inv = InventoryManager.Instance;
-            if (inv.TryConsumeShelf(c.WantedProduct))
+            ItemGrade picked;
+            if (inv.TryConsumeShelf(c.WantedProduct, out picked))
             {
                 ProductDef p = inv.Catalog.Get(c.WantedProduct);
                 c.HasItem = true;
-                c.Label = p.nameKo + "  " + p.retail + "원";
+                c.PickedGrade = picked;
+
+                int price = ItemGrades.PriceOf(p.retail, picked);
+                c.Label = (picked == ItemGrade.None ? "" : "[" + ItemGrades.NameOf(picked) + "] ")
+                        + p.nameKo + "  " + price + "원";
+
                 c.State = CustomerState.ToCounter;
                 EnterQueue(c);
             }
@@ -336,7 +342,10 @@ namespace DogShop.Shop
         /// <summary>대기 초과로 깎인 실수령가. 정가는 카탈로그가, 깎는 규칙은 여기가 갖는다.</summary>
         public int PayoutOf(Customer c)
         {
-            int retail = InventoryManager.Instance.Catalog.Get(c.WantedProduct).retail;
+            // 등급이 붙은 물건은 그 배수로 판다. 정가는 카탈로그가, 등급 배수는 ItemGrades 가 갖는다
+            int retail = ItemGrades.PriceOf(
+                InventoryManager.Instance.Catalog.Get(c.WantedProduct).retail, c.PickedGrade);
+
             if (c.Overtime <= 0f) return retail;
 
             float factor = Mathf.Max(MinPriceFactor, 1f - c.Overtime * DiscountPerSecond);
