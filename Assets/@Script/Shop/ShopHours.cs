@@ -20,14 +20,23 @@ namespace DogShop.Shop
     /// </summary>
     public class ShopHours : MonoBehaviour, ISaveParticipant
     {
-        /// <summary>이 시각부터 문을 열 수 있다.</summary>
-        public const float OpeningHour = 9f;
+        /// <summary>이 시각부터 문을 열 수 있다. 아침 배달이 오는 시각과 같다.</summary>
+        public const float OpeningHour = 8f;
+
+        /// <summary>
+        /// 손님 유입이 온전해지는 시각. <see cref="OpeningHour"/>부터 여기까지는
+        /// 서서히 늘어난다 — 일찍 열면 이득이지만 <b>한 시간을 통째로 버는 건 아니다</b>.
+        ///
+        /// 배달도 08시에 오므로, 보너스가 한 시간 전부였다면 진열을 버리고 여는 것이
+        /// 언제나 정답이 됐다. 초반 유입을 얕게 두어 "채우고 열까, 열고 채울까"를 남긴다.
+        /// </summary>
+        public const float FullFlowHour = 9f;
 
         /// <summary>이 시각부터 손님이 줄기 시작한다.</summary>
         public const float WindDownHour = 18f;
 
         /// <summary>이 시각이면 손님이 끊긴다.</summary>
-        public const float LastCustomerHour = 20f;
+        public const float LastCustomerHour = 21f;
 
         public enum Phase { Preparing, Open, Closed }
 
@@ -67,7 +76,7 @@ namespace DogShop.Shop
             if (Current == Phase.Closed) { reason = "오늘 장사는 끝났다"; return false; }
             if (TimeManager.Instance.CurrentHour < OpeningHour)
             {
-                reason = "09:00 부터 열 수 있다";
+                reason = "08:00 부터 열 수 있다";
                 return false;
             }
             reason = null;
@@ -94,8 +103,11 @@ namespace DogShop.Shop
         }
 
         /// <summary>
-        /// 지금 손님이 오는 비율. 영업 중이 아니면 0이고, 18시를 넘기면 20시까지 선형으로 준다.
-        /// 늦게까지 열어 두면 손님을 조금 더 받지만 그만큼 하루가 길어진다.
+        /// 지금 손님이 오는 비율. 영업 중이 아니면 0이다.
+        ///
+        /// 08→09시에 0에서 1로 차오르고, 09~18시가 온전한 유입이며, 18→21시에 다시 0으로 잦아든다.
+        /// 기준(09~18시)은 9시간분인데 08시에 열면 0.5시간분, 21시까지 버티면 1.5시간분이
+        /// 얹혀서 <b>최대 11시간분(+22%)</b>이 된다. 하루를 길게 끄는 것이 곧 매출이다.
         /// </summary>
         public float ArrivalFactor
         {
@@ -104,6 +116,7 @@ namespace DogShop.Shop
                 if (!IsOpen) return 0f;
 
                 float hour = TimeManager.Instance.CurrentHour;
+                if (hour < FullFlowHour) return Mathf.InverseLerp(OpeningHour, FullFlowHour, hour);
                 if (hour < WindDownHour) return 1f;
                 if (hour >= LastCustomerHour) return 0f;
 
@@ -117,9 +130,10 @@ namespace DogShop.Shop
             {
                 switch (Current)
                 {
-                    case Phase.Open: return TimeManager.Instance.CurrentHour >= WindDownHour ? "영업중 (손님 줄어드는 중)" : "영업중";
+                    case Phase.Open: return TimeManager.Instance.CurrentHour >= WindDownHour ? "영업중 (손님 줄어드는 중)"
+                        : TimeManager.Instance.CurrentHour < FullFlowHour ? "영업중 (손님 늘어나는 중)" : "영업중";
                     case Phase.Closed: return "마감  발주하고 정리한 뒤 잠자리로";
-                    default: return TimeManager.Instance.CurrentHour < OpeningHour ? "준비중 (09:00 부터 열 수 있다)" : "준비중";
+                    default: return TimeManager.Instance.CurrentHour < OpeningHour ? "준비중 (08:00 부터 열 수 있다)" : "준비중";
                 }
             }
         }

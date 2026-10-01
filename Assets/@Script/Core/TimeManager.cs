@@ -4,11 +4,21 @@ using UnityEngine;
 namespace DogShop.Core
 {
     /// <summary>
-    /// 하루 09:00~18:00을 실시간 8분에 흘린다. 시간은 자원이 아니다 —
-    /// 손님이 도착하는 축이자 마감의 기준일 뿐이다.
+    /// 하루 09:00~18:00을 실시간 5분에 흘린다. 시간은 <b>자원이다</b> —
+    /// 일찍 열고 늦게까지 버틸수록 손님을 더 받는다(<see cref="Shop.ShopHours"/>).
     /// </summary>
     public class TimeManager : MonoBehaviour, ISaveParticipant
     {
+        /// <summary>
+        /// 아침에 눈을 뜨는 시각. 전날 발주한 물건이 이때 가게 앞에 도착한다.
+        ///
+        /// <see cref="OpenHour"/>와 <b>다르다</b> — 이건 하루가 시작하는 시각이고,
+        /// 저건 손님이 제값으로 들어오기 시작하는 시각이다. 둘을 하나로 묶으면
+        /// 하루치 손님이 열 시간에 퍼져 시간당 유입이 조용히 10% 줄어든다.
+        /// </summary>
+        public const float DayStartHour = 8f;
+
+        /// <summary>손님 유입이 온전해지는 시각. 손님 배분의 기준이기도 하다.</summary>
         public const float OpenHour = 9f;
 
         /// <summary>장사 시간의 끝. 이 시각이 지나면 손님이 줄지만 하루가 끝나지는 않는다.</summary>
@@ -17,15 +27,25 @@ namespace DogShop.Core
         /// <summary>시계가 멈추는 시각. 플레이어가 자지 않고 버틸 때를 위한 안전장치다.</summary>
         public const float LastHour = 24f;
 
-        /// <summary>손님 도착량을 나누는 기준. 09~18시 아홉 시간에 하루치가 다 온다.</summary>
+        /// <summary>
+        /// 손님 도착량을 나누는 기준. 09~18시 아홉 시간에 하루치가 다 온다.
+        /// 08시나 18시 바깥에서 받는 손님은 여기에 <b>얹히는</b> 몫이다.
+        /// </summary>
         public const float HoursPerDay = CloseHour - OpenHour;
-        public const float RealSecondsPerDay = 480f;
+
+        /// <summary>09~18시를 흘리는 실시간. 하루 전체가 아니라 <b>영업 구간</b>의 길이다.</summary>
+        public const float RealSecondsPerDay = 300f;
         public const float RealSecondsPerGameHour = RealSecondsPerDay / HoursPerDay;
 
         public static TimeManager Instance { get; private set; }
 
-        public float CurrentHour { get; private set; } = OpenHour;
-        public float RemainingHours => Mathf.Max(0f, CloseHour - CurrentHour);
+        public float CurrentHour { get; private set; } = DayStartHour;
+        /// <summary>
+        /// 지금 자면 버리는 <b>손님이 오는 시간</b>. 18시가 아니라 손님이 끊기는 시각까지다 —
+        /// 18시로 재면 18:30에 "남은 0시간"이라고 하면서 실제로는 세 시간을 버리게 된다.
+        /// </summary>
+        public float RemainingHours =>
+            Mathf.Max(0f, Shop.ShopHours.LastCustomerHour - CurrentHour);
         public bool IsDayOver { get; private set; }
         public int SpeedMultiplier { get; private set; } = 1;
 
@@ -33,7 +53,7 @@ namespace DogShop.Core
         public event Action OnDayEnded;
         public event Action OnDayStarted;
 
-        int lastWholeHour = (int)OpenHour;
+        int lastWholeHour = (int)DayStartHour;
 
         void Awake()
         {
@@ -86,8 +106,8 @@ namespace DogShop.Core
 
         public void StartNewDay()
         {
-            CurrentHour = OpenHour;
-            lastWholeHour = (int)OpenHour;
+            CurrentHour = DayStartHour;
+            lastWholeHour = (int)DayStartHour;
             IsDayOver = false;
             OnDayStarted?.Invoke();
         }
@@ -105,7 +125,7 @@ namespace DogShop.Core
         {
             // 상한은 <b>CloseHour 가 아니라 LastHour</b> 다. 18시는 장사의 끝이지 하루의 끝이
             // 아니므로, 마감 단계(18~24시)에 저장한 사람이 불러오면 시계가 18시로 되감겼다.
-            CurrentHour = Mathf.Clamp(data.currentHour, OpenHour, LastHour);
+            CurrentHour = Mathf.Clamp(data.currentHour, DayStartHour, LastHour);
             lastWholeHour = Mathf.FloorToInt(CurrentHour);
             IsDayOver = data.dayOver;
             SpeedMultiplier = 1;
