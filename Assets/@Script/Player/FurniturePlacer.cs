@@ -184,6 +184,12 @@ namespace DogShop.Player
 
             string why;
             valid = held.Fits(target, rotation, player, out why);
+
+            // 계산대는 자기 발자국만 들어가면 되는 게 아니다. 앞에 줄이 서야 한다 —
+            // 벽을 보게 세우면 줄 자리가 벽 안으로 들어가 손님이 한 자리에 겹쳐 선다
+            if (valid && held.GetComponent<ShopCounter>() != null)
+                valid = ShopCounter.HasQueueRoom(target, rotation, out why);
+
             reason = valid ? "" : why;
             Tint(valid ? OkTint : BadTint);
         }

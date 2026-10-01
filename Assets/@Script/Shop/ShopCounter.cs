@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.AI;
 
 namespace DogShop.Shop
 {
@@ -59,6 +60,46 @@ namespace DogShop.Shop
         public Vector3 QueueSlot(int index)
         {
             return Origin + CustomerSide * (FirstGap + Mathf.Max(0, index) * Spacing);
+        }
+
+        /// <summary>놓을 수 있는지 볼 때 확인하는 줄 자리 수.</summary>
+        const int RoomSlots = 3;
+
+        /// <summary>
+        /// 자리가 이만큼 넘게 끌려오면 설 자리가 없는 것으로 본다.
+        /// 줄 간격(0.70)의 절반보다 작아야 두 사람이 한 자리에 겹치는 것을 걸러낸다.
+        /// </summary>
+        const float RoomTolerance = 0.3f;
+
+        /// <summary>
+        /// 거기에 놓으면 줄이 설 수 있는가. <b>계산대를 벽에 대고 벽을 보게</b> 놓으면
+        /// 줄 자리가 벽 안으로 들어간다.
+        ///
+        /// <see cref="CustomerManager.RefreshQueue"/>가 자리를 NavMesh 위로 끌어다 놓기는 하지만,
+        /// 공간이 모자라면 여러 자리가 <b>같은 곳으로 끌려와</b> 손님이 겹쳐 선다.
+        /// 끌려온 거리를 재서, 자리가 제자리에 못 잡히면 놓지 못하게 한다.
+        ///
+        /// 놓기 전이라 NavMesh 는 아직 다시 굽기 전이다. 벽과 바닥은 그대로이므로
+        /// 막히는 경우는 이것으로 다 걸리고, 계산대 자신의 두께만큼은 느슨하게 본다.
+        /// </summary>
+        public static bool HasQueueRoom(Vector3 origin, Quaternion rotation, out string reason)
+        {
+            Vector3 customerSide = rotation * Vector3.back;
+            Vector3 ground = new Vector3(origin.x, 0f, origin.z);
+
+            for (int i = 0; i < RoomSlots; i++)
+            {
+                Vector3 want = ground + customerSide * (FirstGap + i * Spacing);
+
+                NavMeshHit hit;
+                if (NavMesh.SamplePosition(want, out hit, RoomTolerance, Customer.WalkableAreas)) continue;
+
+                reason = "계산대 앞에 줄 설 자리가 없다 — " + (i + 1) + "번째가 막힌다";
+                return false;
+            }
+
+            reason = null;
+            return true;
         }
     }
 }
