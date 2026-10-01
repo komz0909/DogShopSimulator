@@ -65,13 +65,21 @@ namespace DogShop.Player
             RefreshHint();
 
             Keyboard keyboard = Keyboard.current;
-            if (keyboard == null || !keyboard.eKey.wasPressedThisFrame) return;
+            if (keyboard == null) return;
 
-            Interact();
+            if (keyboard.eKey.wasPressedThisFrame) Interact(true);
+            else if (keyboard.rKey.wasPressedThisFrame) Interact(false);
         }
 
-        /// <summary>조준선에 걸린 것을 거리 안에서 처리한다.</summary>
-        void Interact()
+        /// <summary>
+        /// 조준선에 걸린 것을 거리 안에서 처리한다.
+        ///
+        /// <paramref name="load"/> 가 방향을 정한다 — <b>E는 상자에 담고, R은 상자에서 내린다.</b>
+        /// 예전에는 E 하나로 "상자에 그 상품이 있으면 넣고 없으면 꺼낸다"로 갈랐는데,
+        /// 창고에서 한 개를 담는 순간 "있음"이 되어 다음 E가 방금 담은 것을 도로 넣었다.
+        /// 같은 키가 한 번 누를 때마다 뜻이 뒤집히면 연달아 담는 일이 아예 불가능하다.
+        /// </summary>
+        void Interact(bool load)
         {
             // 허공을 조준했으면 아무것도 하지 않는다 — 예전에는 여기서 상자를 놓아버렸다.
             RaycastHit hit;
@@ -82,6 +90,7 @@ namespace DogShop.Player
             CarryCrate crate = hit.collider.GetComponentInParent<CarryCrate>();
             if (crate != null)
             {
+                if (!load) return;   // 상자를 내려놓는 것은 바닥을 보고 R
                 if (!inRange) { Reject("너무 멀다 — 가까이 갈 것"); return; }
                 ActionRunner.TryRun(new PickUpAction(carry, crate));
                 return;
@@ -90,6 +99,8 @@ namespace DogShop.Player
             DeliveryStack delivery = hit.collider.GetComponentInParent<DeliveryStack>();
             if (delivery != null)
             {
+                // 배달 더미는 받기만 한다 — 트럭이 내려놓고 간 것을 되돌릴 데가 없다
+                if (!load) { Reject("배달 더미에는 되돌릴 수 없다"); return; }
                 if (!inRange) { Reject("너무 멀다 — 배달 더미에 가까이 갈 것"); return; }
                 ActionRunner.TryRun(new TakeFromDeliveryAction(carry, delivery.ProductIndex));
                 return;
@@ -100,10 +111,8 @@ namespace DogShop.Player
             {
                 if (!inRange) { Reject("너무 멀다 — 창고 선반에 가까이 갈 것"); return; }
 
-                // 그 상품을 들고 왔으면 넣는 것이고, 빈손이면 꺼내는 것이다.
-                // 진열대가 쓰는 규칙과 같다 — 키를 나누지 않아도 뜻이 갈린다.
-                if (HoldsProduct(rack.ProductIndex)) ActionRunner.TryRun(new StoreOneAction(carry, rack.ProductIndex));
-                else ActionRunner.TryRun(new TakeOneAction(carry, rack.ProductIndex));
+                if (load) ActionRunner.TryRun(new TakeOneAction(carry, rack.ProductIndex));
+                else ActionRunner.TryRun(new StoreOneAction(carry, rack.ProductIndex));
                 return;
             }
 
@@ -116,12 +125,8 @@ namespace DogShop.Player
                 // 플레이어가 보는 칸에 놓인다 — 칸 고르는 키를 따로 만들 이유가 없다.
                 int slot = shelf.SlotNear(hit.point.y);
 
-                // 그 칸에 뭔가 있으면 회수, 비어 있으면 상자에서 진열.
-                // 둘이 동시에 성립하지 않으므로 키를 나눌 필요가 없다.
-                if (shelf.CountAt(slot) > 0 && !HoldsProduct(shelf.ProductAt(slot)))
-                    ActionRunner.TryRun(new TakeFromShelfAction(carry, shelf, slot));
-                else
-                    ActionRunner.TryRun(new PlaceOneAction(carry, shelf, slot));
+                if (load) ActionRunner.TryRun(new TakeFromShelfAction(carry, shelf, slot));
+                else ActionRunner.TryRun(new PlaceOneAction(carry, shelf, slot));
                 return;
             }
 
@@ -133,9 +138,11 @@ namespace DogShop.Player
                 return;
             }
 
+            // 아래는 전부 상자와 무관한 상호작용이다. R은 상자에서 내리는 키이므로 지나간다
             DirtSpot dirt = hit.collider.GetComponentInParent<DirtSpot>();
             if (dirt != null)
             {
+                if (!load) return;
                 if (!inRange) { Reject("너무 멀다 — 가까이 갈 것"); return; }
                 CleanlinessManager.Instance.Clean(dirt);
                 return;
@@ -143,6 +150,7 @@ namespace DogShop.Player
 
             if (hit.collider.GetComponentInParent<ShopCounter>() != null)
             {
+                if (!load) return;
                 if (!inRange) { Reject("너무 멀다 — 계산대로 갈 것"); return; }
                 if (orderMenu != null) orderMenu.Open(ScreenPointOf(hit.point));
                 return;
@@ -151,6 +159,7 @@ namespace DogShop.Player
             Dog dog = hit.collider.GetComponentInParent<Dog>();
             if (dog != null)
             {
+                if (!load) return;
                 if (!inRange) { Reject("너무 멀다 — 강아지에게 가까이 갈 것"); return; }
                 if (dogMenu != null) dogMenu.Open(dog, ScreenPointOf(hit.point));
                 return;
@@ -159,6 +168,7 @@ namespace DogShop.Player
             Bed bed = hit.collider.GetComponentInParent<Bed>();
             if (bed != null)
             {
+                if (!load) return;
                 if (!inRange) { Reject("너무 멀다 — 침대로 갈 것"); return; }
                 bed.Open(ScreenPointOf(hit.point));
                 return;
@@ -214,24 +224,18 @@ namespace DogShop.Player
 
             if (hit.collider.GetComponentInParent<CarryCrate>() != null) hint = "[E] 상자 들기";
             else if (hit.collider.GetComponentInParent<DeliveryStack>() != null) hint = "[E] 상자에 1개 담기";
+            // 방향이 키로 갈리므로 둘을 같이 적는다. 무엇이 일어날지 눌러 보고 알게 하면
+            // 창고에서 연달아 담다가 한 번 어긋나는 순간 방금 담은 것을 도로 넣게 된다
             else if (hit.collider.GetComponentInParent<StorageRack>() != null)
-            {
-                StorageRack aimed = hit.collider.GetComponentInParent<StorageRack>();
-                hint = HoldsProduct(aimed.ProductIndex) ? "[E] 창고에 1개 넣기" : "[E] 상자에 1개 담기";
-            }
+                hint = "[E] 상자에 1개 담기      [R] 창고에 1개 내리기";
             else if (hit.collider.GetComponentInParent<ShelfTable>() != null)
-            {
-                ShelfTable aimed = hit.collider.GetComponentInParent<ShelfTable>();
-                int slot = aimed.SlotNear(hit.point.y);
-                hint = aimed.CountAt(slot) > 0 && !HoldsProduct(aimed.ProductAt(slot))
-                     ? "[E] 1개 회수" : "[E] 1개 진열";
-            }
+                hint = "[E] 1개 회수      [R] 1개 진열";
             else if (hit.collider.GetComponentInParent<Customer>() != null) hint = "[E] 계산";
             else if (hit.collider.GetComponentInParent<DirtSpot>() != null) hint = "[E] 청소";
             else if (hit.collider.GetComponentInParent<ShopCounter>() != null) hint = "[E] 발주";
             else if (hit.collider.GetComponentInParent<Dog>() != null) hint = "[E] 강아지 관리";
             else if (hit.collider.GetComponentInParent<Bed>() != null) hint = "[E] 잠자기";
-            else if (carry != null && carry.IsHolding && IsGround(hit)) hint = "[E] 여기에 상자 내려놓기";
+            else if (carry != null && carry.IsHolding && IsGround(hit)) hint = "[E/R] 여기에 상자 내려놓기";
         }
 
         // ---- 액션 ----
@@ -455,11 +459,6 @@ namespace DogShop.Player
 
                 table.Place(slot, productIndex, grade);
             }
-        }
-
-        bool HoldsProduct(int productIndex)
-        {
-            return carry != null && carry.IsHolding && carry.Held.CountOf(productIndex) > 0;
         }
 
         /// <summary>
