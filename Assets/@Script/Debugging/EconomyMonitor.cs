@@ -265,7 +265,15 @@ namespace DogShop.Debugging
             // 상자에 흘러간 돈. 남는 돈이 실제로 이 구멍으로 빠지는지 본다
             RandomBox box = RandomBox.Instance;
             Append(row, box != null ? box.OpenedTotal : 0);
-            Append(row, box != null ? box.SpentTotal : 0, last: true);
+            Append(row, box != null ? box.SpentTotal : 0);
+
+            // 단계 사다리가 실제로 올라갔는가. 이게 없으면 전부 1단계에 머물러도
+            // 총성장만 보고는 알 수 없다 — 카탈로그 값 변경과 구분이 안 된다
+            int stageSum, stageTop, upgrading;
+            CountStages(tm, out stageSum, out stageTop, out upgrading);
+            Append(row, stageSum);
+            Append(row, stageTop);
+            Append(row, upgrading, last: true);
 
             try
             {
@@ -287,7 +295,27 @@ namespace DogShop.Debugging
             + "topCostTraining,topCostBeauty,aMaxTarget,aMaxActual,"
             + "ratioTarget,ratioActual,"
             + "heroBeauty,heroTraining,heroGrowthTotal,heroUpkeep,"
-            + "openSlots,openShown,openStranded,trainCapacity,surplus,boxOpened,boxSpent";
+            + "openSlots,openShown,openStranded,trainCapacity,surplus,boxOpened,boxSpent,"
+            + "stageSum,stageTop,upgrading";
+
+        /// <summary>해금된 훈련의 단계 합·최고 단계와, 지금 강화 중인 수.</summary>
+        static void CountStages(TrainingManager tm, out int sum, out int top, out int upgrading)
+        {
+            sum = 0;
+            top = 0;
+            upgrading = 0;
+            if (tm == null || tm.Catalog == null) return;
+
+            for (int i = 0; i < tm.Catalog.Count; i++)
+            {
+                if (!tm.IsUnlocked(i)) continue;
+
+                int stage = tm.StageOf(i);
+                sum += stage;
+                if (stage > top) top = stage;
+                if (tm.IsUpgrading(i)) upgrading++;
+            }
+        }
 
         /// <summary>
         /// 진열 칸 수와, 해금 상품 중 <b>손님이 닿는 자리에</b> 올라와 있는 종수를 센다.

@@ -49,8 +49,9 @@ namespace DogShop.Dogs
         {
             if (GrowthBlocked || amount <= 0) return false;
 
-            if (axis == GrowthAxis.Beauty) Beauty += amount;
-            else Training += amount;
+            // Both 은 나눠 갖지 않는다. 한 슬롯으로 두 축을 같이 올리는 것이 이 훈련의 값이다
+            if (axis != GrowthAxis.Training) Beauty += amount;
+            if (axis != GrowthAxis.Beauty) Training += amount;
 
             OnChanged?.Invoke();
             return true;

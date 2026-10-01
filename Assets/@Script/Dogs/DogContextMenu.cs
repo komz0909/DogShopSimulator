@@ -32,6 +32,13 @@ namespace DogShop.Dogs
         bool[] trainEnabled = new bool[0];
         bool[] trainVisible = new bool[0];
 
+        /// <summary>단계상승 버튼. 훈련 줄 오른쪽에 붙는다.</summary>
+        string[] upgradeLabels = new string[0];
+        bool[] upgradeEnabled = new bool[0];
+
+        /// <summary>단계상승 버튼 너비. 훈련 줄에서 이만큼을 떼어 쓴다.</summary>
+        const float UpgradeWidth = 54f;
+
         GUIStyle rowStyle;
         GUIStyle headerStyle;
         GUIStyle dimStyle;
@@ -116,6 +123,8 @@ namespace DogShop.Dogs
                 trainLabels = new string[cat.Count];
                 trainEnabled = new bool[cat.Count];
                 trainVisible = new bool[cat.Count];
+                upgradeLabels = new string[cat.Count];
+                upgradeEnabled = new bool[cat.Count];
             }
 
             for (int i = 0; i < cat.Count; i++)
@@ -126,13 +135,33 @@ namespace DogShop.Dogs
 
                 string reason;
                 trainEnabled[i] = tm.CanTrain(target, i, out reason);
-                trainLabels[i] = def.nameKo
-                               + "   " + def.cost + "원"
-                               + "   " + (def.axis == GrowthAxis.Beauty ? "미모" : "훈련도") + " +" + def.gain
-                               // 왜 못 누르는지 줄 안에서 바로 보여 준다. 슬롯이 남았는데
-                               // 회색인 이유가 쿨타임이라는 걸 알 길이 없으면 고장으로 보인다
-                               + (tm.UsedToday(i) ? "   (오늘 완료)" : "");
+
+                // 왜 못 누르는지 줄 안에서 바로 보여 준다. 슬롯이 남았는데 회색인 이유가
+                // 쿨타임인지 강화 중인지 알 길이 없으면 고장으로 보인다
+                string mark = tm.IsUpgrading(i) ? "   (강화 " + tm.UpgradeDaysLeft(i) + "일)"
+                            : tm.UsedToday(i) ? "   (오늘 완료)" : "";
+
+                trainLabels[i] = def.nameKo + " " + tm.StageOf(i) + "단계"
+                               + "   " + tm.CostOf(i) + "원"
+                               + "   " + AxisLabel(def.axis) + " +" + tm.GainOf(i)
+                               + mark;
+
+                string why;
+                upgradeEnabled[i] = tm.CanUpgrade(i, out why);
+
+                // 아직 덜 했으면 <b>몇 번 남았는지</b>를 버튼에 적는다.
+                // "왜 회색인지"를 따로 찾아보게 하면 단계가 있는 줄도 모른다
+                upgradeLabels[i] = tm.StageOf(i) >= TrainingStages.Max ? "MAX"
+                    : tm.RepsOf(i) < tm.RepsNeeded(i) ? tm.RepsOf(i) + "/" + tm.RepsNeeded(i)
+                    : "▲" + TrainingStages.DaysToReach(tm.StageOf(i) + 1) + "일";
             }
+        }
+
+        /// <summary>두 축을 올리는 훈련은 양쪽을 다 적는다 — 같은 +4라도 값이 두 배다.</summary>
+        static string AxisLabel(GrowthAxis axis)
+        {
+            if (axis == GrowthAxis.Both) return "미모·훈련도";
+            return axis == GrowthAxis.Beauty ? "미모" : "훈련도";
         }
 
         void BuildCare(int slot, DogCare.CareAction action, string label, int productIndex, InventoryManager inv)
@@ -202,8 +231,18 @@ namespace DogShop.Dogs
                 if (!trainVisible[i]) continue;
 
                 GUI.enabled = trainEnabled[i];
-                if (GUI.Button(new Rect(x, y, w, RowHeight - 2f), trainLabels[i], rowStyle))
+                if (GUI.Button(new Rect(x, y, w - UpgradeWidth - 2f, RowHeight - 2f), trainLabels[i], rowStyle))
                     ActionRunner.TryRun(new TrainingManager.TrainAction(target, i));
+
+                // 단계상승은 돈이 아니라 시간을 낸다. 누르면 그 훈련이 며칠 잠긴다
+                GUI.enabled = upgradeEnabled[i];
+                if (GUI.Button(new Rect(x + w - UpgradeWidth, y, UpgradeWidth, RowHeight - 2f),
+                        upgradeLabels[i], rowStyle))
+                {
+                    tm.BeginUpgrade(i);
+                    Rebuild();
+                }
+
                 y += RowHeight;
             }
 

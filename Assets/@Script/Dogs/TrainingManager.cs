@@ -24,11 +24,24 @@ namespace DogShop.Dogs
         /// 오늘 이미 쓴 훈련. 같은 훈련은 <b>하루에 한 번</b>이다.
         ///
         /// 이게 없으면 슬롯을 전부 같은 훈련으로 채우는 게 언제나 정답이라
-        /// (돈만 있으면 최고가 하나만 반복) 매일의 선택이 사라진다. 하루 쿨타임을 주면
-        /// 슬롯 수만큼 <b>서로 다른</b> 훈련을 골라야 해서, 돈이 넉넉해져도
+        /// 매일의 선택이 사라진다. 슬롯 수만큼 <b>서로 다른</b> 훈련을 골라야 해서
         /// "무엇을 어떤 순서로 쓸까"가 남는다.
         /// </summary>
         bool[] usedToday;
+
+        /// <summary>
+        /// 훈련마다의 단계(1~5). 슬롯 하나가 내는 성장을 키운다.
+        ///
+        /// 반복으로는 오르지 않는다 — <see cref="BeginUpgrade"/>로만 올라가고,
+        /// 그동안 그 훈련을 못 쓴다. 하루 한 번 제한은 그대로다.
+        /// </summary>
+        int[] stage;
+
+        /// <summary>강화가 끝나기까지 남은 날. 0보다 크면 그 훈련을 쓸 수 없다.</summary>
+        int[] upgradeDays;
+
+        /// <summary>지금 단계에서 그 훈련을 몇 번 했는가. 단계가 오르면 0으로 돌아간다.</summary>
+        int[] reps;
         public int SlotsTotal => ShopLevelManager.Instance.Current.trainingSlots;
         public int SlotsLeft => Mathf.Max(0, SlotsTotal - SlotsUsed);
 
@@ -36,27 +49,101 @@ namespace DogShop.Dogs
         public int SpentTodayTraining { get; private set; }
         public int SpentTodayBeauty { get; private set; }
 
-        /// <summary>해금된 훈련 중 그 축의 최고가. 감시 지표의 분모다.</summary>
+        // ---- 단계 ----
+
+        public int StageOf(int index) =>
+            stage != null && index >= 0 && index < stage.Length ? stage[index] : 1;
+
+        /// <summary>지금 단계의 비용.</summary>
+        public int CostOf(int index) => TrainingStages.ValueAt(catalog.Get(index).cost, StageOf(index));
+
+        /// <summary>지금 단계의 획득량.</summary>
+        public int GainOf(int index) => TrainingStages.ValueAt(catalog.Get(index).gain, StageOf(index));
+
+        /// <summary>강화 중이면 남은 날, 아니면 0.</summary>
+        public int UpgradeDaysLeft(int index) =>
+            upgradeDays != null && index >= 0 && index < upgradeDays.Length ? upgradeDays[index] : 0;
+
+        public bool IsUpgrading(int index) => UpgradeDaysLeft(index) > 0;
+
+        /// <summary>지금 단계에서 한 훈련 횟수.</summary>
+        public int RepsOf(int index) =>
+            reps != null && index >= 0 && index < reps.Length ? reps[index] : 0;
+
+        /// <summary>다음 단계로 올리려면 지금 단계에서 몇 번 해야 하는가.</summary>
+        public int RepsNeeded(int index) => TrainingStages.RepsToAdvance(StageOf(index));
+
+        public bool CanUpgrade(int index, out string reason)
+        {
+            if (!IsUnlocked(index)) { reason = "미해금 훈련"; return false; }
+            if (IsUpgrading(index)) { reason = "강화 중 — " + UpgradeDaysLeft(index) + "일 남음"; return false; }
+            if (StageOf(index) >= TrainingStages.Max) { reason = "최고 단계"; return false; }
+
+            int need = RepsNeeded(index);
+            if (RepsOf(index) < need)
+            {
+                reason = "더 해 봐야 한다 — " + RepsOf(index) + " / " + need + "회";
+                return false;
+            }
+
+            reason = null;
+            return true;
+        }
+
+        /// <summary>
+        /// 단계 강화를 시작한다. 값은 돈이 아니라 <b>시간</b>이다 —
+        /// 끝날 때까지 그 훈련을 못 쓰므로, 주력 훈련을 올리는 동안은 다른 것으로 버텨야 한다.
+        /// </summary>
+        public bool BeginUpgrade(int index)
+        {
+            string reason;
+            if (!CanUpgrade(index, out reason)) return false;
+
+            upgradeDays[index] = TrainingStages.DaysToReach(stage[index] + 1);
+            OnSlotsChanged?.Invoke();
+            return true;
+        }
+
+        void AdvanceUpgrades()
+        {
+            if (upgradeDays == null) return;
+
+            for (int i = 0; i < upgradeDays.Length; i++)
+            {
+                if (upgradeDays[i] <= 0) continue;
+
+                upgradeDays[i]--;
+                if (upgradeDays[i] != 0 || stage[i] >= TrainingStages.Max) continue;
+
+                stage[i]++;
+                reps[i] = 0;   // 새 단계에서 다시 쌓는다
+            }
+        }
+
+        /// <summary>
+        /// 그 훈련이 이 축을 올리는가. 두 축을 같이 올리는 훈련(놀아주기)은 양쪽 모두에 해당한다.
+        /// </summary>
+        public static bool Covers(GrowthAxis trainingAxis, GrowthAxis wanted) =>
+            trainingAxis == wanted || trainingAxis == GrowthAxis.Both;
+
+        /// <summary>해금된 훈련 중 그 축의 최고가. 지금 단계 기준이다.</summary>
         public int TopCostOf(GrowthAxis axis)
         {
             int top = 0;
             for (int i = 0; i < catalog.Count; i++)
             {
-                TrainingDef def = catalog.Get(i);
-                if (def.axis != axis || !IsUnlocked(i)) continue;
-                if (def.cost > top) top = def.cost;
+                if (!Covers(catalog.Get(i).axis, axis) || !IsUnlocked(i)) continue;
+                if (CostOf(i) > top) top = CostOf(i);
             }
             return top;
         }
 
         /// <summary>
-        /// 하루에 훈련으로 쓸 수 있는 <b>최대 금액</b>. 슬롯 수만큼 <b>서로 다른</b> 훈련 중
-        /// 비싼 것부터 고른 합이다.
+        /// 하루에 훈련으로 쓸 수 있는 <b>최대 금액</b>. 하루 한 번 제한이 있으므로
+        /// 슬롯 수만큼 <b>서로 다른</b> 훈련 중 비싼 것부터 고른 합이다.
         ///
-        /// 하루 쿨타임이 생기면서 "슬롯 × 최고가"는 더 이상 상한이 아니다 —
-        /// L4 는 슬롯이 4개인데 해금된 훈련이 축마다 3종뿐이라, 같은 것을 반복할 수 없으면
-        /// 두 축을 섞어야만 슬롯을 다 쓴다. 감시 지표가 재는 "훈련이 흡수할 수 있는 돈"의
-        /// 진짜 크기는 이 값이다.
+        /// "슬롯 x 최고가"가 아니다 — 같은 훈련을 반복할 수 없어서, 쓸 수 있는 훈련이
+        /// 슬롯보다 적으면 슬롯을 다 못 채운다. 강화 중인 훈련도 못 쓰므로 뺀다.
         /// </summary>
         public int DailyCapacity
         {
@@ -65,26 +152,21 @@ namespace DogShop.Dogs
                 int slots = SlotsTotal;
                 if (catalog == null || slots <= 0) return 0;
 
-                // 해금된 훈련의 비용을 내림차순으로 slots 개만 더한다
-                int total = 0;
-                int taken = 0;
-                int ceiling = int.MaxValue;
-
+                int total = 0, taken = 0, ceiling = int.MaxValue;
                 while (taken < slots)
                 {
                     int best = 0;
                     for (int i = 0; i < catalog.Count; i++)
                     {
-                        if (!IsUnlocked(i)) continue;
-                        int cost = catalog.Get(i).cost;
-                        if (cost < ceiling && cost > best) best = cost;
+                        if (!IsUnlocked(i) || IsUpgrading(i)) continue;
+                        if (CostOf(i) < ceiling && CostOf(i) > best) best = CostOf(i);
                     }
                     if (best <= 0) break;
 
                     // 같은 값이 여러 종일 수 있다(축이 둘이라 비용표가 겹친다)
                     for (int i = 0; i < catalog.Count && taken < slots; i++)
                     {
-                        if (!IsUnlocked(i) || catalog.Get(i).cost != best) continue;
+                        if (!IsUnlocked(i) || IsUpgrading(i) || CostOf(i) != best) continue;
                         total += best;
                         taken++;
                     }
@@ -101,12 +183,18 @@ namespace DogShop.Dogs
             if (Instance != null && Instance != this) { Destroy(this); return; }
             Instance = this;
 
-            usedToday = new bool[catalog != null ? catalog.Count : 0];
+            int count = catalog != null ? catalog.Count : 0;
+            usedToday = new bool[count];
+            stage = new int[count];
+            upgradeDays = new int[count];
+            reps = new int[count];
+            for (int i = 0; i < count; i++) stage[i] = 1;
         }
 
         /// <summary>오늘 이미 쓴 훈련인가. 하루가 바뀌면 풀린다.</summary>
         public bool UsedToday(int index) =>
             usedToday != null && index >= 0 && index < usedToday.Length && usedToday[index];
+
 
         void Start()
         {
@@ -125,6 +213,10 @@ namespace DogShop.Dogs
             SpentTodayTraining = 0;
             SpentTodayBeauty = 0;
             if (usedToday != null) Array.Clear(usedToday, 0, usedToday.Length);
+
+            // 강화는 날짜로 흐른다. 하루가 시작될 때 하루씩 깎는다
+            AdvanceUpgrades();
+
             OnSlotsChanged?.Invoke();
         }
 
@@ -132,6 +224,9 @@ namespace DogShop.Dogs
         {
             data.trainingSlotsUsed = SlotsUsed;
             data.trainingUsedToday = usedToday != null ? (bool[])usedToday.Clone() : new bool[0];
+            data.trainingStage = stage != null ? (int[])stage.Clone() : new int[0];
+            data.trainingUpgradeDays = upgradeDays != null ? (int[])upgradeDays.Clone() : new int[0];
+            data.trainingReps = reps != null ? (int[])reps.Clone() : new int[0];
         }
 
         public void RestoreFrom(SaveData data)
@@ -139,12 +234,25 @@ namespace DogShop.Dogs
             SlotsUsed = Mathf.Max(0, data.trainingSlotsUsed);
 
             // 쿨타임도 같이 복원한다. 안 그러면 저장하고 불러오는 것만으로 하루 쿨이 풀린다
-            if (usedToday != null)
+            for (int i = 0; usedToday != null && i < usedToday.Length; i++)
+                usedToday[i] = data.trainingUsedToday != null && i < data.trainingUsedToday.Length
+                    && data.trainingUsedToday[i];
+
+            // 단계와 강화 진행도 같이 복원한다. 안 그러면 불러오는 것만으로 강화가 끝나거나
+            // 어렵게 올린 단계가 1로 돌아간다. 옛 세이브에는 없으므로 1단계로 본다
+            for (int i = 0; stage != null && i < stage.Length; i++)
             {
-                Array.Clear(usedToday, 0, usedToday.Length);
-                if (data.trainingUsedToday != null)
-                    for (int i = 0; i < usedToday.Length && i < data.trainingUsedToday.Length; i++)
-                        usedToday[i] = data.trainingUsedToday[i];
+                stage[i] = data.trainingStage != null && i < data.trainingStage.Length
+                    ? Mathf.Clamp(data.trainingStage[i], 1, TrainingStages.Max)
+                    : 1;
+
+                upgradeDays[i] = data.trainingUpgradeDays != null && i < data.trainingUpgradeDays.Length
+                    ? Mathf.Max(0, data.trainingUpgradeDays[i])
+                    : 0;
+
+                reps[i] = data.trainingReps != null && i < data.trainingReps.Length
+                    ? Mathf.Max(0, data.trainingReps[i])
+                    : 0;
             }
 
             OnSlotsChanged?.Invoke();
@@ -157,6 +265,7 @@ namespace DogShop.Dogs
         {
             if (dog == null) { reason = "대상 없음"; return false; }
             if (!IsUnlocked(index)) { reason = "미해금 훈련"; return false; }
+            if (IsUpgrading(index)) { reason = "강화 중 — " + UpgradeDaysLeft(index) + "일 남음"; return false; }
             if (UsedToday(index)) { reason = "오늘 이미 했다 — 내일 다시"; return false; }
             if (SlotsLeft <= 0) { reason = "훈련 슬롯 소진 — " + SlotsUsed + "/" + SlotsTotal; return false; }
 
@@ -166,7 +275,7 @@ namespace DogShop.Dogs
                 return false;
             }
 
-            int cost = catalog.Get(index).cost;
+            int cost = CostOf(index);
             if (GameManager.Instance.Money < cost)
             {
                 reason = "재화 부족 — " + GameManager.Instance.Money + " / " + cost;
@@ -183,15 +292,24 @@ namespace DogShop.Dogs
             if (!CanTrain(dog, index, out reason)) return false;
 
             TrainingDef def = catalog.Get(index);
-            if (!GameManager.Instance.TrySpend(def.cost)) return false;
+            int cost = CostOf(index);
+            if (!GameManager.Instance.TrySpend(cost)) return false;
 
-            dog.Stats.AddGrowth(def.axis, def.gain);
+            dog.Stats.AddGrowth(def.axis, GainOf(index));
             ShowTraining(dog, def);
 
             SlotsUsed++;
             if (usedToday != null && index < usedToday.Length) usedToday[index] = true;
-            if (def.axis == GrowthAxis.Beauty) SpentTodayBeauty += def.cost;
-            else SpentTodayTraining += def.cost;
+            if (reps != null && index < reps.Length) reps[index]++;
+            // 두 축을 올리는 훈련은 지출을 반씩 나눠 적는다. 양쪽에 전액을 적으면
+            // 두 열의 합이 실제 지출을 넘어 감시비율의 분자가 부풀려진다
+            if (def.axis == GrowthAxis.Both)
+            {
+                SpentTodayBeauty += cost / 2;
+                SpentTodayTraining += cost - cost / 2;
+            }
+            else if (def.axis == GrowthAxis.Beauty) SpentTodayBeauty += cost;
+            else SpentTodayTraining += cost;
             OnSlotsChanged?.Invoke();
             return true;
         }
@@ -225,22 +343,24 @@ namespace DogShop.Dogs
             for (int i = 0; i < catalog.Count; i++)
             {
                 TrainingDef other = catalog.Get(i);
-                if (other.axis == def.axis && other.cost < def.cost) tier++;
+                if (Covers(other.axis, def.axis) && other.cost < def.cost) tier++;
             }
             return tier;
         }
 
         static DogAnim ShowFor(GrowthAxis axis, int tier)
         {
+            // 놀아주기는 훈련이라기보다 노는 것이다. 언제나 꼬리를 흔든다
+            if (axis == GrowthAxis.Both) return DogAnim.WagTail;
+
             // 짖기(Angry)는 비싼 훈련에만 준다 — 매번 으르렁대면 사나운 개로 보인다
             if (axis == GrowthAxis.Training)
             {
                 switch (tier)
                 {
                     case 0: return DogAnim.Run;       // 산책
-                    case 1: return DogAnim.Sit;       // 복종 훈련
-                    case 2: return DogAnim.Run;       // 어질리티 특훈
-                    default: return DogAnim.Angry;    // 전문·마스터 훈련
+                    case 1: return DogAnim.Sit;       // 고급 훈련
+                    default: return DogAnim.Angry;    // 전문 훈련
                 }
             }
 

@@ -106,9 +106,12 @@ namespace DogShop.Debugging
         }
 
         /// <summary>
-        /// 문을 09시에 열고 18시에 닫는다. 측정값을 예전과 비교하려면 <b>장사 시간이
-        /// 똑같아야</b> 한다 — 늦게까지 열어 두면 18~20시의 남는 손님까지 받아
-        /// 손님 수가 달라진다.
+        /// 열 수 있게 되는 즉시 열고, 손님이 끊기는 시각까지 닫지 않는다.
+        ///
+        /// 예전에는 09~18시로 고정했다 — 예전 측정과 손님 수를 맞추려는 것이었다.
+        /// 이제 영업시간 자체가 플레이어의 선택이고 <b>길게 끄는 것이 곧 매출</b>이라,
+        /// 고정하면 이 장치가 재려는 상한을 못 잰다. 08시에 열고 21시까지 버티는
+        /// 최대 영업이 기준선이다(09~18시 대비 손님 +22%).
         /// </summary>
         void MindShopHours()
         {
@@ -121,7 +124,7 @@ namespace DogShop.Debugging
                 if (hours.CanOpen(out reason)) hours.Open();
             }
             else if (hours.Current == ShopHours.Phase.Open
-                     && TimeManager.Instance.CurrentHour >= TimeManager.CloseHour)
+                     && TimeManager.Instance.CurrentHour >= ShopHours.LastCustomerHour)
             {
                 hours.Close();
             }
@@ -190,6 +193,10 @@ namespace DogShop.Debugging
             HaulDelivery();
 
             TrainHero();
+
+            // 단계상승은 훈련 <b>뒤</b>다. 강화를 걸면 그 훈련을 못 쓰는데,
+            // 오늘 이미 쓴 뒤라면 어차피 쿨타임이라 잃는 슬롯이 없다
+            UpgradeTrainings();
 
             // 상자는 <b>맨 마지막</b>이다. 재고·진열대·승급·훈련을 다 하고도 남는 돈으로만 산다
             BuyBoxes();
@@ -622,6 +629,45 @@ namespace DogShop.Debugging
             }
         }
 
+        /// <summary>
+        /// 올릴 수 있는 훈련의 단계를 올린다. 값은 돈이 아니라 시간이다.
+        ///
+        /// 하루 슬롯이 정해져 있으니 총성장은 <b>슬롯당 획득의 합</b>이다. 그래서
+        /// 획득이 가장 큰 훈련부터 올린다 — 싼 훈련을 먼저 올려 봐야 그 슬롯은
+        /// 어차피 비싼 훈련에 밀려 안 쓰인다.
+        ///
+        /// 다만 내일 슬롯을 채울 훈련은 남긴다. 강화 중엔 그 훈련을 쓸 수 없어서,
+        /// 한꺼번에 여러 개를 걸면 내일 슬롯이 비어 그날 성장을 통째로 버린다.
+        /// </summary>
+        void UpgradeTrainings()
+        {
+            TrainingManager tm = TrainingManager.Instance;
+            int guard = 0;
+
+            while (guard++ < 16)
+            {
+                int usable = 0;
+                for (int i = 0; i < tm.Catalog.Count; i++)
+                    if (tm.IsUnlocked(i) && !tm.IsUpgrading(i)) usable++;
+
+                // 하나 더 걸면 내일 슬롯이 남는다면 멈춘다
+                if (usable - 1 < tm.SlotsTotal) return;
+
+                int pick = -1, bestGain = 0;
+                for (int i = 0; i < tm.Catalog.Count; i++)
+                {
+                    string why;
+                    if (!tm.CanUpgrade(i, out why)) continue;
+                    if (tm.GainOf(i) <= bestGain) continue;
+
+                    pick = i;
+                    bestGain = tm.GainOf(i);
+                }
+
+                if (pick < 0 || !tm.BeginUpgrade(pick)) return;
+            }
+        }
+
         static GrowthAxis Other(GrowthAxis axis) =>
             axis == GrowthAxis.Beauty ? GrowthAxis.Training : GrowthAxis.Beauty;
 
@@ -633,12 +679,14 @@ namespace DogShop.Debugging
             for (int i = 0; i < tm.Catalog.Count; i++)
             {
                 TrainingDef def = tm.Catalog.Get(i);
-                if (def.axis != axis || !tm.IsUnlocked(i)) continue;
-                if (tm.UsedToday(i)) continue;              // 같은 훈련은 하루 한 번
-                if (def.cost > budget || def.cost <= bestCost) continue;
+                if (!TrainingManager.Covers(def.axis, axis) || !tm.IsUnlocked(i)) continue;
+                if (tm.UsedToday(i) || tm.IsUpgrading(i)) continue;   // 하루 한 번, 강화 중엔 못 쓴다
+
+                int cost = tm.CostOf(i);
+                if (cost > budget || cost <= bestCost) continue;
 
                 best = i;
-                bestCost = def.cost;
+                bestCost = cost;
             }
             return best;
         }

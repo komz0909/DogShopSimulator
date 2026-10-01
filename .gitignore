@@ -115,3 +115,4 @@ EconomyLog.csv
 # MCP 스크린샷 - 확인용으로만 찍는다
 /[Aa]ssets/[Ss]creenshots/
 /[Aa]ssets/[Ss]creenshots.meta
+EconomyLog_*.csv

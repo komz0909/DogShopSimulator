@@ -43,10 +43,19 @@ namespace DogShop.Core
         /// <summary>오늘 이미 쓴 훈련(하루 쿨타임). 없으면 저장·로드만으로 쿨이 풀린다.</summary>
         public bool[] trainingUsedToday = new bool[0];
 
+        /// <summary>훈련마다의 단계(1~5). 없으면(옛 세이브) 전부 1단계로 본다.</summary>
+        public int[] trainingStage = new int[0];
+
+        /// <summary>강화가 끝나기까지 남은 날. 없으면 강화 중인 것이 없다.</summary>
+        public int[] trainingUpgradeDays = new int[0];
+
+        /// <summary>지금 단계에서 그 훈련을 몇 번 했는가. 단계상승의 선행 조건이다.</summary>
+        public int[] trainingReps = new int[0];
+
         public int dirtSpots;
 
         /// <summary>하루 중 시각과 마감 여부. 없으면 로드가 항상 09:00으로 되돌아간다.</summary>
-        public float currentHour = TimeManager.OpenHour;
+        public float currentHour = TimeManager.DayStartHour;
         public bool dayOver;
 
         /// <summary>그날 매출. 마감 명성(매출/100) 정산의 근거이므로 유실되면 안 된다.</summary>

@@ -15,51 +15,36 @@ MonoBehaviour:
   entries:
   - nameKo: "\uC0B0\uCC45"
     axis: 0
-    cost: 20
+    cost: 100
     gain: 1
     unlockLevel: 1
-  - nameKo: "\uBCF5\uC885 \uD6C8\uB828"
+  - nameKo: "\uD138\uAD00\uB9AC"
+    axis: 1
+    cost: 100
+    gain: 1
+    unlockLevel: 1
+  - nameKo: "\uACE0\uAE09 \uD6C8\uB828"
     axis: 0
-    cost: 60
+    cost: 200
     gain: 2
-    unlockLevel: 1
-  - nameKo: "\uC5B4\uC9C8\uB9AC\uD2F0 \uD2B9\uD6C8"
-    axis: 0
-    cost: 150
+    unlockLevel: 2
+  - nameKo: "\uC2A4\uD0C0\uC77C\uB9C1"
+    axis: 1
+    cost: 300
+    gain: 3
+    unlockLevel: 3
+  - nameKo: "\uB180\uC544\uC8FC\uAE30"
+    axis: 2
+    cost: 400
     gain: 4
-    unlockLevel: 1
+    unlockLevel: 4
   - nameKo: "\uC804\uBB38 \uD6C8\uB828"
     axis: 0
-    cost: 300
-    gain: 7
+    cost: 500
+    gain: 11
     unlockLevel: 5
-  - nameKo: "\uB9C8\uC2A4\uD130 \uD6C8\uB828"
-    axis: 0
-    cost: 650
-    gain: 14
-    unlockLevel: 8
-  - nameKo: "\uBE0C\uB7EC\uC2F1"
-    axis: 1
-    cost: 20
-    gain: 1
-    unlockLevel: 1
-  - nameKo: "\uBBF8\uC6A9"
-    axis: 1
-    cost: 60
-    gain: 2
-    unlockLevel: 1
-  - nameKo: "\uC5FC\uC0C9\xB7\uC2A4\uD0C0\uC77C\uB9C1"
-    axis: 1
-    cost: 150
-    gain: 4
-    unlockLevel: 1
   - nameKo: "\uC804\uBB38 \uBBF8\uC6A9"
     axis: 1
-    cost: 300
-    gain: 7
+    cost: 500
+    gain: 11
     unlockLevel: 5
-  - nameKo: "\uB9C8\uC2A4\uD130 \uC2A4\uD0C0\uC77C\uB9C1"
-    axis: 1
-    cost: 650
-    gain: 14
-    unlockLevel: 8
