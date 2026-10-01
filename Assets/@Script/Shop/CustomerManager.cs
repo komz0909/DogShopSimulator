@@ -30,8 +30,14 @@ namespace DogShop.Shop
         /// <summary>이동이 이 시간을 넘으면 길이 막힌 것으로 보고 내보낸다.</summary>
         public const float TravelTimeout = 45f;
 
-        /// <summary>문 앞 스폰·퇴장 지점. NavMesh 가장자리가 z 0.58 이라 조금 안쪽에 둔다.</summary>
-        static readonly Vector3 Door = new Vector3(4f, 0f, 0.7f);
+        /// <summary>
+        /// 스폰·퇴장 지점. <b>문 바깥</b>이다 — 손님이 문틈(x 3~5)을 지나 들어오고 나간다.
+        ///
+        /// 예전에는 z 0.7, 즉 매장 <b>안쪽</b>이었다. 그러면 손님이 걸어 들어오는 게 아니라
+        /// 가게 안에 불쑥 나타나서, 앞벽을 뚫고 들어온 것처럼 보였다.
+        /// 앞마당은 배달 야적장이라 직원 전용인데, 문 앞 한 줄(z -0.85~0)만 열어 두었다.
+        /// </summary>
+        static readonly Vector3 Door = new Vector3(4f, 0f, -0.55f);
 
         /// <summary>
         /// 계산대를 사이에 두고 <b>직원 반대편</b>에 서는 대기 줄.
