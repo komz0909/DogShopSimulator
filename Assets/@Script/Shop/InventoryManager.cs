@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using DogShop.Core;
 using DogShop.Data;
 using UnityEngine;
@@ -180,7 +181,80 @@ namespace DogShop.Shop
         void StartDay()
         {
             rushDelivery = false;   // 특급 입고는 승급한 그 하루로 끝난다
+
+            // 밤을 넘긴 긴급 발주는 아침 트럭에 같이 실려 온다. 돈은 이미 받았으므로
+            // 자고 일어났더니 사라졌다는 일이 있어서는 안 된다
+            for (int i = 0; i < express.Count; i++) delivered[express[i].product] += express[i].quantity;
+            express.Clear();
+            ExpressUsedToday = false;
+
             ReceiveOrders();
+        }
+
+        /// <summary>긴급 발주 한 건. 값을 더 치르고 그날 안에 받는다.</summary>
+        struct ExpressOrder
+        {
+            public int product;
+            public int quantity;
+            public float dueHour;
+        }
+
+        readonly List<ExpressOrder> express = new List<ExpressOrder>();
+
+        /// <summary>긴급 발주 할증. 도매가에 이만큼 곱한다.</summary>
+        public const float ExpressRate = 1.5f;
+
+        /// <summary>긴급 발주가 도착하기까지의 게임 시간.</summary>
+        public const float ExpressHours = 1f;
+
+        /// <summary>아직 안 온 긴급 발주 수. 상점창이 보여 준다.</summary>
+        public int ExpressPending => express.Count;
+
+        /// <summary>
+        /// 오늘 긴급 발주를 이미 썼는가. <b>하루 한 번</b>이다.
+        ///
+        /// 횟수를 막지 않으면 리드타임 1일이 통째로 사라진다 — 재고가 떨어질 때마다
+        /// 1.5배를 내고 한 시간 뒤에 받으면 되므로, 미리 시켜 두는 계획이 필요 없어진다.
+        /// 한 번으로 묶으면 "오늘의 구멍 하나를 어디에 쓸까"가 남는다.
+        /// </summary>
+        public bool ExpressUsedToday { get; private set; }
+
+        /// <summary>가장 먼저 오는 긴급 발주까지 남은 시간. 없으면 0.</summary>
+        public float ExpressSoonest
+        {
+            get
+            {
+                if (express.Count == 0 || TimeManager.Instance == null) return 0f;
+
+                float soonest = float.MaxValue;
+                for (int i = 0; i < express.Count; i++) soonest = Mathf.Min(soonest, express[i].dueHour);
+                return Mathf.Max(0f, soonest - TimeManager.Instance.CurrentHour);
+            }
+        }
+
+        /// <summary>
+        /// 시간이 된 긴급 발주를 문 앞에 내린다.
+        ///
+        /// 정시 이벤트가 아니라 매 프레임 시계를 본다 — 10:30 에 시킨 것은 11:30 에 와야지
+        /// 11:00 에 오면 안 된다. 목록이 길어야 서넛이라 훑는 비용은 없다.
+        /// </summary>
+        void Update()
+        {
+            if (express.Count == 0 || TimeManager.Instance == null) return;
+
+            float now = TimeManager.Instance.CurrentHour;
+            bool any = false;
+
+            for (int i = express.Count - 1; i >= 0; i--)
+            {
+                if (express[i].dueHour > now) continue;
+
+                delivered[express[i].product] += express[i].quantity;
+                express.RemoveAt(i);
+                any = true;
+            }
+
+            if (any) OnStockChanged?.Invoke();
         }
 
         void OnDestroy()
@@ -206,6 +280,70 @@ namespace DogShop.Shop
             else incoming[index] += quantity;
 
             OnStockChanged?.Invoke();
+            return true;
+        }
+
+        /// <summary>장바구니 한 개 분의 값. 긴급이면 할증이 붙는다.</summary>
+        public int CostOf(IList<int> cart, bool expressed)
+        {
+            if (cart == null) return 0;
+
+            int sum = 0;
+            for (int i = 0; i < cart.Count && i < catalog.Count; i++)
+            {
+                if (cart[i] <= 0) continue;
+                sum += catalog.Get(i).wholesale * cart[i];
+            }
+            return expressed ? Mathf.CeilToInt(sum * ExpressRate) : sum;
+        }
+
+        /// <summary>
+        /// 장바구니를 한 번에 발주한다. 값은 <b>통째로 한 번</b> 치른다 —
+        /// 품목마다 따로 빼면 중간에 돈이 떨어져 절반만 주문된 채로 끝난다.
+        ///
+        /// 긴급은 할증을 물고 <see cref="ExpressHours"/> 뒤에 문 앞으로 온다.
+        /// 보통 발주는 지금까지처럼 내일 아침 트럭이다.
+        /// </summary>
+        public bool TryOrderCart(IList<int> cart, bool expressed, out string reason)
+        {
+            int cost = CostOf(cart, expressed);
+            if (cost <= 0) { reason = "담은 것이 없다"; return false; }
+
+            if (expressed && ExpressUsedToday)
+            {
+                reason = "긴급 발주는 하루 한 번 — 내일 다시";
+                return false;
+            }
+
+            for (int i = 0; i < cart.Count && i < catalog.Count; i++)
+                if (cart[i] > 0 && !IsUnlocked(i)) { reason = catalog.Get(i).nameKo + " 는 아직 못 산다"; return false; }
+
+            if (GameManager.Instance.Money < cost)
+            {
+                reason = "재화 부족 — " + GameManager.Instance.Money + " / " + cost;
+                return false;
+            }
+            if (!GameManager.Instance.TrySpend(cost)) { reason = "결제 실패"; return false; }
+
+            float due = TimeManager.Instance != null
+                ? TimeManager.Instance.CurrentHour + ExpressHours
+                : ExpressHours;
+
+            for (int i = 0; i < cart.Count && i < catalog.Count; i++)
+            {
+                if (cart[i] <= 0) continue;
+
+                // 승급 당일 특급 입고가 켜져 있으면 보통 발주도 그날 안에 온다
+                if (expressed) express.Add(new ExpressOrder { product = i, quantity = cart[i], dueHour = due });
+                else if (rushDelivery) delivered[i] += cart[i];
+                else incoming[i] += cart[i];
+            }
+
+            // 장바구니 하나가 한 번이다. 품목 수로 세면 나눠 담아 하루에 몇 번이고 쓴다
+            if (expressed) ExpressUsedToday = true;
+
+            OnStockChanged?.Invoke();
+            reason = null;
             return true;
         }
 
@@ -404,6 +542,21 @@ namespace DogShop.Shop
             data.delivered = (int[])delivered.Clone();
             data.graded = (int[])graded.Clone();
             data.rushDelivery = rushDelivery;
+
+            // 긴급 발주는 <b>대금은 냈는데 아직 안 온</b> 물건이다. 안 남기면 영구 유실된다 —
+            // 운반 상자를 저장하는 것과 같은 이유다
+            data.expressProduct = new int[express.Count];
+            data.expressQuantity = new int[express.Count];
+            data.expressDueHour = new float[express.Count];
+            for (int i = 0; i < express.Count; i++)
+            {
+                data.expressProduct[i] = express[i].product;
+                data.expressQuantity[i] = express[i].quantity;
+                data.expressDueHour[i] = express[i].dueHour;
+            }
+
+            // 하루 한 번 제한도 같이 남긴다. 안 그러면 저장하고 불러오는 것만으로 다시 쓸 수 있다
+            data.expressUsedToday = ExpressUsedToday;
         }
 
         public void RestoreFrom(SaveData data)
@@ -414,6 +567,24 @@ namespace DogShop.Shop
             CopyInto(data.delivered, delivered);
             CopyInto(data.graded, graded);
             rushDelivery = data.rushDelivery;
+
+            ExpressUsedToday = data.expressUsedToday;
+
+            express.Clear();
+            int pending = data.expressProduct != null ? data.expressProduct.Length : 0;
+            for (int i = 0; i < pending; i++)
+            {
+                int product = data.expressProduct[i];
+                if (product < 0 || product >= catalog.Count) continue;   // 옛 세이브에 없던 상품
+
+                express.Add(new ExpressOrder
+                {
+                    product = product,
+                    quantity = data.expressQuantity != null && i < data.expressQuantity.Length ? data.expressQuantity[i] : 0,
+                    dueHour = data.expressDueHour != null && i < data.expressDueHour.Length ? data.expressDueHour[i] : 0f,
+                });
+            }
+
             OnStockChanged?.Invoke();
         }
 

@@ -82,6 +82,17 @@ namespace DogShop.Core
         /// <summary>등급품 재고. 상품마다 등급 수(7)만큼 칸을 쓴다. 랜덤박스에서만 나온다.</summary>
         public int[] graded = new int[0];
 
+        /// <summary>
+        /// 아직 안 온 긴급 발주. <b>대금은 이미 냈다</b> — 안 남기면 돈만 내고 물건은
+        /// 어디에도 없는 상태가 된다. 세 배열이 같은 첨자를 쓴다.
+        /// </summary>
+        public int[] expressProduct = new int[0];
+        public int[] expressQuantity = new int[0];
+        public float[] expressDueHour = new float[0];
+
+        /// <summary>오늘 긴급 발주를 썼는가. 없으면 저장·로드만으로 하루 한 번 제한이 풀린다.</summary>
+        public bool expressUsedToday;
+
         /// <summary>진열대 칸별 상품과 개수. 진열대를 이어 붙인 한 줄이다. -1 은 빈 칸.</summary>
         public int[] shelfSlotProduct = new int[0];
         public int[] shelfSlotCount = new int[0];

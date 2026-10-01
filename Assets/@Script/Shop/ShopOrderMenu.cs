@@ -125,6 +125,8 @@ namespace DogShop.Shop
             InventoryManager inv = InventoryManager.Instance;
             if (inv == null) return;
 
+            EnsureCart(inv);
+
             ProductCatalog catalog = inv.Catalog;
 
             visible.Clear();
@@ -203,13 +205,43 @@ namespace DogShop.Shop
         /// </summary>
         Rect WindowRect()
         {
-            float width = Pad * 2f + Columns * CardWidth + (Columns - 1) * Gap;
+            float width = Pad * 2f + Columns * CardWidth + (Columns - 1) * Gap + CartWidth + Gap;
 
             return new Rect(
                 (Screen.width - width) * 0.5f,
                 (Screen.height - HeightFor(RowsMost())) * 0.5f,
                 width,
                 HeightFor(RowsNow()));
+        }
+
+        // ---- 장바구니 ----
+
+        /// <summary>오른쪽 장바구니 칸의 너비.</summary>
+        const float CartWidth = 236f;
+
+        /// <summary>
+        /// 담아 둔 수량. 첨자는 <b>상품 번호</b>다 — 탭을 넘겨도 담은 것이 그대로 남는다.
+        ///
+        /// 예전에는 +5 를 누르는 순간 대금이 빠져나갔다. 잘못 누르면 되돌릴 방법이 없었고,
+        /// 여러 품목을 시킬 때마다 따로 결제되어 얼마를 쓰는지 합이 보이지 않았다.
+        /// </summary>
+        int[] cart = new int[0];
+
+        void EnsureCart(InventoryManager inv)
+        {
+            if (cart.Length != inv.Catalog.Count) cart = new int[inv.Catalog.Count];
+        }
+
+        int CartCount()
+        {
+            int sum = 0;
+            for (int i = 0; i < cart.Length; i++) sum += cart[i];
+            return sum;
+        }
+
+        void ClearCart()
+        {
+            for (int i = 0; i < cart.Length; i++) cart[i] = 0;
         }
 
         public bool ContainsPoint(Vector2 screenPos)
@@ -228,6 +260,8 @@ namespace DogShop.Shop
 
             InventoryManager inv = InventoryManager.Instance;
             if (inv == null) return;
+
+            EnsureCart(inv);
 
             Rect window = WindowRect();
             GUI.Box(window, GUIContent.none, UiSkin.Panel_);
@@ -261,9 +295,102 @@ namespace DogShop.Shop
             if (IsFurnitureTab) DrawFurniture(x, y);
             else DrawProducts(inv, x, y);
 
+            // 장바구니는 가구 칸에서도 그린다 — 담아 둔 채로 칸을 넘길 수 있어야 한다
+            DrawCart(inv, window.xMax - Pad - CartWidth, y, window.yMax - Pad - FooterHeight - 8f);
+
             float footerY = window.yMax - Pad - FooterHeight;
             DrawBoxButton(x, footerY, inner);
             GUI.Label(new Rect(x, footerY, inner * 0.62f, FooterHeight), footer, UiSkin.Caption);
+        }
+
+        /// <summary>
+        /// 오른쪽 장바구니. 담은 것과 합계를 보여 주고, 여기서만 돈이 빠진다.
+        ///
+        /// 버튼 셋을 세로로 쌓는다 — 주문(초록)·취소(빨강)가 한 쌍이고,
+        /// 긴급은 그 아래 따로 둔다. 할증을 무는 것이라 같은 줄에 두면 잘못 누른다.
+        /// </summary>
+        void DrawCart(InventoryManager inv, float left, float top, float bottom)
+        {
+            const float RowHeight = 20f;
+            const float ButtonHeight = 34f;
+
+            Rect panel = new Rect(left, top, CartWidth, bottom - top);
+            GUI.Box(panel, GUIContent.none, UiSkin.Panel_);
+
+            float x = panel.x + 10f;
+            float w = panel.width - 20f;
+            float y = panel.y + 10f;
+
+            int items = CartCount();
+            GUI.Label(new Rect(x, y, w, 22f), "장바구니" + (items > 0 ? "   " + items + "개" : ""), UiSkin.Title);
+            y += 26f;
+
+            if (items == 0)
+            {
+                GUI.Label(new Rect(x, y, w, 40f), "+1 / +5 / +10 으로 담는다.\n담은 뒤 한 번에 결제한다.", UiSkin.Caption);
+                return;
+            }
+
+            ProductCatalog catalog = inv.Catalog;
+            float listBottom = panel.yMax - ButtonHeight * 3f - 18f - 26f;
+
+            for (int i = 0; i < cart.Length && y < listBottom; i++)
+            {
+                if (cart[i] <= 0) continue;
+
+                ProductDef p = catalog.Get(i);
+                GUI.Label(new Rect(x, y, w - 72f, RowHeight), p.nameKo + " x" + cart[i], UiSkin.Caption);
+                GUI.Label(new Rect(x + w - 72f, y, 72f, RowHeight),
+                          (p.wholesale * cart[i]).ToString("N0") + "원", RightCaption);
+                y += RowHeight;
+            }
+
+            int plain = inv.CostOf(cart, false);
+            int express = inv.CostOf(cart, true);
+            int wallet = GameManager.Instance.Money;
+
+            y = panel.yMax - ButtonHeight * 3f - 18f - 22f;
+            GUI.Label(new Rect(x, y, w, 22f), "합계 " + plain.ToString("N0") + "원", UiSkin.Title);
+            y += 26f;
+
+            bool canOrder = TimeManager.Instance == null || !TimeManager.Instance.IsDayOver;
+
+            // 주문한다 — 내일 아침
+            GUI.enabled = canOrder && wallet >= plain;
+            if (GUI.Button(new Rect(x, y, w, ButtonHeight),
+                           "주문한다   " + plain.ToString("N0") + "원", UiSkin.Button(UiSkin.Green)))
+                Submit(inv, false);
+            y += ButtonHeight + 5f;
+
+            // 취소한다 — 담은 것만 비운다. 돈은 아직 안 나갔으므로 되돌릴 것이 없다
+            GUI.enabled = true;
+            if (GUI.Button(new Rect(x, y, w, ButtonHeight), "취소한다", UiSkin.Button(UiSkin.Coral)))
+                ClearCart();
+            y += ButtonHeight + 8f;
+
+            // 긴급 주문 — 할증을 물고 한 시간 뒤. 하루 한 번뿐이다
+            bool usedUp = inv.ExpressUsedToday;
+            GUI.enabled = canOrder && !usedUp && wallet >= express;
+            if (GUI.Button(new Rect(x, y, w, ButtonHeight),
+                           usedUp ? "긴급주문 (오늘 완료)" : "긴급주문   " + express.ToString("N0") + "원",
+                           UiSkin.Button(UiSkin.Sky)))
+                Submit(inv, true);
+            GUI.enabled = true;
+
+            GUI.Label(new Rect(x, y + ButtonHeight + 1f, w, 18f),
+                      usedUp
+                          ? "내일 다시 쓸 수 있다"
+                          : "1.5배 · " + InventoryManager.ExpressHours + "시간 뒤 · 하루 한 번",
+                      UiSkin.Caption);
+        }
+
+        void Submit(InventoryManager inv, bool expressed)
+        {
+            string reason;
+            if (!inv.TryOrderCart(cart, expressed, out reason)) { ActionRunner.Reject(reason); return; }
+
+            ClearCart();
+            Rebuild();
         }
 
         /// <summary>
@@ -337,20 +464,31 @@ namespace DogShop.Shop
                 string stock = "창고 " + inv.StorageOf(index);
                 if (inv.DeliveredOf(index) > 0) stock += "  앞 " + inv.DeliveredOf(index);
                 else if (inv.IncomingOf(index) > 0) stock += "  +" + inv.IncomingOf(index);
+
+                // 담아 둔 것은 창고 줄 끝에 붙인다. 카드마다 몇 개 담았는지가 안 보이면
+                // 오른쪽 장바구니와 눈을 왕복해야 한다
+                if (cart[index] > 0) stock += "   담음 " + cart[index];
                 GUI.Label(new Rect(card.x + 4f, card.y + StockY, card.width - 8f, 18f), stock, UiSkin.Caption);
 
                 float buttonWidth = (card.width - 16f - 8f) / Quantities.Length;
                 for (int q = 0; q < Quantities.Length; q++)
                 {
-                    GUI.enabled = canOrder && wallet >= product.wholesale * Quantities[q];
+                    GUI.enabled = canOrder;
                     Rect rect = new Rect(card.x + 8f + q * (buttonWidth + 4f), card.y + ActionY, buttonWidth, 26f);
+
+                    // 담기만 한다. 돈은 <주문한다>를 누를 때 한 번에 빠진다
                     if (GUI.Button(rect, "+" + Quantities[q], UiSkin.Button(UiSkin.Green)))
-                    {
-                        ActionRunner.TryRun(new InventoryManager.OrderAction(index, Quantities[q]));
-                        Rebuild();
-                    }
+                        cart[index] += Quantities[q];
+
                     GUI.enabled = true;
                 }
+
+                // 담은 카드에는 그 품목만 비우는 길을 준다. 장바구니를 통째로 비우지 않고
+                // 하나만 무르고 싶은 쪽이 훨씬 흔하다
+                if (cart[index] > 0
+                    && GUI.Button(new Rect(card.x + card.width - 26f, card.y + 4f, 22f, 22f),
+                                  "✕", UiSkin.Button(UiSkin.Coral)))
+                    cart[index] = 0;
             }
         }
 
