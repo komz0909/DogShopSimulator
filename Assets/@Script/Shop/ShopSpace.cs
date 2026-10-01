@@ -28,6 +28,13 @@ namespace DogShop.Shop
         [SerializeField] Transform rightWall;    // Wall_Right
         [SerializeField] Transform frontRight;   // Wall_FrontB — 출입문 오른쪽 앞벽
 
+        /// <summary>
+        /// 매장 천장과 지붕. 바닥만 늘이면 넓어진 쪽이 뚜껑 없이 뚫린다.
+        /// 비워 두어도 동작한다 — 지붕이 없는 씬에서도 확장은 그대로 된다.
+        /// </summary>
+        [SerializeField] Transform ceiling;      // Ceiling_Shop
+        [SerializeField] Transform roof;         // Gable_Shop
+
         /// <summary>판매장 세로(z). 늘리지 않는다 — 앞은 앞마당, 뒤는 창고라 막혀 있다.</summary>
         const float Depth = 6f;
 
@@ -36,6 +43,9 @@ namespace DogShop.Shop
 
         /// <summary>출입문 오른쪽 기둥이 시작하는 x. 문틈(x 3~5)은 넓혀도 그대로 둔다.</summary>
         const float DoorRightEdge = 5f;
+
+        /// <summary>지붕이 벽 밖으로 나오는 처마 길이. 지붕을 세울 때 쓴 값과 같아야 한다.</summary>
+        const float RoofOverhang = 0.35f;
 
         /// <summary>지금 판매장 가로 길이. 바닥에서 직접 읽는다 — 저장할 필요가 없다.</summary>
         public float Width => floor != null ? floor.localScale.x : 8f;
@@ -94,6 +104,23 @@ namespace DogShop.Shop
                 float span = width - DoorRightEdge;
                 frontRight.localScale = new Vector3(span, frontRight.localScale.y, WallThickness);
                 frontRight.position = new Vector3(DoorRightEdge + span * 0.5f, frontRight.position.y, frontRight.position.z);
+            }
+
+            // 뚜껑도 같이 늘인다. 바닥만 넓히면 늘어난 쪽이 하늘로 뚫려 보인다
+            if (ceiling != null)
+            {
+                ceiling.localScale = new Vector3(width, ceiling.localScale.y, ceiling.localScale.z);
+                ceiling.position = new Vector3(width * 0.5f, ceiling.position.y, ceiling.position.z);
+            }
+
+            // 맞배지붕은 처마만큼 더 길다. 비율을 그대로 유지한 채 폭만 따라간다
+            if (roof != null)
+            {
+                foreach (Transform slope in roof)
+                {
+                    slope.localScale = new Vector3(width + RoofOverhang * 2f, slope.localScale.y, slope.localScale.z);
+                    slope.localPosition = new Vector3(width * 0.5f, slope.localPosition.y, slope.localPosition.z);
+                }
             }
 
             Rebake();
