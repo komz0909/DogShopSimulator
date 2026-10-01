@@ -82,6 +82,46 @@ namespace DogShop.Shop
             return true;
         }
 
+        /// <summary>장바구니에 담긴 가구의 값. 첨자는 카탈로그 번호다.</summary>
+        public int CostOf(IList<int> cart)
+        {
+            if (cart == null || catalog == null) return 0;
+
+            int sum = 0;
+            for (int i = 0; i < cart.Count && i < catalog.Count; i++)
+            {
+                if (cart[i] <= 0) continue;
+                sum += catalog.Get(i).price * cart[i];
+            }
+            return sum;
+        }
+
+        /// <summary>
+        /// 담아 둔 가구를 한 번에 산다. 상품 장바구니와 같은 이유로 값을 <b>통째로</b> 치른다 —
+        /// 하나씩 빼면 중간에 돈이 떨어져 절반만 주문된 채로 끝난다.
+        /// </summary>
+        public bool TryBuyCart(IList<int> cart, out string reason)
+        {
+            int cost = CostOf(cart);
+            if (cost <= 0) { reason = "담은 가구가 없다"; return false; }
+
+            for (int i = 0; i < cart.Count && i < catalog.Count; i++)
+            {
+                if (cart[i] <= 0) continue;
+
+                string why;
+                if (!CanBuy(i, out why)) { reason = catalog.Get(i).nameKo + " — " + why; return false; }
+            }
+
+            if (!GameManager.Instance.TrySpend(cost)) { reason = "결제 실패"; return false; }
+
+            for (int i = 0; i < cart.Count && i < catalog.Count; i++)
+                for (int n = 0; n < cart[i]; n++) ordered.Add(i);
+
+            reason = null;
+            return true;
+        }
+
         /// <summary>아침. 주문한 가구를 앞마당에 세운다.</summary>
         void Deliver()
         {

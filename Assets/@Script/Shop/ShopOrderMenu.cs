@@ -227,21 +227,37 @@ namespace DogShop.Shop
         /// </summary>
         int[] cart = new int[0];
 
+        /// <summary>담아 둔 가구. 첨자는 가구 카탈로그 번호다.</summary>
+        int[] furnitureCart = new int[0];
+
         void EnsureCart(InventoryManager inv)
         {
             if (cart.Length != inv.Catalog.Count) cart = new int[inv.Catalog.Count];
+
+            int count = furniture != null ? furniture.Count : 0;
+            if (furnitureCart.Length != count) furnitureCart = new int[count];
         }
 
         int CartCount()
         {
             int sum = 0;
             for (int i = 0; i < cart.Length; i++) sum += cart[i];
+            for (int i = 0; i < furnitureCart.Length; i++) sum += furnitureCart[i];
+            return sum;
+        }
+
+        /// <summary>담긴 가구 수. 긴급 배송이 되는지 가르는 기준이다.</summary>
+        int FurnitureCount()
+        {
+            int sum = 0;
+            for (int i = 0; i < furnitureCart.Length; i++) sum += furnitureCart[i];
             return sum;
         }
 
         void ClearCart()
         {
             for (int i = 0; i < cart.Length; i++) cart[i] = 0;
+            for (int i = 0; i < furnitureCart.Length; i++) furnitureCart[i] = 0;
         }
 
         public bool ContainsPoint(Vector2 screenPos)
@@ -345,8 +361,23 @@ namespace DogShop.Shop
                 y += RowHeight;
             }
 
-            int plain = inv.CostOf(cart, false);
-            int express = inv.CostOf(cart, true);
+            for (int i = 0; i < furnitureCart.Length && y < listBottom; i++)
+            {
+                if (furnitureCart[i] <= 0) continue;
+
+                FurnitureDef f = furniture.Get(i);
+                GUI.Label(new Rect(x, y, w - 72f, RowHeight), f.nameKo + " x" + furnitureCart[i], UiSkin.Caption);
+                GUI.Label(new Rect(x + w - 72f, y, 72f, RowHeight),
+                          (f.price * furnitureCart[i]).ToString("N0") + "원", RightCaption);
+                y += RowHeight;
+            }
+
+            FurnitureShop shop = FurnitureShop.Instance;
+            int furnitureCost = shop != null ? shop.CostOf(furnitureCart) : 0;
+
+            // 가구는 할증 대상이 아니다 — 실물이 트럭에 실려 오는 것이라 한 시간 만에 못 온다
+            int plain = inv.CostOf(cart, false) + furnitureCost;
+            int express = inv.CostOf(cart, true) + furnitureCost;
             int wallet = GameManager.Instance.Money;
 
             y = panel.yMax - ButtonHeight * 3f - 18f - 22f;
@@ -368,26 +399,54 @@ namespace DogShop.Shop
                 ClearCart();
             y += ButtonHeight + 8f;
 
-            // 긴급 주문 — 할증을 물고 한 시간 뒤. 하루 한 번뿐이다
+            // 긴급 주문 — 할증을 물고 한 시간 뒤. 하루 한 번뿐이고 가구는 안 된다
             bool usedUp = inv.ExpressUsedToday;
-            GUI.enabled = canOrder && !usedUp && wallet >= express;
+            bool hasFurniture = FurnitureCount() > 0;
+
+            GUI.enabled = canOrder && !usedUp && !hasFurniture && wallet >= express;
             if (GUI.Button(new Rect(x, y, w, ButtonHeight),
-                           usedUp ? "긴급주문 (오늘 완료)" : "긴급주문   " + express.ToString("N0") + "원",
+                           usedUp ? "긴급주문 (오늘 완료)"
+                           : hasFurniture ? "긴급주문 (가구는 불가)"
+                           : "긴급주문   " + express.ToString("N0") + "원",
                            UiSkin.Button(UiSkin.Sky)))
                 Submit(inv, true);
             GUI.enabled = true;
 
             GUI.Label(new Rect(x, y + ButtonHeight + 1f, w, 18f),
-                      usedUp
-                          ? "내일 다시 쓸 수 있다"
-                          : "1.5배 · " + InventoryManager.ExpressHours + "시간 뒤 · 하루 한 번",
+                      usedUp ? "내일 다시 쓸 수 있다"
+                      : hasFurniture ? "가구를 빼면 긴급으로 보낼 수 있다"
+                      : "1.5배 · " + InventoryManager.ExpressHours + "시간 뒤 · 하루 한 번",
                       UiSkin.Caption);
         }
 
+        /// <summary>
+        /// 담은 것을 결제한다. 상품과 가구가 지갑은 하나이므로 <b>합계를 먼저 본다</b> —
+        /// 각자 결제하게 두면 상품은 샀는데 가구에서 돈이 떨어져 반만 주문된 채로 끝난다.
+        /// </summary>
         void Submit(InventoryManager inv, bool expressed)
         {
+            FurnitureShop shop = FurnitureShop.Instance;
+            int furnitureCost = shop != null ? shop.CostOf(furnitureCart) : 0;
+            int total = inv.CostOf(cart, expressed) + furnitureCost;
+
+            if (GameManager.Instance.Money < total)
+            {
+                ActionRunner.Reject("재화 부족 — " + GameManager.Instance.Money + " / " + total);
+                return;
+            }
+
             string reason;
-            if (!inv.TryOrderCart(cart, expressed, out reason)) { ActionRunner.Reject(reason); return; }
+            if (CartCount() - FurnitureCount() > 0 && !inv.TryOrderCart(cart, expressed, out reason))
+            {
+                ActionRunner.Reject(reason);
+                return;
+            }
+
+            if (furnitureCost > 0 && !shop.TryBuyCart(furnitureCart, out reason))
+            {
+                ActionRunner.Reject(reason);
+                return;
+            }
 
             ClearCart();
             Rebuild();
@@ -525,14 +584,23 @@ namespace DogShop.Shop
                     continue;
                 }
 
-                // 몇 개든 살 수 있다. 자리와 돈이 유일한 한계다
-                GUI.enabled = canBuy;
-                if (GUI.Button(new Rect(card.x + 8f, card.y + ActionY, card.width - 16f, 26f), "사기", UiSkin.Button(UiSkin.Green)))
-                {
-                    shop.TryBuy(index);
-                    Rebuild();
-                }
+                // 담긴 수를 적는다. 상품 카드의 "담음 N" 과 같은 자리다
+                if (furnitureCart[index] > 0)
+                    GUI.Label(new Rect(card.x + 4f, card.y + StockY, card.width - 8f, 18f),
+                              "담음 " + furnitureCart[index], UiSkin.Caption);
+
+                // 몇 개든 살 수 있다. 자리와 돈이 유일한 한계다.
+                // 돈은 장바구니에서 한 번에 빠지므로 여기서는 잔고를 보지 않는다
+                GUI.enabled = canBuy || unlocked;
+                if (GUI.Button(new Rect(card.x + 8f, card.y + ActionY, card.width - 16f, 26f),
+                               "담기", UiSkin.Button(UiSkin.Green)))
+                    furnitureCart[index]++;
                 GUI.enabled = true;
+
+                if (furnitureCart[index] > 0
+                    && GUI.Button(new Rect(card.x + card.width - 26f, card.y + 4f, 22f, 22f),
+                                  "✕", UiSkin.Button(UiSkin.Coral)))
+                    furnitureCart[index] = 0;
             }
         }
 
