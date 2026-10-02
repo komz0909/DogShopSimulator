@@ -35,6 +35,12 @@ namespace DogShop.Shop
         [SerializeField] Transform ceiling;      // Ceiling_Shop
         [SerializeField] Transform roof;         // Gable_Shop
 
+        /// <summary>
+        /// 매장 천장 조명. 최대 폭(12m)까지 미리 깔아 두고, <b>지금 폭 바깥의 것은 끈다</b> —
+        /// 안 끄면 아직 없는 확장 구역 자리, 즉 가게 밖 허공에서 불이 켜진다.
+        /// </summary>
+        [SerializeField] Transform shopLights;
+
         /// <summary>판매장 세로(z). 늘리지 않는다 — 앞은 앞마당, 뒤는 창고라 막혀 있다.</summary>
         const float Depth = 6f;
 
@@ -71,9 +77,19 @@ namespace DogShop.Shop
             if (surface == null) surface = FindFirstObjectByType<NavMeshSurface>();
         }
 
+        void Start() => ToggleLights(Width);
+
         void OnDestroy()
         {
             if (Instance == this) Instance = null;
+        }
+
+        /// <summary>매장 안에 드는 조명만 켠다. 조명 반경이 벽을 넘어도 되지만, 조명 자체가 벽 밖이면 끈다.</summary>
+        void ToggleLights(float width)
+        {
+            if (shopLights == null) return;
+            foreach (Transform lamp in shopLights)
+                lamp.gameObject.SetActive(lamp.position.x < width);
         }
 
         /// <summary>
@@ -105,6 +121,8 @@ namespace DogShop.Shop
                 frontRight.localScale = new Vector3(span, frontRight.localScale.y, WallThickness);
                 frontRight.position = new Vector3(DoorRightEdge + span * 0.5f, frontRight.position.y, frontRight.position.z);
             }
+
+            ToggleLights(width);
 
             // 뚜껑도 같이 늘인다. 바닥만 넓히면 늘어난 쪽이 하늘로 뚫려 보인다
             if (ceiling != null)

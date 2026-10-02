@@ -18,6 +18,7 @@ MonoBehaviour:
     customersPerDay: 6
     basketPriceTarget: 95
     trainingSlots: 2
+    crateSlots: 8
     heroStatGate: 0
     floorWidth: 8
     unlockKo: "\uC0AC\uB8CC\xB7\uC6A9\uD488"
@@ -26,6 +27,7 @@ MonoBehaviour:
     customersPerDay: 8
     basketPriceTarget: 110
     trainingSlots: 2
+    crateSlots: 8
     heroStatGate: 0
     floorWidth: 8
     unlockKo: "\uC57D\uD488 \uCE74\uD14C\uACE0\uB9AC \xB7 \uACE0\uAE09 \uD6C8\uB828
@@ -35,6 +37,7 @@ MonoBehaviour:
     customersPerDay: 10
     basketPriceTarget: 115
     trainingSlots: 3
+    crateSlots: 8
     heroStatGate: 0
     floorWidth: 8
     unlockKo: "\uBAA9\uC904 \xB7 \uC2A4\uD0C0\uC77C\uB9C1 \uD574\uAE08 \xB7 \uD6C8\uB828
@@ -44,6 +47,7 @@ MonoBehaviour:
     customersPerDay: 12
     basketPriceTarget: 125
     trainingSlots: 3
+    crateSlots: 8
     heroStatGate: 0
     floorWidth: 9.5
     unlockKo: "\uAC04\uC2DD\xB7\uC7A5\uB09C\uAC10 \xB7 \uB180\uC544\uC8FC\uAE30 \uD574\uAE08
@@ -53,6 +57,7 @@ MonoBehaviour:
     customersPerDay: 15
     basketPriceTarget: 125
     trainingSlots: 3
+    crateSlots: 8
     heroStatGate: 0
     floorWidth: 9.5
     unlockKo: "\uACE0\uAE09 \uC0AC\uB8CC \xB7 \uC804\uBB38 \uD6C8\uB828\xB7\uC804\uBB38
@@ -62,14 +67,17 @@ MonoBehaviour:
     customersPerDay: 18
     basketPriceTarget: 155
     trainingSlots: 3
+    crateSlots: 10
     heroStatGate: 150
     floorWidth: 9.5
-    unlockKo: "\uBF08\uB2E4\uADC0 \uC7A5\uB09C\uAC10 \xB7 \uAC15\uC544\uC9C0 \uCE68\uB300"
+    unlockKo: "\uBF08\uB2E4\uADC0 \uC7A5\uB09C\uAC10 \xB7 \uAC15\uC544\uC9C0 \uCE68\uB300
+      \xB7 \uC6B4\uBC18 \uC0C1\uC790 10\uCE78"
   - requiredReputation: 165
     upgradeCost: 1600
     customersPerDay: 21
     basketPriceTarget: 155
     trainingSlots: 3
+    crateSlots: 10
     heroStatGate: 0
     floorWidth: 11
     unlockKo: "\uB9E4\uC7A5 \uD655\uC7A5 \xB7 \uC0AC\uB8CC \uADF8\uB987\xB7\uACE0\uAE30
@@ -79,15 +87,17 @@ MonoBehaviour:
     customersPerDay: 24
     basketPriceTarget: 185
     trainingSlots: 3
+    crateSlots: 12
     heroStatGate: 0
     floorWidth: 11
     unlockKo: "\uACE0\uAE09 \uAC04\uC2DD \uC138\uD2B8 \xB7 \uACE0\uAE09 \uCE68\uB300
-      \xB7 \uC9C4\uB4DC\uAE30 \uD1F4\uCE58\uC81C"
+      \xB7 \uC9C4\uB4DC\uAE30 \uD1F4\uCE58\uC81C \xB7 \uC6B4\uBC18 \uC0C1\uC790 12\uCE78"
   - requiredReputation: 290
     upgradeCost: 2700
     customersPerDay: 27
     basketPriceTarget: 185
     trainingSlots: 3
+    crateSlots: 12
     heroStatGate: 400
     floorWidth: 12
     unlockKo: "\uB2E8\uACE8 \uD655\uB300 \u2014 \uC190\uB2D8 +3 \xB7 \uC218\uC785
@@ -98,6 +108,7 @@ MonoBehaviour:
     customersPerDay: 30
     basketPriceTarget: 185
     trainingSlots: 3
+    crateSlots: 12
     heroStatGate: 0
     floorWidth: 12
     unlockKo: "\uB300\uC6A9\uB7C9 \uD1B5\uC870\uB9BC \xB7 \uC190\uB2D8 +3"

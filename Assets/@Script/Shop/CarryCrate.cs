@@ -13,8 +13,17 @@ namespace DogShop.Shop
     /// </summary>
     public class CarryCrate : MonoBehaviour
     {
-        /// <summary>상자 칸 수. 1칸 상품은 8개, 2칸 상품은 4개까지 든다.</summary>
-        public const int SlotCapacity = 8;
+        /// <summary>상자 칸 수가 없을 때 쓰는 값. 레벨 매니저가 아직 없는 테스트 상황용이다.</summary>
+        public const int BaseSlots = 8;
+
+        /// <summary>
+        /// 상자 칸 수. <b>레벨 보상으로 커진다</b> — 1칸 상품은 이만큼, 2칸 상품은 절반까지 든다.
+        ///
+        /// 상수였다가 레벨을 타게 바꿨다. 한 번에 더 많이 나르면 왕복이 줄고,
+        /// 하루가 5분뿐이라 그 왕복이 곧 시간이다 — 돈을 주지 않고 시간을 돌려주는 보상이다.
+        /// </summary>
+        public static int SlotCapacity =>
+            ShopLevelManager.Instance != null ? ShopLevelManager.Instance.Current.crateSlots : BaseSlots;
 
         /// <summary>상자 안에 실제로 보이는 최대 개수. 그 이상은 라벨 숫자로만 표시한다.</summary>
         const int MaxVisible = 4;

@@ -184,7 +184,7 @@ namespace DogShop.Shop
 
             // 밤을 넘긴 긴급 발주는 아침 트럭에 같이 실려 온다. 돈은 이미 받았으므로
             // 자고 일어났더니 사라졌다는 일이 있어서는 안 된다
-            for (int i = 0; i < express.Count; i++) delivered[express[i].product] += express[i].quantity;
+            for (int i = 0; i < express.Count; i++) AddParcel(express[i].product, express[i].quantity);
             express.Clear();
             ExpressUsedToday = false;
 
@@ -249,7 +249,7 @@ namespace DogShop.Shop
             {
                 if (express[i].dueHour > now) continue;
 
-                delivered[express[i].product] += express[i].quantity;
+                AddParcel(express[i].product, express[i].quantity);
                 express.RemoveAt(i);
                 any = true;
             }
@@ -276,7 +276,7 @@ namespace DogShop.Shop
 
             // 특급 입고도 창고로 바로 넣지 않는다 — 트럭이 그날 안에 올 뿐이다.
             // 문 앞까지 와도 들이는 것은 사람 몫이라는 규칙은 어느 날에도 같다.
-            if (rushDelivery) delivered[index] += quantity;
+            if (rushDelivery) AddParcel(index, quantity);
             else incoming[index] += quantity;
 
             OnStockChanged?.Invoke();
@@ -335,7 +335,7 @@ namespace DogShop.Shop
 
                 // 승급 당일 특급 입고가 켜져 있으면 보통 발주도 그날 안에 온다
                 if (expressed) express.Add(new ExpressOrder { product = i, quantity = cart[i], dueHour = due });
-                else if (rushDelivery) delivered[i] += cart[i];
+                else if (rushDelivery) AddParcel(i, cart[i]);
                 else incoming[i] += cart[i];
             }
 
@@ -356,14 +356,71 @@ namespace DogShop.Shop
             ReceiveOrders();
         }
 
-        /// <summary>트럭이 왔다. 물건은 <b>가게 앞</b>에 내려놓고 간다 — 창고까지는 사람이 나른다.</summary>
+        /// <summary>
+        /// 가게 앞에 쌓인 <b>안 뜯은 상자</b> 하나. 상품 한 종이 통째로 들어 있다.
+        ///
+        /// 상자를 거치는 이유는 마당이 깔끔해서다 — 예전에는 배달이 오는 즉시 상품 더미가
+        /// 흩어져 나타나서, 상품이 늘수록 마당이 잡동사니 창고처럼 보였다.
+        /// </summary>
+        struct Parcel
+        {
+            /// <summary>상자 고유 번호. 목록에서 하나가 빠지면 첨자가 밀리므로 첨자로는 못 가리킨다.</summary>
+            public int id;
+            public int product;
+            public int quantity;
+        }
+
+        readonly List<Parcel> parcels = new List<Parcel>();
+        int nextParcelId = 1;
+
+        public int ParcelCount => parcels.Count;
+        public int ParcelIdAt(int i) => i >= 0 && i < parcels.Count ? parcels[i].id : 0;
+        public int ParcelProductAt(int i) => i >= 0 && i < parcels.Count ? parcels[i].product : -1;
+        public int ParcelQuantityAt(int i) => i >= 0 && i < parcels.Count ? parcels[i].quantity : 0;
+
+        /// <summary>안 뜯은 상자에 든 총 개수. 발주창이 "아직 안 들인 것"을 셀 때 쓴다.</summary>
+        public int ParcelTotal
+        {
+            get
+            {
+                int sum = 0;
+                for (int i = 0; i < parcels.Count; i++) sum += parcels[i].quantity;
+                return sum;
+            }
+        }
+
+        /// <summary>
+        /// 상자를 뜯는다. 내용물은 <b>그 자리에</b> 쏟아져 문 앞 재고가 된다 —
+        /// 창고로 바로 넣지 않는 이유는 물건을 직접 나르는 노동이 이 게임의 중심이라서다.
+        /// </summary>
+        public bool OpenParcel(int id)
+        {
+            for (int i = 0; i < parcels.Count; i++)
+            {
+                if (parcels[i].id != id) continue;
+
+                delivered[parcels[i].product] += parcels[i].quantity;
+                parcels.RemoveAt(i);
+                OnStockChanged?.Invoke();
+                return true;
+            }
+            return false;
+        }
+
+        void AddParcel(int product, int quantity)
+        {
+            if (quantity <= 0) return;
+            parcels.Add(new Parcel { id = nextParcelId++, product = product, quantity = quantity });
+        }
+
+        /// <summary>트럭이 왔다. 물건은 <b>가게 앞</b>에 상자째 내려놓고 간다.</summary>
         void ReceiveOrders()
         {
             bool any = false;
             for (int i = 0; i < incoming.Length; i++)
             {
                 if (incoming[i] <= 0) continue;
-                delivered[i] += incoming[i];
+                AddParcel(i, incoming[i]);
                 incoming[i] = 0;
                 any = true;
             }
@@ -557,6 +614,14 @@ namespace DogShop.Shop
 
             // 하루 한 번 제한도 같이 남긴다. 안 그러면 저장하고 불러오는 것만으로 다시 쓸 수 있다
             data.expressUsedToday = ExpressUsedToday;
+
+            data.parcelProduct = new int[parcels.Count];
+            data.parcelQuantity = new int[parcels.Count];
+            for (int i = 0; i < parcels.Count; i++)
+            {
+                data.parcelProduct[i] = parcels[i].product;
+                data.parcelQuantity[i] = parcels[i].quantity;
+            }
         }
 
         public void RestoreFrom(SaveData data)
@@ -569,6 +634,17 @@ namespace DogShop.Shop
             rushDelivery = data.rushDelivery;
 
             ExpressUsedToday = data.expressUsedToday;
+
+            parcels.Clear();
+            int boxed = data.parcelProduct != null ? data.parcelProduct.Length : 0;
+            for (int i = 0; i < boxed; i++)
+            {
+                int product = data.parcelProduct[i];
+                if (product < 0 || product >= catalog.Count) continue;   // 옛 세이브에 없던 상품
+
+                AddParcel(product, data.parcelQuantity != null && i < data.parcelQuantity.Length
+                    ? data.parcelQuantity[i] : 0);
+            }
 
             express.Clear();
             int pending = data.expressProduct != null ? data.expressProduct.Length : 0;

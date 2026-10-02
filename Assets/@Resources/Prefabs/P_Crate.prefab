@@ -11,6 +11,7 @@ GameObject:
   - component: {fileID: 579409714852815074}
   - component: {fileID: 244999291868822871}
   - component: {fileID: 1988907800009777323}
+  - component: {fileID: 7953271185205965573}
   m_Layer: 0
   m_Name: P_Crate
   m_TagString: Untagged
@@ -69,7 +70,40 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DogShop.Shop.CarryCrate
   contentAnchor: {fileID: 3969882916663357550}
-  contentScale: 0.5
+  contentTargetSize: 0.2
+--- !u!114 &7953271185205965573
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3121874459188946262}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e459ca9914a4ea740bf65af2da32ae9e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DogShop.Shop.CrateLook
+  body: {fileID: 468303409848623477}
+  bodyRenderer: {fileID: 2421608603106497983}
+  tiers:
+  - minSlots: 8
+    mesh: {fileID: -8006812049289700604, guid: fc96f89d6817bb44e93c89e7eb0c39a6, type: 3}
+    material: {fileID: 2100000, guid: bc7660abb01a9d84d864ae7821df0563, type: 2}
+    localScale: {x: 100, y: 100, z: 100}
+    localEuler: {x: 90, y: 0, z: 0}
+    localPosition: {x: 0, y: 0, z: 0}
+  - minSlots: 10
+    mesh: {fileID: -8006812049289700604, guid: 7ca944ad7b13d2a4380c7959389fdc09, type: 3}
+    material: {fileID: 2100000, guid: 8fbe5c5bb4c102b48ac73e7211a576d9, type: 2}
+    localScale: {x: 1.3925613, y: 1.3925613, z: 1.3925613}
+    localEuler: {x: -0, y: 0, z: 0}
+    localPosition: {x: 0.0004896912, y: 0.12506339, z: -0.0018249414}
+  - minSlots: 12
+    mesh: {fileID: -8006812049289700604, guid: e0888ee8e6254ff4dae813f6ec1f97ca, type: 3}
+    material: {fileID: 2100000, guid: d9140b9d4afd1d14bbb2213f9982f83d, type: 2}
+    localScale: {x: 1.4080523, y: 1.4080523, z: 1.4080523}
+    localEuler: {x: -0, y: 90, z: 0}
+    localPosition: {x: 0.00009870641, y: 0.13473615, z: 0.0006159012}
 --- !u!1 &3981151564384230281
 GameObject:
   m_ObjectHideFlags: 0
@@ -158,6 +192,16 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: fc96f89d6817bb44e93c89e7eb0c39a6, type: 3}
+--- !u!33 &468303409848623477 stripped
+MeshFilter:
+  m_CorrespondingSourceObject: {fileID: -5754084199372789682, guid: fc96f89d6817bb44e93c89e7eb0c39a6, type: 3}
+  m_PrefabInstance: {fileID: 3916686438369052987}
+  m_PrefabAsset: {fileID: 0}
+--- !u!23 &2421608603106497983 stripped
+MeshRenderer:
+  m_CorrespondingSourceObject: {fileID: -7511558181221131132, guid: fc96f89d6817bb44e93c89e7eb0c39a6, type: 3}
+  m_PrefabInstance: {fileID: 3916686438369052987}
+  m_PrefabAsset: {fileID: 0}
 --- !u!4 &3589479872372584144 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: fc96f89d6817bb44e93c89e7eb0c39a6, type: 3}

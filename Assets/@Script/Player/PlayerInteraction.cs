@@ -14,6 +14,7 @@ namespace DogShop.Player
     /// 창고 선반 → 1개 담기      진열대 → 1개 진열
     /// 손님 → 계산               바닥 오염 → 청소
     /// 계산대 → 발주 메뉴         강아지 → 케어·훈련·판매 메뉴
+    /// 문 → 열기·닫기 (정문은 영업 중엔 열린 채 고정, 가게를 닫은 뒤에만)
     ///
     /// 왼쪽 클릭은 메뉴 버튼 조작에만 쓰인다 — 허공을 클릭해 놓치는 일이 없다.
     /// 조준 대상까지의 거리는 카메라가 아니라 <b>플레이어</b> 기준으로 잰다.
@@ -96,6 +97,16 @@ namespace DogShop.Player
                 return;
             }
 
+            // 안 뜯은 상자가 먼저다 — 뜯어야 그 자리에 더미가 생긴다
+            DeliveryParcel parcel = hit.collider.GetComponentInParent<DeliveryParcel>();
+            if (parcel != null)
+            {
+                if (!load) { Reject("상자는 뜯기만 한다 — E"); return; }
+                if (!inRange) { Reject("너무 멀다 — 상자에 가까이 갈 것"); return; }
+                if (DeliveryManager.Instance != null) DeliveryManager.Instance.Open(parcel);
+                return;
+            }
+
             DeliveryStack delivery = hit.collider.GetComponentInParent<DeliveryStack>();
             if (delivery != null)
             {
@@ -174,6 +185,16 @@ namespace DogShop.Player
                 return;
             }
 
+            // 영업 중 정문은 TryToggle 이 거절하며 이유를 띄운다
+            SwingDoor door = hit.collider.GetComponentInParent<SwingDoor>();
+            if (door != null)
+            {
+                if (!load) return;
+                if (!inRange) { Reject("너무 멀다 — 문에 가까이 갈 것"); return; }
+                if (!door.TryToggle(out string reason)) Reject(reason);
+                return;
+            }
+
             // 남은 것은 지형이다. 상자는 바닥을 조준했을 때만 내려놓는다 —
             // 벽을 스쳐도 놓아버리면 창고 랙에 담는 도중 상자를 계속 잃는다.
             if (carry == null || !carry.IsHolding) return;
@@ -222,7 +243,8 @@ namespace DogShop.Player
 
             InventoryManager inv = InventoryManager.Instance;
 
-            if (hit.collider.GetComponentInParent<CarryCrate>() != null) hint = "[E] 상자 들기";
+            if (hit.collider.GetComponentInParent<DeliveryParcel>() != null) hint = "[E] 상자 뜯기";
+            else if (hit.collider.GetComponentInParent<CarryCrate>() != null) hint = "[E] 상자 들기";
             else if (hit.collider.GetComponentInParent<DeliveryStack>() != null) hint = "[E] 상자에 1개 담기";
             // 방향이 키로 갈리므로 둘을 같이 적는다. 무엇이 일어날지 눌러 보고 알게 하면
             // 창고에서 연달아 담다가 한 번 어긋나는 순간 방금 담은 것을 도로 넣게 된다
@@ -235,6 +257,8 @@ namespace DogShop.Player
             else if (hit.collider.GetComponentInParent<ShopCounter>() != null) hint = "[E] 발주";
             else if (hit.collider.GetComponentInParent<Dog>() != null) hint = "[E] 강아지 관리";
             else if (hit.collider.GetComponentInParent<Bed>() != null) hint = "[E] 잠자기";
+            else if (hit.collider.GetComponentInParent<SwingDoor>() is SwingDoor door && door.PlayerOperable)
+                hint = door.IsOpen ? "[E] 문 닫기" : "[E] 문 열기";
             else if (carry != null && carry.IsHolding && IsGround(hit)) hint = "[E/R] 여기에 상자 내려놓기";
         }
 

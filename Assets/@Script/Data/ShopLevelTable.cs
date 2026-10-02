@@ -12,6 +12,13 @@ namespace DogShop.Data
         public int customersPerDay = 6;
         public int basketPriceTarget = 70;
         public int trainingSlots = 2;
+
+        /// <summary>
+        /// 운반 상자의 칸 수. 레벨 보상으로 커진다 — 한 번에 더 많이 나르면
+        /// 창고와 진열대 사이를 덜 왕복한다. 하루가 5분뿐이라 그 왕복이 곧 시간이다.
+        /// </summary>
+        public int crateSlots = 8;
+
         public int heroStatGate;
 
         /// <summary>

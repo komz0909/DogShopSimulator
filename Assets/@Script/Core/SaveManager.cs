@@ -93,6 +93,13 @@ namespace DogShop.Core
         /// <summary>오늘 긴급 발주를 썼는가. 없으면 저장·로드만으로 하루 한 번 제한이 풀린다.</summary>
         public bool expressUsedToday;
 
+        /// <summary>
+        /// 가게 앞에 쌓인 <b>안 뜯은 상자</b>. 대금은 이미 치렀고 트럭도 다녀간 물건이라
+        /// 안 남기면 자고 일어났을 때 통째로 사라진다. 두 배열이 같은 첨자를 쓴다.
+        /// </summary>
+        public int[] parcelProduct = new int[0];
+        public int[] parcelQuantity = new int[0];
+
         /// <summary>진열대 칸별 상품과 개수. 진열대를 이어 붙인 한 줄이다. -1 은 빈 칸.</summary>
         public int[] shelfSlotProduct = new int[0];
         public int[] shelfSlotCount = new int[0];
