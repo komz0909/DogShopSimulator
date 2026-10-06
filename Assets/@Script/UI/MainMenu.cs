@@ -58,35 +58,24 @@ namespace DogShop.UI
         const float BoneWidth = 320f;
         const float BoneAspect = 2.10f;
 
-        const float PawSize = 72f;
-
         /// <summary>타이틀을 가로로만 늘리는 배수. 1 이면 원래 비율.</summary>
         const float TitleStretch = 1.16f;
-
-        /// <summary>고를 수 있는 프레임 상한. 0 은 제한 없음.</summary>
-        static readonly int[] FpsChoices = { 30, 60, 120, 0 };
 
         Page page = Page.Home;
         int picked = -1;
         bool settingsOpen;
-        int fpsIndex = 1;
-
-        Texture2D dim;   // 설정 창 뒤에 까는 반투명 검은 판
 
         void Awake()
         {
             if (uiFont != null) UiSkin.Font = uiFont;
-
-            dim = new Texture2D(1, 1);
-            dim.SetPixel(0, 0, new Color(0f, 0f, 0f, 0.62f));
-            dim.Apply();
-
-            ApplyFps();
+            SettingsPanel.ApplyFps();
         }
 
-        void OnDestroy()
+        void Update()
         {
-            if (dim != null) Destroy(dim);
+            // ESC 로도 설정 창을 닫는다(게임 안과 같은 키)
+            var keyboard = UnityEngine.InputSystem.Keyboard.current;
+            if (settingsOpen && keyboard != null && keyboard.escapeKey.wasPressedThisFrame) settingsOpen = false;
         }
 
         void OnGUI()
@@ -95,12 +84,16 @@ namespace DogShop.UI
 
             DrawBackground();
 
+            // 설정이 떠 있으면 뒤 화면 버튼은 <b>죽여서</b> 그린다. IMGUI 는 먼저 그린 버튼이
+            // 클릭을 먼저 받으므로, 뒤에 그리는 설정 창의 가림판으로는 이 버튼들을 막을 수 없다
+            GUI.enabled = !settingsOpen;
             if (page == Page.Home) DrawHome();
             else DrawBreedPage();
+            GUI.enabled = true;
 
             // 설정은 <b>덮개</b>다. 뒤 화면을 어둡게 깔고 그 위에 띄운다 —
             // 별도 페이지로 만들면 어디서 왔는지 기억해 두었다 돌아가야 한다
-            if (settingsOpen) DrawSettings();
+            if (settingsOpen && SettingsPanel.Draw(pawImage)) settingsOpen = false;
         }
 
         void DrawBackground()
@@ -140,19 +133,6 @@ namespace DogShop.UI
             GUI.Label(rect, label, style);
 
             if (!enabled) return false;
-            return GUI.Button(rect, GUIContent.none, GUIStyle.none);
-        }
-
-        /// <summary>발바닥 모양 닫기 버튼. 설정 창에서 X 대신 쓴다.</summary>
-        bool PawButton(Rect rect)
-        {
-            bool hover = rect.Contains(Event.current.mousePosition);
-
-            Color prev = GUI.color;
-            GUI.color = hover ? new Color(1.2f, 1.2f, 1.2f, 1f) : Color.white;
-            if (pawImage != null) GUI.DrawTexture(rect, pawImage, ScaleMode.ScaleToFit);
-            GUI.color = prev;
-
             return GUI.Button(rect, GUIContent.none, GUIStyle.none);
         }
 
@@ -271,69 +251,6 @@ namespace DogShop.UI
                 if (GUI.Button(new Rect(card.x, card.y, card.width, card.height), GUIContent.none, GUIStyle.none))
                     picked = i;
             }
-        }
-
-        // ---- 설정 ----
-
-        void DrawSettings()
-        {
-            // 화면 전체를 어둡게 덮는다. 뒤쪽 버튼이 눌리지 않게 덮개 위에 투명 버튼을 깐다
-            GUI.DrawTexture(new Rect(0f, 0f, Screen.width, Screen.height), dim);
-            GUI.Button(new Rect(0f, 0f, Screen.width, Screen.height), GUIContent.none, GUIStyle.none);
-
-            const float w = 520f, h = 300f;
-            var panel = new Rect((Screen.width - w) * 0.5f, (Screen.height - h) * 0.5f, w, h);
-            GUI.Box(panel, GUIContent.none, UiSkin.Panel_);
-
-            var title = new GUIStyle(UiSkin.Title) { fontSize = 24, alignment = TextAnchor.MiddleCenter };
-            GUI.Label(new Rect(panel.x, panel.y + 18f, panel.width, 32f), "게임 설정", title);
-
-            float row = panel.y + 78f;
-
-            // 사운드
-            GUI.Label(new Rect(panel.x + 34f, row, 130f, 26f), "사운드", UiSkin.Label);
-            AudioListener.volume = GUI.HorizontalSlider(
-                new Rect(panel.x + 170f, row + 9f, panel.width - 270f, 20f), AudioListener.volume, 0f, 1f);
-            GUI.Label(new Rect(panel.x + panel.width - 84f, row, 60f, 26f),
-                Mathf.RoundToInt(AudioListener.volume * 100f) + "%", UiSkin.Label);
-
-            // FPS
-            row += 56f;
-            GUI.Label(new Rect(panel.x + 34f, row, 130f, 26f), "FPS 제한", UiSkin.Label);
-            float bw = (panel.width - 200f) / FpsChoices.Length;
-            for (int i = 0; i < FpsChoices.Length; i++)
-            {
-                bool on = fpsIndex == i;
-                string label = FpsChoices[i] == 0 ? "무제한" : FpsChoices[i].ToString();
-                if (GUI.Button(new Rect(panel.x + 170f + i * (bw + 4f), row - 3f, bw, 32f), label,
-                        UiSkin.Button(on ? UiSkin.Green : UiSkin.Cream)))
-                {
-                    fpsIndex = i;
-                    ApplyFps();
-                }
-            }
-
-            // 지금 나오는 프레임을 같이 보여 준다 — 제한을 걸었을 때 먹히는지 눈으로 확인된다
-            row += 50f;
-            GUI.Label(new Rect(panel.x + 34f, row, panel.width - 68f, 26f),
-                "지금 " + Mathf.RoundToInt(1f / Mathf.Max(0.0001f, Time.smoothDeltaTime)) + " fps", UiSkin.Caption);
-
-            row += 38f;
-            GUI.Label(new Rect(panel.x + 34f, row, panel.width - 68f, 26f),
-                "조작: WASD 이동 / E 상호작용 / F 가구 배치 / Q 회전", UiSkin.Caption);
-
-            // 닫기는 X 가 아니라 발바닥이다
-            if (PawButton(new Rect(panel.xMax - PawSize * 0.62f, panel.y - PawSize * 0.38f, PawSize, PawSize)))
-                settingsOpen = false;
-        }
-
-        void ApplyFps()
-        {
-            int fps = FpsChoices[Mathf.Clamp(fpsIndex, 0, FpsChoices.Length - 1)];
-
-            // vSync 가 켜져 있으면 targetFrameRate 는 무시된다
-            QualitySettings.vSyncCount = 0;
-            Application.targetFrameRate = fps == 0 ? -1 : fps;
         }
 
         static void Quit()

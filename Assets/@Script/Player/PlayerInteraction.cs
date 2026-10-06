@@ -63,6 +63,9 @@ namespace DogShop.Player
         {
             if (placer != null && placer.Active) { hint = ""; return; }
 
+            // 설정 창(ESC)·컷신이 시간을 멈춘 동안은 손을 못 쓴다 — 멈춰 있는데 상자가 들리면 안 된다
+            if (Time.timeScale == 0f) { hint = ""; return; }
+
             RefreshHint();
 
             Keyboard keyboard = Keyboard.current;

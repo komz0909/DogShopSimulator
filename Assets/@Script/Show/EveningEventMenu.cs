@@ -29,6 +29,10 @@ namespace DogShop.Show
         string resultLine = "";
         string gradeLine = "";
 
+        /// <summary>엔딩 컷신 글에 채울 값. 최종일 결과를 만들 때 같이 적는다.</summary>
+        readonly System.Collections.Generic.Dictionary<string, string> endingValues =
+            new System.Collections.Generic.Dictionary<string, string>();
+
         GUIStyle headerStyle;
         GUIStyle rowStyle;
         GUIStyle dimStyle;
@@ -112,17 +116,37 @@ namespace DogShop.Show
             {
                 resultLine = "챔피언십 출전 불가 — " + reason;
                 gradeLine = "최종 랭크  " + champ.FinalGrade(champ.RivalCount + 1, level, g.Money);
+                FillEnding(-1, champ.FinalGrade(champ.RivalCount + 1, level, g.Money), level, g.Money);
                 return;
             }
 
             int score = champ.Score(hero, true);
             int rank = champ.Rank(score);
+            FillEnding(rank, champ.FinalGrade(rank, level, g.Money), level, g.Money);
 
             resultLine = "챔피언십 결과 — 총점 " + score + "   " + rank + "위 / " + (champ.RivalCount + 1) + "명"
                        + "   (심사 " + champ.WeightText + ")";
             gradeLine = "최종 랭크  " + champ.FinalGrade(rank, level, g.Money)
                       + "     가게 Lv " + level + "     자산 " + g.Money + "원"
                       + "     " + hero.BreedKo + " 미모 " + hero.Stats.Beauty + " / 훈련도 " + hero.Stats.Training;
+        }
+
+        /// <summary>
+        /// 엔딩 둘째 장의 한 줄은 순위로 갈린다. 그림은 한 장이라 글이 결과를 말한다 —
+        /// 우승 못 한 판에 트로피 그림이 나와도 글이 "그래도 빛났다"로 받아 준다.
+        /// </summary>
+        void FillEnding(int rank, string grade, int level, int money)
+        {
+            string place;
+            if (rank == 1) place = "심사위원의 손끝이 우리를 가리켰다. 챔피언이다!";
+            else if (rank >= 2 && rank <= 3) place = rank + "위. 우승은 놓쳤지만, 오늘 무대에서 이 아이는 누구보다 빛났다.";
+            else if (rank > 3) place = rank + "위. 순위표 위쪽은 아니었다. 그래도 함께 선 이 무대는 평생 잊지 못할 거다.";
+            else place = "무대에는 서지 못했다. 그래도 30일을 함께 버틴 우리는 이미 한 팀이다.";
+
+            endingValues["place"] = place;
+            endingValues["grade"] = grade;
+            endingValues["level"] = level.ToString();
+            endingValues["money"] = money.ToString("N0");
         }
 
         /// <summary>다음 날 아침으로. 버튼과 계측 모드(MeasurementMode)가 부른다.</summary>
@@ -183,6 +207,9 @@ namespace DogShop.Show
                     finished = true;
                     open = false;
                     PointerMenus.SetOpen(this, false);
+
+                    // 엔딩 3장을 보고 타이틀로 돌아간다
+                    if (Cutscene.Instance != null) Cutscene.Instance.PlayEnding(endingValues);
                 }
                 return;
             }

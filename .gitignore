@@ -116,3 +116,9 @@ EconomyLog.csv
 /[Aa]ssets/[Ss]creenshots/
 /[Aa]ssets/[Ss]creenshots.meta
 EconomyLog_*.csv
+
+# VARCO FBX 를 다시 임포트할 때 Unity 가 꺼내 놓는 머티리얼. 직접 만든 M_*.mat 를 쓰는 소품이라 아무도 참조하지 않는다.
+# (AIPropPostprocessor 가 모든 소품을 External 로 강제하므로 지워도 재임포트하면 돌아온다)
+Assets/@Resources/AIProps/Crate/Materials/base_color.mat*
+Assets/@Resources/AIProps/PendantLamp/Materials*
+Assets/@Resources/AIProps/DeliveryBox/Materials*
