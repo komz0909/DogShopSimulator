@@ -46,6 +46,13 @@ namespace DogShop.Show
         public int TrainingWeight => 100 - BeautyWeight;
         public int RivalCount => RivalScores.Length;
 
+        /// <summary>
+        /// D30 도그쇼 미니게임 성적(0.8~1.2). 쇼를 하기 전·모의 심사·무인 측정에서는 1 이다.
+        /// <b>곱하기</b>인 이유: 30일 동안 키운 스탯이 결과를 정하고, 무대 위 실력은 한두 계단만
+        /// 움직이게 하려는 것이다. 더하기면 스탯이 낮을수록 실력 비중이 커진다.
+        /// </summary>
+        public float ShowMultiplier { get; set; } = 1f;
+
         void Awake()
         {
             if (Instance != null && Instance != this) { Destroy(this); return; }
@@ -87,6 +94,7 @@ namespace DogShop.Show
 
             if (st.Cleanliness < CleanlinessPenaltyBelow) raw *= 1f - CleanlinessPenalty;
             if (applyRandom) raw *= 1f + Random.Range(-RandomSpread, RandomSpread);
+            raw *= ShowMultiplier;
 
             return Mathf.RoundToInt(raw);
         }

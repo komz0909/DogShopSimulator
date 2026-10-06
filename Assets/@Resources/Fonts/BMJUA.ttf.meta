@@ -10,6 +10,9 @@ TrueTypeFontImporter:
   includeFontData: 1
   fontNames:
   - BM JUA_TTF
+  - Malgun Gothic
+  - Segoe UI
+  - Arial
   fallbackFontReferences: []
   customCharacters: 
   fontRenderingMode: 0
