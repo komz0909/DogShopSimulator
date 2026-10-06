@@ -69,6 +69,10 @@ namespace DogShop.Core
         public int soldToday;
         public int lostToday;
 
+        /// <summary>오늘 들어온 손님 수와 그들이 쌓은 명성. 마감 화면이 "방문 N명 · 명성 +M"을 다시 적을 때 쓴다.</summary>
+        public int visitorsToday;
+        public int reputationToday;
+
         public int[] storage = new int[0];
         public int[] shelf = new int[0];
         public int[] incoming = new int[0];

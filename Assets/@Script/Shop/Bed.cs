@@ -76,7 +76,7 @@ namespace DogShop.Shop
         {
             Close();
 
-            // 18시를 기다린 것과 같은 경로. 마감 이벤트 카드가 뜨고 거기서 다음 날로 넘어간다.
+            // 23시 잠자기 버튼(SleepPrompt)과 같은 경로. 마감 화면이 뜨고 거기서 다음 날로 넘어간다.
             TimeManager.Instance.EndDayNow();
         }
 

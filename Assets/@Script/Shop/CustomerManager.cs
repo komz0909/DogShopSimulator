@@ -63,6 +63,9 @@ namespace DogShop.Shop
         /// </summary>
         [SerializeField] GameObject[] appearances = new GameObject[0];
 
+        /// <summary><see cref="appearances"/> 와 같은 순서의 연령대. 비어 있는 칸은 어른으로 본다.</summary>
+        [SerializeField] CustomerAge[] appearanceAges = new CustomerAge[0];
+
         readonly List<Customer> active = new List<Customer>();
         readonly List<Customer> queue = new List<Customer>();
         readonly List<Customer> finished = new List<Customer>();
@@ -70,6 +73,20 @@ namespace DogShop.Shop
 
         public int SoldToday { get; private set; }
         public int LostToday { get; private set; }
+
+        /// <summary>오늘 문으로 들어온 손님 수.</summary>
+        public int VisitorsToday { get; private set; }
+
+        /// <summary>
+        /// 오늘 손님이 쌓아 준 명성. <b>들어온 손님마다 연령대만큼</b> 오른다 —
+        /// 명성은 경험치처럼 방문객이 쌓는다(<see cref="CustomerAge"/>).
+        ///
+        /// 예전에는 마감 때 매출 100원당 +1에 저녁 카드(기부 +8·봉사 +4)를 더했다. 카드는 매일
+        /// 같은 걸 고르는 의례였고, 명성을 사는 버튼이 따로 있어 손님을 받는 일과 따로 놀았다.
+        /// 산 사람·못 산 사람 가리지 않고 센다 — 찾아왔다는 것 자체가 가게의 평판이다.
+        /// 계산대에서 오래 기다린 손님은 따로 명성을 깎는다(<see cref="ReputationPenaltyOf"/>).
+        /// </summary>
+        public int ReputationToday { get; private set; }
         public int RevenueToday { get; private set; }
         public int AverageBasket => SoldToday > 0 ? RevenueToday / SoldToday : 0;
         public int InStore => active.Count;
@@ -142,6 +159,8 @@ namespace DogShop.Shop
         {
             SoldToday = 0;
             LostToday = 0;
+            VisitorsToday = 0;
+            ReputationToday = 0;
             RevenueToday = 0;
             pending = 0f;
             if (TimeManager.Instance != null) lastClockHour = TimeManager.Instance.CurrentHour;
@@ -196,7 +215,8 @@ namespace DogShop.Shop
             instance.transform.position = Door;
 
             Customer customer = instance.GetComponent<Customer>();
-            customer.SetAppearance(NextAppearance());
+            int appearance = NextAppearance();
+            customer.SetAppearance(appearance >= 0 ? appearances[appearance] : null);
 
             UnityEngine.AI.NavMeshAgent agent = instance.GetComponent<UnityEngine.AI.NavMeshAgent>();
             if (agent != null)
@@ -213,19 +233,54 @@ namespace DogShop.Shop
             customer.MoveTo(shelf.ApproachPoint);
 
             active.Add(customer);
+
+            // 들어온 순간 명성이 붙는다. 연령대가 곧 명성값이다(아이 1 · 청년 2 · 어른 3)
+            int reputation = (int)AgeOf(appearance);
+            VisitorsToday++;
+            ReputationToday += reputation;
+            GameManager.Instance.AddReputation(reputation);
         }
 
+        /// <summary>청년 손님이 오기 시작하는 날. 그 전에는 아이만 온다.</summary>
+        public const int YoungFromDay = 6;
+
+        /// <summary>어른(중년) 손님이 오기 시작하는 날.</summary>
+        public const int AdultFromDay = 13;
+
         /// <summary>
-        /// 뽑기 주머니 — 7종이 한 번씩 다 나온 뒤에야 다시 채운다.
-        /// 그냥 난수로 고르면 같은 얼굴 셋이 동시에 줄 서 있는 장면이 자주 나온다.
+        /// 오늘 올 수 있는 연령대인가. 가게가 알려질수록 찾는 손님 층이 넓어진다 —
+        /// 처음엔 동네 아이들이 구경 오고, 날이 갈수록 청년과 어른이 찾아온다.
+        /// 연령대가 곧 명성이라(아이 +1 · 청년 +2 · 어른 +3) 명성은 후반에 가팔라진다.
         /// </summary>
-        GameObject NextAppearance()
+        static bool AgeAllowed(CustomerAge age)
         {
-            if (appearances.Length == 0) return null;
+            int day = GameManager.Instance != null ? GameManager.Instance.Day : 1;
+            if (age == CustomerAge.Adult) return day >= AdultFromDay;
+            if (age == CustomerAge.Young) return day >= YoungFromDay;
+            return true;
+        }
+
+        CustomerAge AgeOf(int appearance) =>
+            appearance >= 0 && appearance < appearanceAges.Length ? appearanceAges[appearance] : CustomerAge.Adult;
+
+        /// <summary>
+        /// 뽑기 주머니 — 오늘 올 수 있는 겉모습이 한 번씩 다 나온 뒤에야 다시 채운다.
+        /// 그냥 난수로 고르면 같은 얼굴 셋이 동시에 줄 서 있는 장면이 자주 나온다.
+        /// 주머니를 채울 때만 연령대를 거르므로, 새 연령대는 다음에 채울 때부터 섞인다.
+        /// </summary>
+        int NextAppearance()
+        {
+            if (appearances.Length == 0) return -1;
 
             if (bag.Count == 0)
             {
-                for (int i = 0; i < appearances.Length; i++) bag.Add(i);
+                for (int i = 0; i < appearances.Length; i++)
+                    if (AgeAllowed(AgeOf(i))) bag.Add(i);
+
+                // 연령대 표가 비어 아무도 못 오게 되면 전원을 넣는다 — 손님이 끊기는 것보다 낫다
+                if (bag.Count == 0)
+                    for (int i = 0; i < appearances.Length; i++) bag.Add(i);
+
                 for (int i = bag.Count - 1; i > 0; i--)
                 {
                     int j = UnityEngine.Random.Range(0, i + 1);
@@ -234,7 +289,7 @@ namespace DogShop.Shop
             }
 
             int last = bag.Count - 1;
-            GameObject picked = appearances[bag[last]];
+            int picked = bag[last];
             bag.RemoveAt(last);
             return picked;
         }
@@ -469,12 +524,16 @@ namespace DogShop.Shop
         {
             data.soldToday = SoldToday;
             data.lostToday = LostToday;
+            data.visitorsToday = VisitorsToday;
+            data.reputationToday = ReputationToday;
         }
 
         public void RestoreFrom(SaveData data)
         {
             SoldToday = data.soldToday;
             LostToday = data.lostToday;
+            VisitorsToday = data.visitorsToday;
+            ReputationToday = data.reputationToday;
             RevenueToday = data.dailyRevenue;
         }
     }

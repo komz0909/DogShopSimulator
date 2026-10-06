@@ -3,12 +3,12 @@ using UnityEngine;
 
 namespace DogShop.Core
 {
-    /// <summary>재화·명성·날짜·당일 매출을 보유한다. 명성은 마감 시 당일 매출에서 환산된다.</summary>
+    /// <summary>
+    /// 재화·명성·날짜·당일 매출을 보유한다. 명성은 <b>손님이 들어올 때마다 연령대만큼</b> 쌓인다
+    /// (<see cref="Shop.CustomerManager.ReputationToday"/>) — 마감에 몰아서 주지 않는다.
+    /// </summary>
     public class GameManager : MonoBehaviour
     {
-        /// <summary>판매 명성 = 당일 매출 / 이 값.</summary>
-        public const int RevenuePerReputation = 100;
-
         public static GameManager Instance { get; private set; }
 
         /// <summary>
@@ -47,15 +47,14 @@ namespace DogShop.Core
         }
 
         /// <summary>
-        /// 마감 시 명성만 정산하고 날짜는 넘기지 않는다.
-        /// 마감 후 이벤트 카드를 고른 뒤 EveningEventMenu가 BeginNextDay를 호출한다.
+        /// 마감 화면을 띄울 뿐 날짜는 넘기지 않는다. 명성은 낮 동안 손님마다 이미 붙었으므로
+        /// 여기서는 "오늘 손님이 쌓아 준 명성"만 넘긴다. 마감 화면에서 다음 날로 넘어가면
+        /// EveningEventMenu 가 BeginNextDay 를 부른다.
         /// </summary>
         void HandleDayEnded()
         {
-            int gained = DailyRevenue / RevenuePerReputation;
-            if (gained > 0) AddReputation(gained);
-
-            OnDaySettled?.Invoke(gained);
+            Shop.CustomerManager customers = Shop.CustomerManager.Instance;
+            OnDaySettled?.Invoke(customers != null ? customers.ReputationToday : 0);
         }
 
         public void BeginNextDay()

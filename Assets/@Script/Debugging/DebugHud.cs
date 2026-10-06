@@ -11,7 +11,7 @@ namespace DogShop.Debugging
     /// <summary>
     /// 상점 상태 HUD. 강아지 상호작용은 DogContextMenu(강아지 클릭)가 담당한다.
     /// 발주는 ShopOrderMenu(계산대 클릭)가 담당한다.
-    /// 1/2/3 배속 · R 하루리셋 · L 레벨업 · F5/F9 저장/로드
+    /// 1/2/3 배속 · 0 하루리셋 · L 레벨업 · F5/F9 저장/로드
     /// </summary>
     public class DebugHud : MonoBehaviour
     {
@@ -75,7 +75,8 @@ namespace DogShop.Debugging
             if (kb.digit2Key.wasPressedThisFrame) TimeManager.Instance.SetSpeed(4);
             if (kb.digit3Key.wasPressedThisFrame) TimeManager.Instance.SetSpeed(16);
 
-            if (kb.rKey.wasPressedThisFrame) { TimeManager.Instance.StartNewDay(); Show("하루 리셋 — 09:00"); }
+            // R 은 상자에서 내리는 키다. 겹쳐 있어서 진열하려다 하루가 계속 리셋됐다 — 손이 안 가는 0 으로 옮김
+            if (kb.digit0Key.wasPressedThisFrame) { TimeManager.Instance.StartNewDay(); Show("하루 리셋 — 08:00"); }
             if (kb.lKey.wasPressedThisFrame) ActionRunner.TryRun(upgrade);
 
             if (kb.nKey.wasPressedThisFrame && CleanlinessManager.Instance != null)
@@ -196,7 +197,7 @@ namespace DogShop.Debugging
             GUI.Label(new Rect(18f, 122f, 1140f, 20f),
                 "조준 + [E] 상호작용   ·   V 시점 전환(1인칭/3인칭)   ·   3인칭은 오른쪽 버튼 드래그로 시점   ·   WASD 이동", style);
             GUI.Label(new Rect(18f, 142f, 1140f, 20f),
-                "F1 디버그 표시   ·   1/2/3 배속   R 하루리셋   L 레벨업   N 오염+3   F5/F9 저장/로드", style);
+                "F1 디버그 표시   ·   1/2/3 배속   0 하루리셋   L 레벨업   N 오염+3   F5/F9 저장/로드", style);
             if (notice.Length > 0) GUI.Label(new Rect(18f, 162f, 1140f, 22f), notice, noticeStyle);
         }
     }

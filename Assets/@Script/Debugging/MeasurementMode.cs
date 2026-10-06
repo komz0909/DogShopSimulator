@@ -37,9 +37,6 @@ namespace DogShop.Debugging
         /// </summary>
         const int CareStock = 3;
 
-        /// <summary>마감 이벤트는 전단지(명성 +4)로 고정한다 — 난수를 하나 줄인다.</summary>
-        const int FlyerCard = 1;
-
         /// <summary>
         /// 봇이 여기까지만 승급한다. 0이면 제한 없음.
         ///
@@ -433,7 +430,7 @@ namespace DogShop.Debugging
         }
 
         /// <summary>
-        /// 가게 앞에 온 배달을 창고로 들인다. 사람은 상자를 들고 몇 번 왕복하지만
+        /// 가게 앞에 온 택배 상자를 뜯어 창고로 들인다. 사람은 상자를 들고 몇 번 왕복하지만
         /// 봇은 상자를 쓰지 않으므로(진열도 창고에서 바로 한다) 한 번에 옮긴다.
         ///
         /// <b>이걸 빼면 측정이 통째로 무너진다</b> — 발주한 물건이 문 앞에 쌓이기만 하고
@@ -442,6 +439,12 @@ namespace DogShop.Debugging
         void HaulDelivery()
         {
             InventoryManager inv = InventoryManager.Instance;
+
+            // 배달은 택배 상자로 온다. 안 뜯으면 문 앞 재고(Delivered)가 0 이라 아래가 아무것도 못 옮긴다 —
+            // 상자 도입 직후 봇이 30일 내내 창고가 빈 채로 돌 뻔했다
+            int parcelGuard = 0;
+            while (inv.ParcelCount > 0 && parcelGuard++ < 999)
+                if (!inv.OpenParcel(inv.ParcelIdAt(0))) break;
 
             for (int i = 0; i < inv.Catalog.Count; i++)
             {
@@ -778,7 +781,7 @@ namespace DogShop.Debugging
                 return;
             }
 
-            evening.PickCard(FlyerCard);
+            evening.Continue();
         }
 
         void OnGUI()

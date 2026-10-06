@@ -395,7 +395,27 @@ namespace DogShop.Shop
 
             UnityEngine.AI.NavMeshHit hit;
             CustomersCanReach = UnityEngine.AI.NavMesh.SamplePosition(
-                approachPoint, out hit, 1f, Customer.WalkableAreas);
+                                    approachPoint, out hit, 1f, Customer.WalkableAreas)
+                             && OnSalesFloor(approachPoint);
+        }
+
+        /// <summary>손님이 설 자리를 판매장 밖으로 이만큼까지는 봐준다 — 벽에 붙인 진열대 앞자리가 경계에 걸린다.</summary>
+        const float FloorSlack = 0.15f;
+
+        /// <summary>
+        /// NavMesh 만 보면 <b>앞마당 진열대가 손님 구역으로 잡힌다.</b> 손님이 문으로 드나들게
+        /// 앞마당 금지 구역을 문 앞(z −0.85~0)만큼 비웠더니, 배달 자리에 선 진열대의 앞자리가
+        /// 그 통로에서 0.17m 거리라 1m 반경에 걸렸다. 44차 측정에서 봇이 산 진열대 4대가
+        /// 앞마당 한 점에 겹쳐 선 채 "닿는다"로 판정돼 안으로 안 옮겨졌고, 손님들이 문 앞 좁은 통로로 몰려
+        /// 엉키면서 16일차부터 놓침이 하루 10건 넘게 나고 명성이 331에서 0까지 무너졌다.
+        /// </summary>
+        static bool OnSalesFloor(Vector3 point)
+        {
+            if (ShopSpace.Instance == null) return true;
+
+            Rect floor = ShopSpace.Instance.FloorRect;
+            return point.x > floor.xMin - FloorSlack && point.x < floor.xMax + FloorSlack
+                && point.z > floor.yMin - FloorSlack && point.z < floor.yMax + FloorSlack;
         }
 
         // ---- 세이브 ----

@@ -26,6 +26,23 @@ namespace DogShop.Dogs
             Animator = GetComponent<DogAnimator>();
         }
 
+        /// <summary>
+        /// 주인과는 <b>몸이 부딪히지 않는다.</b> 강아지가 졸졸 따라다니다 앞에 서면
+        /// 좁은 문간·진열대 사이에서 주인 길을 통째로 막았다.
+        ///
+        /// 콜라이더는 그대로 둔다 — E 로 강아지를 조준하는 레이캐스트는 계속 맞아야 한다.
+        /// 끄는 건 플레이어 CharacterController 와의 충돌뿐이다.
+        /// </summary>
+        void Start()
+        {
+            Player.PlayerCarry owner = FindAnyObjectByType<Player.PlayerCarry>();
+            CharacterController body = owner != null ? owner.GetComponent<CharacterController>() : null;
+            if (body == null) return;
+
+            foreach (Collider c in GetComponentsInChildren<Collider>(true))
+                Physics.IgnoreCollision(body, c, true);
+        }
+
         public void Initialize(string breedKo, int breedIndex)
         {
             BreedKo = breedKo;

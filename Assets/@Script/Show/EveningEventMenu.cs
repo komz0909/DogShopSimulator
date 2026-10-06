@@ -7,23 +7,18 @@ using UnityEngine;
 namespace DogShop.Show
 {
     /// <summary>
-    /// 18:00 마감 패널. 정산 요약 → (5일마다) 모의 심사 → 저녁 이벤트 카드 1장 선택 → 다음 날.
-    /// D30에는 카드 대신 챔피언십 결과와 최종 랭크가 나오고 게임이 끝난다.
-    /// 새 씬·이동 영역·애니메이션 없음 — 이것이 가게 밖 맵을 대체하는 설계다.
+    /// 잠든 뒤 뜨는 마감 패널. 정산 요약 → (5일마다) 모의 심사 → 다음 날 아침.
+    /// D30에는 챔피언십 결과와 최종 랭크가 나오고 게임이 끝난다.
+    ///
+    /// 예전에는 여기서 저녁 이벤트 카드(기부·봉사·폐품·휴식)를 한 장 골랐다. 명성이
+    /// 손님 방문으로 쌓이게 바뀌면서 뺐다 — 매일 같은 카드를 누르는 의례였고,
+    /// 명성을 사는 버튼이 따로 있으면 손님을 받는 것과 명성이 따로 놀았다.
     /// </summary>
     public class EveningEventMenu : MonoBehaviour
     {
         const float Width = 620f;
         const float RowHeight = 26f;
         const float Pad = 12f;
-
-        static readonly string[] CardTitles =
-        {
-            "유기견 센터 기부 — 사료 1개를 내주고 명성 +8",
-            "유기견 센터 봉사 — 명성 +4",
-            "폐품 수집 — 상품 재고 +3",
-            "휴식 — 반려견 청결·건강 +12"
-        };
 
         bool open;
         bool isFinal;
@@ -58,14 +53,14 @@ namespace DogShop.Show
         /// 불러오면 "하루는 끝났는데 고를 카드가 없는" 상태가 됐다 — 날짜를 넘기는 길은
         /// 카드뿐이고 그 사이 모든 행동은 "영업 종료"로 거절되므로 <b>게임이 멈춘다</b>.
         ///
-        /// 명성 정산액은 저장된 그날 매출에서 다시 계산한다. 정산 자체는 마감 때 이미 끝났고
-        /// 여기서는 같은 수를 화면에 다시 적을 뿐이라, 명성이 두 번 붙지 않는다.
+        /// 명성은 낮 동안 손님마다 이미 붙었고 여기서는 오늘 쌓인 양(저장됨)을 다시 적을 뿐이라,
+        /// 명성이 두 번 붙지 않는다.
         /// </summary>
         void HandleLoaded()
         {
             if (TimeManager.Instance == null || !TimeManager.Instance.IsDayOver) return;
 
-            HandleSettled(GameManager.Instance.DailyRevenue / GameManager.RevenuePerReputation);
+            HandleSettled(CustomerManager.Instance != null ? CustomerManager.Instance.ReputationToday : 0);
         }
 
         void HandleSettled(int reputationGained)
@@ -76,7 +71,7 @@ namespace DogShop.Show
 
             settlementLine = "Day " + g.Day + " 마감    매출 " + g.DailyRevenue
                            + "    판매 " + c.SoldToday + "건    놓침 " + c.LostToday + "건"
-                           + "    명성 +" + reputationGained + " (누적 " + g.Reputation + ")";
+                           + "    방문 " + c.VisitorsToday + "명 · 명성 +" + reputationGained + " (누적 " + g.Reputation + ")";
 
             Dog hero = DogManager.Instance.Hero;
             isFinal = champ.IsFinalDay(g.Day);
@@ -130,47 +125,12 @@ namespace DogShop.Show
                       + "     " + hero.BreedKo + " 미모 " + hero.Stats.Beauty + " / 훈련도 " + hero.Stats.Training;
         }
 
-        /// <summary>계측 모드(MeasurementMode)가 무인 진행을 위해 호출한다.</summary>
-        public void PickCard(int index)
+        /// <summary>다음 날 아침으로. 버튼과 계측 모드(MeasurementMode)가 부른다.</summary>
+        public void Continue()
         {
-            DogManager dm = DogManager.Instance;
-
-            if (index == 0)
-            {
-                // 재고를 내주는 카드. 봉사(공짜 +4)보다 명성이 크지만 팔 물건이 줄어든다 —
-                // 카드 넷 중 유일하게 값을 치르는 선택이다.
-                bool donated = InventoryManager.Instance.TryConsumeStorage(0);
-                if (donated) GameManager.Instance.AddReputation(8);
-
-                settlementLine = donated
-                    ? "사료 한 포대를 기부했다 — 명성 +8"
-                    : "창고에 내줄 사료가 없었다";
-            }
-            else if (index == 1)
-            {
-                GameManager.Instance.AddReputation(4);
-            }
-            else if (index == 2)
-            {
-                InventoryManager inv = InventoryManager.Instance;
-                int level = ShopLevelManager.Instance.Level;
-                for (int attempt = 0; attempt < 12; attempt++)
-                {
-                    int i = Random.Range(0, inv.Catalog.Count);
-                    if (inv.Catalog.Get(i).unlockLevel > level) continue;
-                    inv.Grant(i, 3);
-                    break;
-                }
-            }
-            else if (dm.Hero != null)
-            {
-                dm.Hero.Stats.RecoverCleanliness(12);
-                dm.Hero.Stats.RecoverHealth(12);
-            }
+            if (!open) return;
 
             open = false;
-
-
             PointerMenus.SetOpen(this, false);
             GameManager.Instance.BeginNextDay();
         }
@@ -190,8 +150,9 @@ namespace DogShop.Show
                 bigStyle.normal.textColor = new Color(0.6f, 1f, 0.8f);
             }
 
-            int cardCount = isFinal ? 0 : CardTitles.Length;
-            float height = Pad * 4f + RowHeight * (3 + cardCount) + (isFinal ? RowHeight : 0f);
+            // 정산 한 줄 + (모의 심사) + 버튼. 최종일은 결과 두 줄이 더 붙는다
+            int rows = 2 + (mockLine.Length > 0 ? 1 : 0) + (isFinal ? 2 : 0);
+            float height = Pad * 3f + RowHeight * rows + (isFinal ? Pad : 0f);
             float x = (Screen.width - Width) * 0.5f;
             float y = Mathf.Max(140f, (Screen.height - height) * 0.4f);
 
@@ -227,13 +188,7 @@ namespace DogShop.Show
             }
 
             iy += Pad;
-            GUI.Label(new Rect(ix, iy - RowHeight * 0.7f, iw, RowHeight), "저녁에 무엇을 할까", dimStyle);
-
-            for (int i = 0; i < CardTitles.Length; i++)
-            {
-                if (GUI.Button(new Rect(ix, iy, iw, RowHeight - 3f), CardTitles[i], rowStyle)) PickCard(i);
-                iy += RowHeight;
-            }
+            if (GUI.Button(new Rect(ix, iy, iw, RowHeight), "다음 날 아침으로 — Day " + (GameManager.Instance.Day + 1), rowStyle)) Continue();
         }
     }
 }

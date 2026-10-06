@@ -5,6 +5,9 @@ namespace DogShop.Shop
 {
     public enum CustomerState { ToShelf, ToCounter, Waiting, ToExit }
 
+    /// <summary>손님 연령대. <b>값이 곧 들어올 때 붙는 명성</b>이다 — 아이 +1 · 청년 +2 · 어른 +3.</summary>
+    public enum CustomerAge { Kid = 1, Young = 2, Adult = 3 }
+
     /// <summary>
     /// 손님 1명. 이동만 담당하고 상태 전이는 CustomerManager가 몰아서 처리한다
     /// (상점 로직이 한 곳에 모여 있어야 밸런싱이 쉽다).
