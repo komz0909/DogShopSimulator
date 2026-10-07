@@ -154,6 +154,20 @@ MonoBehaviour:
   titleImage: {fileID: 2800000, guid: a959a71ad18c90544942d7de9d2b6972, type: 3}
   boneImage: {fileID: 2800000, guid: 7b16efc88c3a9ce4088c4f71081815e6, type: 3}
   pawImage: {fileID: 2800000, guid: 77535890f4592f743b35b2ca31e25fb2, type: 3}
+  breedPrefabs:
+  - {fileID: 2078949435304510174, guid: 33e1eddaacc0d864fa3895bc91afc49f, type: 3}
+  - {fileID: 7123999096709452996, guid: 364a82586377adf4f8c6538269b1bb57, type: 3}
+  - {fileID: 4275574794602895057, guid: ba3096f1b79580643806be818b66137f, type: 3}
+  - {fileID: 8411137117153938544, guid: d9b7b79dd0a35f44cae030ae88cd527e, type: 3}
+  - {fileID: 4327165874577693664, guid: 0435eb6cfb7c7b64598e6ed7e4372882, type: 3}
+  cardBackground: {fileID: 2800000, guid: 298dd7e7d13c25d4b867aab1edd31953, type: 3}
+  pedestalImage: {fileID: 2800000, guid: d7d0382069da3d64b85ccd279a784dad, type: 3}
+  newBadge: {fileID: 2800000, guid: 5ad3b178effa209459bb6183f75ab63c, type: 3}
+  confirmButton: {fileID: 2800000, guid: b275f287c2794724ebd31788035d37c4, type: 3}
+  iconHeart: {fileID: 2800000, guid: c9d77d6ccbae115449e2a41aaa37a826, type: 3}
+  iconBone: {fileID: 2800000, guid: defd2eab493cc97458cd5e5affacf0a2, type: 3}
+  iconStar: {fileID: 2800000, guid: 6561ac79f1e71864595e6a7e734054c0, type: 3}
+  iconPaw: {fileID: 2800000, guid: ca885e9864d57a540ad3734b5317ef2f, type: 3}
   breeds:
   - nameKo: "\uC7A1\uC885"
     blurb: "\uC8FC\uC6CC \uC628 \uC544\uC774. \uBB34\uB09C\uD558\uAC8C \uAC77\uACE0\n\uBB34\uB09C\uD558\uAC8C
@@ -161,29 +175,63 @@ MonoBehaviour:
     portrait: {fileID: 2800000, guid: 0e6216231c2d3614c8ed2199c17402d2, type: 3}
     bodyLength: 1
     runSpeed: 2.53
+    grade: "\uC77C\uBC18"
+    affinity: 0.75
+    health: 0.8
+    personality: "\uC21C\uB465\uD568"
+    description: "\uAE38\uC5D0\uC11C \uB9CC\uB09C \uC529\uC529\uD55C \uCE5C\uAD6C\uC608\uC694.\n\uB204\uAD6C\uC640\uB3C4
+      \uAE08\uBC29 \uCE5C\uD574\uC9C0\uACE0\n\uC794\uBCD1\uCE58\uB808\uAC00 \uAC70\uC758
+      \uC5C6\uC5B4\uC694."
   - nameKo: "\uCF54\uAE30"
     blurb: "\uC9E7\uC740 \uB2E4\uB9AC\uC5D0 \uD070 \uC5C9\uB369\uC774.\n\uAC78\uC74C\uC774
       \uC57C\uBB34\uC9C0\uB2E4"
     portrait: {fileID: 2800000, guid: 8990f92fcd202cc44811393426a6d2cf, type: 3}
     bodyLength: 0.95
     runSpeed: 2.4
+    grade: "\uC77C\uBC18"
+    affinity: 0.6
+    health: 0.55
+    personality: "\uD65C\uBC1C\uD568"
+    description: "\uC9E7\uC740 \uB2E4\uB9AC\uB85C \uC57C\uBB34\uC9C0\uAC8C \uAC77\uB294\n\uC6F0\uC2DC\uCF54\uAE30\uC608\uC694.\n\uAC00\uAC8C\uC5D0
+      \uD65C\uAE30\uB97C \uB354\uD574 \uC904 \uAC70\uC608\uC694!"
   - nameKo: "\uCE58\uC640\uC640"
     blurb: "\uAC00\uC7A5 \uC791\uB2E4. \uC8FC\uC778\uC744 \uB193\uCE58\uBA74\n\uAE08\uC138
       \uB4A4\uCC98\uC9C4\uB2E4"
     portrait: {fileID: 2800000, guid: 386d7a3726df3cd4aa120da7782f6364, type: 3}
     bodyLength: 0.39
     runSpeed: 0.99
+    grade: "\uC77C\uBC18"
+    affinity: 0.4
+    health: 0.45
+    personality: "\uC608\uBBFC\uD568"
+    description: "\uAC00\uC7A5 \uC791\uACE0 \uAC81\uC774 \uB9CE\uC9C0\uB9CC\n\uC8FC\uC778\uC5D0\uAC8C\uB294
+      \uD55C\uC5C6\uC774 \uB2E4\uC815\uD574\uC694.\n\uBC1C\uAC78\uC74C\uC744 \uB9DE\uCDB0
+      \uC8FC\uC138\uC694."
   - nameKo: "\uC170\uD37C\uB4DC"
     blurb: "\uAC00\uC7A5 \uD06C\uACE0 \uBE60\uB974\uB2E4.\n\uC881\uC740 \uD1B5\uB85C\uB294
       \uBC84\uAC81\uB2E4"
     portrait: {fileID: 2800000, guid: 304bf68b136aa9f4089902e0bcb41e41, type: 3}
     bodyLength: 1.24
     runSpeed: 3.14
+    grade: "\uC77C\uBC18"
+    affinity: 0.5
+    health: 0.85
+    personality: "\uB4EC\uC9C1\uD568"
+    description: "\uD06C\uACE0 \uBE60\uB978 \uC800\uBA3C \uC170\uD37C\uB4DC\uC608\uC694.\n\uAC00\uAC8C\uB97C
+      \uB4E0\uB4E0\uD558\uAC8C \uC9C0\uCF1C \uC918\uC694.\n\uC881\uC740 \uD1B5\uB85C\uB294
+      \uC870\uAE08 \uBC84\uAC70\uC6CC\uC694."
   - nameKo: "\uD37C\uADF8"
     blurb: "\uB2E4\uBD80\uC9C4 \uBAB8. \uB290\uAE0B\uD558\uAC8C\n\uB3CC\uC544\uB2E4\uB2CC\uB2E4"
     portrait: {fileID: 2800000, guid: deeeab89e8fae7948980bc5ceb60c709, type: 3}
     bodyLength: 0.88
     runSpeed: 2.23
+    grade: "\uC77C\uBC18"
+    affinity: 0.85
+    health: 0.4
+    personality: "\uB290\uAE0B\uD568"
+    description: "\uB2E4\uBD80\uC9C4 \uBAB8\uC758 \uD37C\uADF8\uC608\uC694.\n\uC0AC\uB78C\uC744
+      \uC815\uB9D0 \uC88B\uC544\uD558\uACE0\n\uCC9C\uCC9C\uD788 \uB3CC\uC544\uB2E4\uB2C8\uB294
+      \uAC78 \uC990\uACA8\uC694."
 --- !u!4 &83311207
 Transform:
   m_ObjectHideFlags: 0

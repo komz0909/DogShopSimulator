@@ -26,6 +26,8 @@ namespace DogShop.UI
             if (keyboard == null || !keyboard.escapeKey.wasPressedThisFrame) return;
 
             if (IsOpen) Close();
+            // 다른 창(강아지 창 등)이 열려 있거나 그 창이 방금 ESC 로 닫혔으면 설정 창을 열지 않는다 — ESC 한 번은 창 하나만 닫는다
+            else if (PointerMenus.EscapeTaken || PointerMenus.AnyOpenExcept(this)) return;
             else if (Show.Cutscene.Instance == null || !Show.Cutscene.Instance.IsOpen) Open();
         }
 

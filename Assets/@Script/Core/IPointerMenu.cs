@@ -33,6 +33,18 @@ namespace DogShop.Core
             else openMenus.Remove(menu);
         }
 
+        /// <summary>그 메뉴 말고 다른 메뉴가 열려 있는가.</summary>
+        public static bool AnyOpenExcept(object menu) => openMenus.Count > (openMenus.Contains(menu) ? 1 : 0);
+
+        static int escapeTakenFrame = -1;
+
+        /// <summary>
+        /// 이 프레임의 ESC 를 어떤 창이 닫는 데 썼다. ESC 는 설정 창을 여는 키이기도 해서,
+        /// 강아지 창을 ESC 로 닫자마자 같은 프레임에 설정 창이 열리지 않게 표시해 둔다(Update 순서는 정해져 있지 않다).
+        /// </summary>
+        public static void TakeEscape() => escapeTakenFrame = Time.frameCount;
+        public static bool EscapeTaken => escapeTakenFrame == Time.frameCount;
+
         /// <summary>
         /// 조준 위치. 커서가 잠긴 1인칭에서는 <b>화면 중앙</b>, 커서가 살아 있는 3인칭에서는 마우스 위치다.
         /// 조준 좌표를 여기 한 곳에서만 만들기 때문에 시점을 바꿔도 상호작용 코드는 그대로다.

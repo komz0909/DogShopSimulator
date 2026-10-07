@@ -104,6 +104,14 @@ namespace DogShop.Dogs
 
             if (target != null && target.gameObject == null) target = null;
 
+            // ESC 로도 닫는다(설정 창이 같은 ESC 로 열리지 않게 표시)
+            Keyboard keyboard = Keyboard.current;
+            if (target != null && keyboard != null && keyboard.escapeKey.wasPressedThisFrame)
+            {
+                target = null;
+                PointerMenus.TakeEscape();
+            }
+
             PointerMenus.SetOpen(this, IsOpen);
             if (target == null) return;
 
@@ -223,8 +231,9 @@ namespace DogShop.Dogs
             GUI.Label(new Rect(300f, 46f, 400f, 40f), title, titleStyle);   // 리본(위 가운데)을 피해 조금 내린다
             GUI.Label(new Rect(300f, 82f, 400f, 22f), subtitle, subStyle);
 
-            // 닫기(발바닥)
-            var close = new Rect(DesignW - 92f, 40f, 46f, 46f);
+            // 닫기(발바닥) — 설정 창 발바닥(화면 72px)과 같은 크기로 보이게, 창이 줄어든 만큼 키워 그린다
+            float paw = UI.SettingsPanel.PawSize / s;
+            var close = new Rect(DesignW - 30f - paw, 22f, paw, paw);
             if (closeTex != null) GUI.DrawTexture(close, closeTex, ScaleMode.ScaleToFit);
             if (GUI.Button(close, closeTex != null ? GUIContent.none : new GUIContent("X"), GUIStyle.none)) target = null;
             if (target == null) { GUI.matrix = keep; return; }

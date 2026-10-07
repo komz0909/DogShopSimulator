@@ -19,7 +19,8 @@ namespace DogShop.UI
 
         const float Width = 520f;
         const float Height = 300f;
-        const float PawSize = 72f;
+        /// <summary>닫기 발바닥 크기(화면 px). 강아지 창 닫기도 이 크기에 맞춘다.</summary>
+        public const float PawSize = 72f;
 
         static int fpsIndex = 2;   // 기본 60
         static Texture2D dim;
