@@ -51,7 +51,11 @@ namespace DogShop.Shop
         /// <summary>문 면에서 이만큼 안이면 "문간에 걸쳐 있다"로 본다 — 건너는 중이다.</summary>
         const float OnThreshold = 0.25f;
 
-        static readonly Collider[] buffer = new Collider[32];
+        /// <summary>
+        /// 문 둘레의 충돌체를 담는 칸. 바닥·벽·앞마당·배송 상자 더미까지 다 걸리므로 넉넉히 둔다 —
+        /// 32 칸이면 배송 상자가 쌓였을 때 플레이어·손님이 목록 밖으로 밀려나 문이 안 열리거나, 사람이 선 채로 닫혔다.
+        /// </summary>
+        static readonly Collider[] buffer = new Collider[256];
 
         bool wantOpen = true;
         float openness = 1f;

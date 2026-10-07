@@ -70,9 +70,12 @@ namespace DogShop.Shop
         {
             enabled = false;
             Action callback = done;
+            bool destroy = destroyAtEnd;
             done = null;
+            // 콜백이 새 길을 줄 수 있다(문 앞에서 돌아서는 손님 — 가게가 닫혔거나 진열대가 없어짐).
+            // 그 뒤의 destroyAtEnd 를 읽으면 막 떠나려던 손님이 문 앞에서 사라졌다
             callback?.Invoke();
-            if (destroyAtEnd) Destroy(gameObject);
+            if (destroy && !Walking) Destroy(gameObject);
         }
     }
 }

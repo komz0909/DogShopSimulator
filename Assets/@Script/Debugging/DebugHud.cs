@@ -75,20 +75,24 @@ namespace DogShop.Debugging
             if (kb.digit2Key.wasPressedThisFrame) TimeManager.Instance.SetSpeed(4);
             if (kb.digit3Key.wasPressedThisFrame) TimeManager.Instance.SetSpeed(16);
 
-            // R 은 상자에서 내리는 키다. 겹쳐 있어서 진열하려다 하루가 계속 리셋됐다 — 손이 안 가는 9 로 옮김
-            if (kb.digit9Key.wasPressedThisFrame) { TimeManager.Instance.StartNewDay(); Show("하루 리셋 — 08:00"); }
-
-            // 0: D30 도그쇼로 바로 간다(미모·훈련도 80%)
-            if (kb.digit0Key.wasPressedThisFrame && DogShop.Show.DogShow.Instance != null)
+            // 아래는 테스트 전용 — 에디터·개발 빌드에서만. 일반 빌드에서 0 을 누르면 능력치·날짜가 바뀌고 도그쇼가 시작돼 되돌릴 수 없었다
+            if (Debug.isDebugBuild)
             {
-                if (!DogShop.Show.DogShow.Instance.DebugStart(out string why)) Show("도그쇼 바로 가기 실패 — " + why);
-            }
-            if (kb.lKey.wasPressedThisFrame) ActionRunner.TryRun(upgrade);
+                // R 은 상자에서 내리는 키다. 겹쳐 있어서 진열하려다 하루가 계속 리셋됐다 — 손이 안 가는 9 로 옮김
+                if (kb.digit9Key.wasPressedThisFrame) { TimeManager.Instance.StartNewDay(); Show("하루 리셋 — 08:00"); }
 
-            if (kb.nKey.wasPressedThisFrame && CleanlinessManager.Instance != null)
-            {
-                CleanlinessManager.Instance.ForceSpawn(3);
-                Show("오염 +3 (테스트) — 청결 " + CleanlinessManager.Instance.Cleanliness);
+                // 0: D30 도그쇼로 바로 간다(미모·훈련도 80%)
+                if (kb.digit0Key.wasPressedThisFrame && DogShop.Show.DogShow.Instance != null)
+                {
+                    if (!DogShop.Show.DogShow.Instance.DebugStart(out string why)) Show("도그쇼 바로 가기 실패 — " + why);
+                }
+                if (kb.lKey.wasPressedThisFrame) ActionRunner.TryRun(upgrade);
+
+                if (kb.nKey.wasPressedThisFrame && CleanlinessManager.Instance != null)
+                {
+                    CleanlinessManager.Instance.ForceSpawn(3);
+                    Show("오염 +3 (테스트) — 청결 " + CleanlinessManager.Instance.Cleanliness);
+                }
             }
 
             if (kb.f5Key.wasPressedThisFrame) SaveManager.Instance.Save();

@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using DogShop.Core;
 using DogShop.Dogs;
@@ -63,10 +64,14 @@ namespace DogShop.Show
             Instance = this;
         }
 
-        void Start()
+        IEnumerator Start()
         {
             // 이어하기·에디터에서 바로 누른 플레이·무인 측정에는 띄우지 않는다
-            if (GameStart.FromMenu && !GameStart.Continue) Play(opening, BreedTokens(), null);
+            if (!GameStart.FromMenu || GameStart.Continue) yield break;
+            // 주인공 강아지는 DogManager.Start 에서 생기고 이름을 받는다. Start 순서는 정해져 있지 않아서,
+            // 같은 프레임에 글을 만들면 메인 화면에서 지은 이름 대신 "강아지"로 불릴 수 있었다 — 한 프레임 기다린다
+            yield return null;
+            Play(opening, BreedTokens(), null);
         }
 
         void OnDestroy()

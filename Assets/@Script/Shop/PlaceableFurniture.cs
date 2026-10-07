@@ -206,6 +206,7 @@ namespace DogShop.Shop
                 // 벽만 본다. 사람·가구·상자에 등을 붙이면 안 된다 —
                 // 실측에서 매장 한가운데를 조준했을 때 근처에 서 있던 플레이어에게 붙었다.
                 if (hit.collider.GetComponentInParent<PlaceableFurniture>() != null) continue;
+                if (hit.collider.GetComponentInParent<SwingDoor>() != null) continue;   // 닫힌 자동문 문짝은 벽이 아니다 — 붙이면 입구를 막는다
                 if (hit.collider.GetComponentInParent<CharacterController>() != null) continue;
                 if (hit.collider.GetComponentInParent<UnityEngine.AI.NavMeshAgent>() != null) continue;
                 if (hit.collider.attachedRigidbody != null) continue;
@@ -270,6 +271,7 @@ namespace DogShop.Shop
             {
                 if (hits[i].transform.IsChildOf(transform)) continue;
                 if (hits[i].GetComponentInParent<PlaceableFurniture>() != null) continue;
+                if (hits[i].GetComponentInParent<SwingDoor>() != null) continue;
                 if (hits[i].GetComponentInParent<CharacterController>() != null) continue;
                 if (hits[i].GetComponentInParent<UnityEngine.AI.NavMeshAgent>() != null) continue;
                 if (hits[i].attachedRigidbody != null) continue;

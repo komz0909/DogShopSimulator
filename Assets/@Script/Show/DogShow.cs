@@ -138,6 +138,9 @@ namespace DogShop.Show
             if (phase != Phase.None) { reason = "이미 도그쇼 진행 중"; return false; }
             Dog dog = DogManager.Instance != null ? DogManager.Instance.Hero : null;
             if (dog == null) { reason = "출전견 없음"; return false; }
+            // 능력치·날짜를 바꾸기 전에 확인한다 — 무대가 없어 못 열면 상태만 바뀐 채 남았다
+            if (stage == null || showCamera == null) { reason = "무대·카메라 연결 없음"; return false; }
+            if (TimeManager.Instance != null && TimeManager.Instance.IsDayOver) { reason = "하루가 끝난 뒤에는 열 수 없다 — 다음 날 아침에"; return false; }
 
             int stat = Mathf.RoundToInt(StatFull * 0.8f);
             dog.Stats.Restore(DogStats.MaxUpkeep, DogStats.MaxUpkeep, stat, stat);

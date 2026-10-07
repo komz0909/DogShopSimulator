@@ -150,8 +150,10 @@ namespace DogShop.Core
         /// 스키마 버전. 필드를 늘릴 때마다 올린다.
         /// 2 = 시각·그날매출·운반상자 추가 (D20).
         /// 3 = 영업 단계·그날 판매/놓침 건수 추가 (2026-09-18).
+        /// 4 = 가게가 오른쪽으로만 넓어지던 것을 문(x 4)을 가운데 두고 양쪽으로 넓어지게 바꿈 (2026-10-07).
+        ///     v3 이하 세이브의 판매장 가구는 불러올 때 왼쪽으로 옮긴다(<see cref="Shop.FurnitureShop.RestoreFrom"/>).
         /// </summary>
-        public const int SchemaVersion = 3;
+        public const int SchemaVersion = 4;
 
         public static SaveManager Instance { get; private set; }
 

@@ -73,6 +73,8 @@ namespace DogShop.Shop
         /// <summary>창고·옆방(가게 뒤 별채). 가게 폭과 무관하게 고정이다.</summary>
         const float AnnexLeft = -0.2f, AnnexRight = 12.4f, AnnexFront = 6.0f, AnnexBack = 10.2f;
 
+        readonly List<Mesh> madeMeshes = new List<Mesh>();
+
         int builtTier = -1;
         float builtWidth = -1f;
         Transform root;
@@ -106,6 +108,9 @@ namespace DogShop.Shop
                 if (stale.name == "Built" && stale != root) { stale.gameObject.SetActive(false); Kill(stale.gameObject); }
             }
             shellRenderers = null;
+            // 지난번에 잘라 만든 메시 사본 — 안 지우면 조립할 때마다(에디터에선 스크립트가 다시 읽힐 때마다) 쌓였다
+            foreach (Mesh m in madeMeshes) Kill(m);
+            madeMeshes.Clear();
             root = new GameObject("Built").transform;
             root.SetParent(transform, false);
             if (!Application.isPlaying) root.gameObject.hideFlags = HideFlags.DontSave;
@@ -556,6 +561,8 @@ namespace DogShop.Shop
                 for (int i = 0; i < v.Length; i++) world[i] = t.TransformPoint(v[i]);
 
                 Mesh copy = Instantiate(src);
+                copy.hideFlags = HideFlags.DontSave;
+                madeMeshes.Add(copy);
 
                 // 문 둘레 모델 문틀은 벽보다 25~30cm 튀어나와 있어서, 문 구멍을 파면 그 잘린 끝이 들쭉날쭉 앞으로 삐져나왔다.
                 // 지우면 벽에 구멍이 나므로(문틀이 곧 벽 면이다) 꼭짓점을 벽면까지 눌러 납작하게 만든다 — 색은 그림으로 남는다.

@@ -20,6 +20,9 @@ namespace DogShop.Shop
         public event Action<int> OnLevelUp;
 
         public ShopLevelDef Current => table.Get(Level);
+
+        /// <summary>그 레벨의 판매장 폭. 옛 세이브 가구 자리를 옮길 때 쓴다(FurnitureShop).</summary>
+        public float FloorWidthAt(int level) => table.Get(Mathf.Clamp(level, 1, table.MaxLevel)).floorWidth;
         public bool IsMaxLevel => Level >= table.MaxLevel;
 
         void Awake()

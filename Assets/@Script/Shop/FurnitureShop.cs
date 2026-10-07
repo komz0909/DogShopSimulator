@@ -192,10 +192,18 @@ namespace DogShop.Shop
 
             if (data.furniturePlaced == null) return;
 
+            // v3 이하: 가게가 x 0~폭 으로 오른쪽으로만 넓어졌다. 이제는 문(x 4)을 가운데 두고 양쪽으로 넓어지므로
+            // 판매장 가구를 (4 - 폭/2) 만큼 옮긴다 — 안 옮기면 넓은 가게 세이브의 오른쪽 가구가 새 오른쪽 벽 밖에 섰다
+            float shiftX = 0f;
+            if (data.version < 4 && ShopLevelManager.Instance != null)
+                shiftX = ShopSpace.CenterX - ShopLevelManager.Instance.FloorWidthAt(data.shopLevel) * 0.5f;
+
             for (int i = 0; i < data.furniturePlaced.Length; i++)
             {
                 FurnitureSave saved = data.furniturePlaced[i];
-                Spawn(saved.catalogIndex, saved.position, Quaternion.Euler(saved.rotation));
+                Vector3 position = saved.position;
+                if (shiftX != 0f && position.z > -0.5f && position.z < 6f) position.x += shiftX;
+                Spawn(saved.catalogIndex, position, Quaternion.Euler(saved.rotation));
             }
         }
     }
