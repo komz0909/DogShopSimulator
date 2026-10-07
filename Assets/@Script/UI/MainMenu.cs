@@ -202,7 +202,19 @@ namespace DogShop.UI
             DrawBreeds(x, y);
 
             float bw = 240f, bh = bw / BoneAspect;
-            float by = y + CardHeight + 18f;
+            float by = y + CardHeight + 14f;
+
+            // 이름 짓기 — 견종을 고르면 나타난다. 비워 두면 견종 이름으로 부른다
+            if (picked >= 0)
+            {
+                var field = new Rect((Screen.width - 360f) * 0.5f, by, 360f, 38f);
+                GUI.Label(new Rect(field.x - 110f, by, 100f, 38f), "이름", NameLabelStyle());
+                GUI.SetNextControlName("DogName");
+                dogName = GUI.TextField(field, dogName, MaxNameLength, NameFieldStyle());
+                if (string.IsNullOrEmpty(dogName) && GUI.GetNameOfFocusedControl() != "DogName")
+                    GUI.Label(field, breeds[picked].nameKo + " (이름을 지어 주자)", NameHintStyle());
+            }
+            by += 50f;
 
             bool ready = picked >= 0;
             if (BoneButton(new Rect(Screen.width * 0.5f - bw - 8f, by, bw, bh), "뒤로"))
@@ -213,9 +225,37 @@ namespace DogShop.UI
 
             if (BoneButton(new Rect(Screen.width * 0.5f + 8f, by, bw, bh), ready ? "시작" : "고르자", ready))
             {
-                GameStart.NewGame(picked);
+                GameStart.NewGame(picked, dogName.Trim());
                 SceneManager.LoadScene(shopScene);
             }
+        }
+
+        /// <summary>이름표에 들어갈 만큼. 한글 8자가 이름표 가운데에 한 줄로 들어간다.</summary>
+        const int MaxNameLength = 8;
+        string dogName = "";
+        GUIStyle nameField, nameHint, nameLabel;
+
+        GUIStyle NameFieldStyle()
+        {
+            if (nameField != null) return nameField;
+            nameField = new GUIStyle(GUI.skin.textField) { fontSize = 22, alignment = TextAnchor.MiddleCenter, font = UiSkin.Caption.font };
+            nameField.padding = new RectOffset(10, 10, 4, 4);
+            return nameField;
+        }
+
+        GUIStyle NameHintStyle()
+        {
+            if (nameHint != null) return nameHint;
+            nameHint = new GUIStyle(UiSkin.Caption) { fontSize = 18, alignment = TextAnchor.MiddleCenter };
+            nameHint.normal.textColor = new Color(0.55f, 0.55f, 0.55f);
+            return nameHint;
+        }
+
+        GUIStyle NameLabelStyle()
+        {
+            if (nameLabel != null) return nameLabel;
+            nameLabel = new GUIStyle(UiSkin.Caption) { fontSize = 20, alignment = TextAnchor.MiddleRight };
+            return nameLabel;
         }
 
         void DrawBreeds(float x, float y)

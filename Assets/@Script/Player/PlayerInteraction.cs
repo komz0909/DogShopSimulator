@@ -137,7 +137,7 @@ namespace DogShop.Player
 
                 // 어느 칸인지는 <b>조준한 높이</b>가 정한다. 벽 진열대처럼 위아래 두 칸이면
                 // 플레이어가 보는 칸에 놓인다 — 칸 고르는 키를 따로 만들 이유가 없다.
-                int slot = shelf.SlotNear(hit.point.y);
+                int slot = shelf.SlotAt(hit.point);
 
                 if (load) ActionRunner.TryRun(new TakeFromShelfAction(carry, shelf, slot));
                 else ActionRunner.TryRun(new PlaceOneAction(carry, shelf, slot));
@@ -188,15 +188,9 @@ namespace DogShop.Player
                 return;
             }
 
-            // 영업 중 정문은 TryToggle 이 거절하며 이유를 띄운다
-            SwingDoor door = hit.collider.GetComponentInParent<SwingDoor>();
-            if (door != null)
-            {
-                if (!load) return;
-                if (!inRange) { Reject("너무 멀다 — 문에 가까이 갈 것"); return; }
-                if (!door.TryToggle(out string reason)) Reject(reason);
-                return;
-            }
+            // 문은 자동문이다 — 사람이 다가가면 저절로 열린다. 조준해도 할 일이 없지만,
+            // 아래 "바닥에 상자 내려놓기"로 새지 않게 여기서 끝낸다
+            if (hit.collider.GetComponentInParent<SwingDoor>() != null) return;
 
             // 남은 것은 지형이다. 상자는 바닥을 조준했을 때만 내려놓는다 —
             // 벽을 스쳐도 놓아버리면 창고 랙에 담는 도중 상자를 계속 잃는다.
@@ -224,7 +218,7 @@ namespace DogShop.Player
             if (cam == null) return false;
 
             Vector2 screenPos = PointerMenus.PickPosition();
-            return Physics.Raycast(cam.ScreenPointToRay(screenPos), out hit, RayRange, ~0, QueryTriggerInteraction.Collide);
+            return Physics.Raycast(cam.ScreenPointToRay(screenPos), out hit, RayRange, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Collide);
         }
 
         Vector2 ScreenPointOf(Vector3 worldPoint)
@@ -260,8 +254,8 @@ namespace DogShop.Player
             else if (hit.collider.GetComponentInParent<ShopCounter>() != null) hint = "[E] 발주";
             else if (hit.collider.GetComponentInParent<Dog>() != null) hint = "[E] 강아지 관리";
             else if (hit.collider.GetComponentInParent<Bed>() != null) hint = "[E] 잠자기";
-            else if (hit.collider.GetComponentInParent<SwingDoor>() is SwingDoor door && door.PlayerOperable)
-                hint = door.IsOpen ? "[E] 문 닫기" : "[E] 문 열기";
+            else if (hit.collider.GetComponentInParent<SwingDoor>() != null)
+                hint = "";   // 자동문
             else if (carry != null && carry.IsHolding && IsGround(hit)) hint = "[E/R] 여기에 상자 내려놓기";
         }
 

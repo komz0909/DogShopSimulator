@@ -119,8 +119,10 @@ namespace DogShop.Shop
 
             for (int attempt = 0; attempt < 24; attempt++)
             {
+                // 지금 판매장 안쪽(가게가 양쪽으로 넓어지면 따라 넓어진다)
+                Rect floor = ShopSpace.Instance != null ? ShopSpace.Instance.FloorRect : new Rect(0f, 0f, 8f, 6f);
                 Vector3 candidate = new Vector3(
-                    UnityEngine.Random.Range(0.6f, 7.4f),
+                    UnityEngine.Random.Range(floor.xMin + 0.6f, floor.xMax - 0.6f),
                     0.02f,
                     UnityEngine.Random.Range(0.6f, 5.4f));
 

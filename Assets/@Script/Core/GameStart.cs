@@ -23,6 +23,9 @@ namespace DogShop.Core
         /// <summary>새 게임에서 고른 견종. 이어하기면 세이브의 견종이 이긴다.</summary>
         public static int BreedIndex;
 
+        /// <summary>새 게임에서 지어 준 이름(빈 문자열이면 견종 이름).</summary>
+        public static string DogName = "";
+
         /// <summary>
         /// 플레이를 시작할 때마다 지운다.
         ///
@@ -37,13 +40,15 @@ namespace DogShop.Core
             FromMenu = false;
             Continue = false;
             BreedIndex = 0;
+            DogName = "";
         }
 
-        public static void NewGame(int breedIndex)
+        public static void NewGame(int breedIndex, string dogName)
         {
             FromMenu = true;
             Continue = false;
             BreedIndex = breedIndex;
+            DogName = dogName ?? "";
         }
 
         public static void Resume()

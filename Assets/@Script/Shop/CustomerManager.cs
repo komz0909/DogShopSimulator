@@ -63,6 +63,10 @@ namespace DogShop.Shop
         /// </summary>
         [SerializeField] GameObject[] appearances = new GameObject[0];
 
+        /// <summary>거리 행인(<see cref="StreetLife"/>)도 손님과 같은 겉모습을 쓴다.</summary>
+        public int AppearanceCount => appearances.Length;
+        public GameObject AppearanceAt(int index) => appearances[Mathf.Clamp(index, 0, appearances.Length - 1)];
+
         /// <summary><see cref="appearances"/> 와 같은 순서의 연령대. 비어 있는 칸은 어른으로 본다.</summary>
         [SerializeField] CustomerAge[] appearanceAges = new CustomerAge[0];
 
@@ -87,6 +91,9 @@ namespace DogShop.Shop
         /// 계산대에서 오래 기다린 손님은 따로 명성을 깎는다(<see cref="ReputationPenaltyOf"/>).
         /// </summary>
         public int ReputationToday { get; private set; }
+
+        /// <summary>장식 보너스로 생긴 소수점 명성. 1이 차면 그 손님 몫에 얹는다.</summary>
+        float reputationCarry;
         public int RevenueToday { get; private set; }
         public int AverageBasket => SoldToday > 0 ? RevenueToday / SoldToday : 0;
         public int InStore => active.Count;
@@ -230,12 +237,33 @@ namespace DogShop.Shop
             }
             customer.WantedProduct = wanted;
             customer.State = CustomerState.ToShelf;
-            customer.MoveTo(shelf.ApproachPoint);
 
-            active.Add(customer);
+            if (WalksFromStreet)
+            {
+                // 인도 어딘가에서 걸어와 앞마당 가운데(배송 자리 사이) 통로로 들어선다.
+                // 문 앞에 닿는 순간 NavMeshAgent 로 넘겨받아 평소처럼 진열대로 간다
+                float side = UnityEngine.Random.value < 0.5f ? -1f : 1f;
+                Vector3 start = new Vector3(LaneMouth.x + side * UnityEngine.Random.Range(7f, 11f), 0f, StreetLaneZ);
+                instance.transform.position = start;
+                instance.transform.rotation = Quaternion.LookRotation(LaneMouth - start);
+                if (agent != null) agent.enabled = false;
 
-            // 들어온 순간 명성이 붙는다. 연령대가 곧 명성값이다(아이 1 · 청년 2 · 어른 3)
-            int reputation = (int)AgeOf(appearance);
+                StreetWalker walker = instance.AddComponent<StreetWalker>();
+                walker.Walk(new[] { LaneMouth, Door }, customer.BaseSpeed, () => Arrive(customer, shelf), false);
+            }
+            else
+            {
+                customer.MoveTo(shelf.ApproachPoint);
+                active.Add(customer);
+            }
+
+            // 들어온 순간 명성이 붙는다. 연령대가 곧 명성값이다(아이 1 · 청년 2 · 어른 3).
+            // 그 연령대가 좋아하는 장식이 매장에 있으면 더 붙는다. 소수점은 다음 손님에게 이월한다 —
+            // 아이 1 x 1.5 를 매번 반올림하면 +50% 가 +100% 로 둔갑한다
+            CustomerAge age = AgeOf(appearance);
+            reputationCarry += (int)age * (1f + DecorBonus.For(age));
+            int reputation = Mathf.FloorToInt(reputationCarry + 0.0001f);
+            reputationCarry -= reputation;
             VisitorsToday++;
             ReputationToday += reputation;
             GameManager.Instance.AddReputation(reputation);
@@ -511,7 +539,76 @@ namespace DogShop.Shop
         {
             active.Remove(c);
             queue.Remove(c);
+            if (c == null) return;
+            if (WalksFromStreet && LeaveToStreet(c)) return;
             Destroy(c.gameObject);
+        }
+
+        // ---- 거리 ----
+
+        /// <summary>손님이 오가는 인도 줄(z). 지나가는 행인 줄(<see cref="StreetLife"/>)보다 가게 쪽이다.</summary>
+        public const float StreetLaneZ = -5.4f;
+
+        /// <summary>앞마당 가운데 통로 입구. 양옆이 배송 자리라 손님은 가운데로만 드나든다.</summary>
+        static readonly Vector3 LaneMouth = new Vector3(4f, 0f, StreetLaneZ);
+
+        /// <summary>
+        /// 무인 측정 중에는 예전처럼 문 앞에서 바로 생긴다. 16배속에서 인도 10m 를 걸어오는 데
+        /// 게임 시간 한 시간 가까이 들어, 손님 흐름이 그만큼 밀려 측정값이 달라진다.
+        /// </summary>
+        static bool WalksFromStreet =>
+            Debugging.MeasurementMode.Instance == null || !Debugging.MeasurementMode.Instance.Active;
+
+        /// <summary>인도에서 걸어온 손님이 문 앞에 닿았다 — 여기서부터 평소 손님이다.</summary>
+        void Arrive(Customer customer, ShelfTable shelf)
+        {
+            if (customer == null) return;
+
+            NavMeshAgent agent = customer.GetComponent<NavMeshAgent>();
+            if (agent != null)
+            {
+                agent.enabled = true;
+                agent.Warp(Door);
+            }
+
+            // 걸어오는 사이 가게를 닫았거나 진열대가 사라졌으면 그냥 돌아간다
+            bool open = ShopHours.Instance == null || ShopHours.Instance.IsOpen;
+            if (!open || shelf == null)
+            {
+                customer.State = CustomerState.ToExit;
+                if (!LeaveToStreet(customer)) Destroy(customer.gameObject);
+                return;
+            }
+
+            customer.ApplySpeed(TimeManager.Instance.SpeedMultiplier);
+            customer.MoveTo(shelf.ApproachPoint);
+            active.Add(customer);
+        }
+
+        /// <summary>
+        /// 문 앞에서 인도로 걸어 나가 거리 끝에서 사라진다. 문에서 먼 곳(가게 안 깊숙이)에서
+        /// 끝난 손님은 거리까지 데려갈 길이 없으니 그냥 지운다.
+        /// </summary>
+        bool LeaveToStreet(Customer c)
+        {
+            Vector3 p = c.transform.position;
+            if (new Vector2(p.x - Door.x, p.z - Door.z).magnitude > 1.5f) return false;
+
+            NavMeshAgent agent = c.GetComponent<NavMeshAgent>();
+            if (agent != null) agent.enabled = false;
+            c.Label = "";
+
+            float side = UnityEngine.Random.value < 0.5f ? -1f : 1f;
+            float laneZ = StreetLaneZ - 0.6f;   // 들어오는 사람과 부딪히지 않게 한 줄 바깥
+            StreetWalker walker = c.GetComponent<StreetWalker>();
+            if (walker == null) walker = c.gameObject.AddComponent<StreetWalker>();
+            walker.Walk(new[]
+            {
+                new Vector3(Door.x + 0.5f, 0f, -3f),
+                new Vector3(LaneMouth.x + 0.5f, 0f, laneZ),
+                new Vector3(LaneMouth.x + side * 42f, 0f, laneZ),
+            }, c.BaseSpeed, null, true);
+            return true;
         }
 
         // ---- 세이브 ----

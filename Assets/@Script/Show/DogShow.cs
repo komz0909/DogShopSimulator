@@ -48,9 +48,6 @@ namespace DogShop.Show
         const int PoseRounds = 5;
         const int FetchRounds = 5;
 
-        /// <summary>물어 오는 달리기 속도. 4.5 면 왕복이 2초도 안 걸려 무엇을 물었는지 볼 틈이 없었다.</summary>
-        const float FetchRunSpeed = 3.0f;
-
         public static DogShow Instance { get; private set; }
 
         /// <summary>쇼가 진행 중이다(시작 버튼 대기 포함).</summary>
@@ -73,9 +70,10 @@ namespace DogShop.Show
         // ① 미모
         float ringRadius;     // 0~1, 줄어든다
         float targetRadius = 0.32f;   // 미모로 정한다(PoseGame)
-        float poseWindow;     // 판정 반폭
+        float perfectHalf;    // PERFECT 띠 반폭 — 미모가 두껍게 한다
+        float goodHalf;       // GOOD 띠 반폭 = PERFECT 반폭 + 고정 폭
         bool posePressed;
-        Texture2D ringTex, dotTex, zoneTex;
+        Texture2D ringTex, dotTex, goodTex, perfectTex;
 
         // ② 훈련
         List<int> fetchItems = new List<int>();
@@ -129,6 +127,27 @@ namespace DogShop.Show
 
         // ---- 시작·정리 ----
 
+        /// <summary>
+        /// 테스트용(디버그 0 키). 30일을 기다리지 않고 바로 도그쇼로 간다.
+        /// 날짜를 D30 으로 올려 쇼가 끝난 뒤 챔피언십 결과·엔딩까지 이어서 볼 수 있게 하고,
+        /// 미모·훈련도는 만점 기준(<see cref="StatFull"/>)의 80% 로 맞춘다 — 잘 키운 강아지 기준.
+        /// </summary>
+        public bool DebugStart(out string reason)
+        {
+            reason = null;
+            if (phase != Phase.None) { reason = "이미 도그쇼 진행 중"; return false; }
+            Dog dog = DogManager.Instance != null ? DogManager.Instance.Hero : null;
+            if (dog == null) { reason = "출전견 없음"; return false; }
+
+            int stat = Mathf.RoundToInt(StatFull * 0.8f);
+            dog.Stats.Restore(DogStats.MaxUpkeep, DogStats.MaxUpkeep, stat, stat);
+            GameManager.Instance.DebugSetDay(ChampionshipManager.FinalDay);
+
+            Begin();
+            if (phase == Phase.None) { reason = "무대·카메라 연결 없음"; return false; }
+            return true;
+        }
+
         void Begin()
         {
             hero = DogManager.Instance != null ? DogManager.Instance.Hero : null;
@@ -136,8 +155,8 @@ namespace DogShop.Show
 
             phase = Phase.Waiting;
             Running = true;
-            headline = "Day 30 — 도그쇼 챔피언십";
-            subline = "30일 동안 함께한 " + hero.BreedKo + "와(과) 무대에 오를 시간이다";
+            headline = "Day 30  도그쇼 챔피언십";
+            subline = "30일 동안 함께한 " + hero.DisplayName + "와(과) 무대에 오를 시간이다";
 
             // 가게는 오늘 안 연다. 시계·조작·HUD 를 끈다
             Silence<TimeManager>();
@@ -178,6 +197,10 @@ namespace DogShop.Show
             trainingN = Mathf.Clamp01(st.Training / StatFull);
             bodyN = (beautyN + trainingN) * 0.5f;
 
+            // 발바닥 높이는 무대로 옮기기 전에 잰다(가게에서 서 있던 자세 그대로)
+            pawOffset = float.NaN;
+            DogBaseOffset();
+
             // 강아지를 무대로. 길찾기·배회를 끄고 손으로 옮긴다
             var roamer = hero.GetComponent<DogRoamer>();
             if (roamer != null) roamer.enabled = false;
@@ -210,11 +233,14 @@ namespace DogShop.Show
         IEnumerator PoseGame()
         {
             phase = Phase.Pose;
-            // 미모가 높을수록 목표 원이 커지고 판정 띠도 두꺼워진다 — 둘이 같이 커져야
-            // "키운 만큼 쉬워졌다"가 눈에 보인다
-            targetRadius = Mathf.Lerp(0.24f, 0.38f, beautyN);
-            poseWindow = Mathf.Lerp(0.035f, 0.11f, beautyN);
-            zoneTex = MakeRing(256, (poseWindow * 2f) / (targetRadius + poseWindow));
+            // 미모가 높을수록 목표 원이 커지고 <b>PERFECT 띠</b>가 두꺼워진다 — "키운 만큼 쉬워졌다"가 눈에 보인다.
+            // GOOD 띠는 PERFECT 바깥으로 늘 같은 폭만큼 붙는다. 예전엔 GOOD 까지 같이 넓어져서
+            // 미모가 높으면 대충 눌러도 다 맞았고, 두 판정이 한 색이라 어디가 PERFECT 인지 몰랐다
+            targetRadius = Mathf.Lerp(0.26f, 0.36f, beautyN);
+            perfectHalf = Mathf.Lerp(0.012f, 0.045f, beautyN);
+            goodHalf = perfectHalf + 0.04f;
+            goodTex = MakeBand(512, (targetRadius - goodHalf) / (targetRadius + goodHalf), 6f);
+            perfectTex = MakeBand(512, (targetRadius - perfectHalf) / (targetRadius + perfectHalf), 1.5f);
             float total = 0f;
 
             for (int round = 0; round < PoseRounds; round++)
@@ -237,8 +263,8 @@ namespace DogShop.Show
                     if (posePressed && !judged)
                     {
                         float diff = Mathf.Abs(ringRadius - targetRadius);
-                        if (diff <= poseWindow * 0.5f) { got = 1f; Flash("PERFECT!", new Color(1f, 0.85f, 0.3f)); }
-                        else if (diff <= poseWindow) { got = 0.6f; Flash("GOOD", new Color(0.6f, 1f, 0.75f)); }
+                        if (diff <= perfectHalf) { got = 1f; Flash("PERFECT!", PerfectColor); }
+                        else if (diff <= goodHalf) { got = 0.6f; Flash("GOOD", GoodColor); }
                         else Flash("MISS", new Color(1f, 0.55f, 0.5f));
                         judged = true;
                         break;
@@ -306,7 +332,7 @@ namespace DogShop.Show
                 // ① 받침대 줄 앞까지 곧장 → ② 줄을 따라 옆으로 걸으며 찾는다
                 Transform prop = propOf.TryGetValue(broughtItem, out Transform pr) ? pr : null;
                 Vector3 rowFront = RowFront(rowCenter);
-                yield return RunTo(rowFront, FetchRunSpeed);
+                yield return RunTo(rowFront, false);   // 멈추지 않고 걸음으로 이어진다
 
                 // 훈련이 덜 됐으면 엉뚱한 받침대에서 한 번 멈칫한다 — 헤매는 게 보여야 한다
                 if (Random.value > trainingN * 0.9f)
@@ -314,8 +340,8 @@ namespace DogShop.Show
                     int decoy = RandomOther(broughtItem);
                     if (propHome.ContainsKey(decoy))
                     {
-                        yield return WalkTo(RowFront(propHome[decoy]), FetchRunSpeed * 0.55f);
-                        FaceTo(propHome[decoy]);
+                        yield return WalkTo(RowFront(propHome[decoy]));
+                        yield return TurnTo(propHome[decoy]);
                         hero.Animator.Play(DogAnim.Eat);   // 킁킁
                         DogSays("?", 0.9f);
                         yield return Wait(0.9f);
@@ -323,8 +349,8 @@ namespace DogShop.Show
                 }
 
                 Vector3 at = prop != null ? propHome[broughtItem] : rowCenter;
-                yield return WalkTo(RowFront(at), FetchRunSpeed * 0.55f);
-                FaceTo(at);
+                yield return WalkTo(RowFront(at));
+                yield return TurnTo(at);
 
                 // 코로 톡 — 그 물건이 쏙 사라진다(골랐다는 표시)
                 hero.Animator.Play(DogAnim.Eat);
@@ -334,9 +360,9 @@ namespace DogShop.Show
                 yield return Wait(0.3f);
 
                 // 갔던 길로 돌아온다
-                yield return RunTo(rowFront, FetchRunSpeed);
-                yield return RunTo(fetchStart.position, FetchRunSpeed);
-                hero.transform.rotation = faceRow;
+                yield return RunTo(rowFront, false);
+                yield return RunTo(fetchStart.position);
+                yield return TurnTo(faceRow);   // 주인 옆에서 돌아앉는다
                 hero.Animator.Play(DogAnim.Sit);
 
                 if (broughtItem == requested)
@@ -405,26 +431,85 @@ namespace DogShop.Show
 
         static Vector3 Flat(Vector3 v) { v.y = 0f; return v; }
 
-        void FaceTo(Vector3 target)
-        {
-            Vector3 d = Flat(target - hero.transform.position);
-            if (d.sqrMagnitude > 0.0001f) hero.transform.rotation = Quaternion.LookRotation(d);
-        }
-
         /// <summary>걷기. 옆으로 줄을 훑을 때 쓴다 — 뛰면 찾는 게 아니라 지나가는 것처럼 보인다.</summary>
-        IEnumerator WalkTo(Vector3 target, float speed)
+        IEnumerator WalkTo(Vector3 target) => MoveTo(target, false, true);
+
+        /// <summary>뛰기. <paramref name="stop"/> 이 false 면 감속 없이 지나쳐 다음 구간으로 이어 달린다.</summary>
+        IEnumerator RunTo(Vector3 target, bool stop = true) => MoveTo(target, true, stop);
+
+        const float TurnRate = 400f;   // 도/초
+
+        /// <summary>
+        /// 예전엔 목표 쪽으로 몸을 순간 회전시키고 일정 속도로 미끄러졌다 — 꺾이는 곳마다 각이 지고,
+        /// 다리 회전과 실제 속도가 따로 놀았다. 지금은
+        ///  · 몸은 초당 <see cref="TurnRate"/> 도까지만 돈다. 크게 돌아야 하면 거의 멈춰 서서 돈다
+        ///  · 출발은 가속, 도착 직전은 감속
+        ///  · 다리 회전(재생 배속)을 실제 속력에 맞춘다 — 가게 배회(DogRoamer)와 같은 기준
+        /// </summary>
+        IEnumerator MoveTo(Vector3 target, bool run, bool stop)
         {
-            hero.Animator.Play(DogAnim.Walk);
-            Vector3 flat = new Vector3(target.x, target.y + DogBaseOffset(), target.z);
-            while (true)
+            const float Accel = 5f;
+            var roamer = hero.GetComponent<DogRoamer>();
+            float refSpeed = run ? (roamer != null ? roamer.RunSpeed : 2.6f) : (roamer != null ? roamer.WalkSpeed : 0.75f);
+            // 몸이 작은 견종도 무대가 지루하지 않게 하한을 둔다(다리는 최대 2배속까지 따라 돈다)
+            float pace = run ? Mathf.Max(1.8f, refSpeed * 1.35f) * Mathf.Lerp(0.9f, 1.15f, bodyN)
+                             : Mathf.Max(0.7f, refSpeed * 1.1f);
+            hero.Animator.Play(run ? DogAnim.Run : DogAnim.Walk);
+
+            Vector3 goal = new Vector3(target.x, target.y + DogBaseOffset(), target.z);
+            float speed = moveSpeed;
+            float giveUp = Time.time + 10f;
+            while (Time.time < giveUp)
             {
                 Vector3 p = hero.transform.position;
-                Vector3 to = Flat(flat - p);
-                if (to.magnitude < 0.05f) break;
-                hero.transform.rotation = Quaternion.LookRotation(to);
-                hero.transform.position = Vector3.MoveTowards(p, flat, speed * Time.deltaTime);
+                Vector3 to = Flat(goal - p);
+                float dist = to.magnitude;
+                if (dist < (stop ? 0.04f : 0.3f)) break;
+
+                Quaternion want = Quaternion.LookRotation(to);
+                float angle = Quaternion.Angle(hero.transform.rotation, want);
+                hero.transform.rotation = Quaternion.RotateTowards(hero.transform.rotation, want, TurnRate * Time.deltaTime);
+
+                // 30도까지는 전속, 120도 넘게 돌아야 하면 거의 제자리에서 돈다 / 멈출 곳 0.7m 앞부터 감속
+                float turnK = Mathf.Lerp(1f, 0.15f, Mathf.InverseLerp(30f, 120f, angle));
+                float arriveK = stop ? Mathf.Lerp(0.3f, 1f, Mathf.Clamp01(dist / 0.7f)) : 1f;
+                speed = Mathf.MoveTowards(speed, pace * turnK * arriveK, Accel * Time.deltaTime);
+
+                // 멀면 몸이 향한 쪽으로 나아가 곡선을 그리고, 가까우면 목표로 곧장 붙는다(빙빙 돌지 않게)
+                Vector3 dir = dist > 0.35f ? hero.transform.forward : to / dist;
+                Vector3 next = p + dir * Mathf.Min(speed * Time.deltaTime, dist);
+                hero.transform.position = new Vector3(next.x, goal.y, next.z);
+
+                hero.Animator.SetPlaybackSpeed(speed / refSpeed);
                 yield return null;
             }
+
+            if (stop)
+            {
+                hero.transform.position = goal;
+                hero.Animator.SetPlaybackSpeed(1f);
+                moveSpeed = 0f;
+            }
+            else moveSpeed = speed;   // 이어 달리는 구간이 이 속도에서 시작한다
+        }
+
+        float moveSpeed;
+
+        /// <summary>제자리에서 천천히 돌아선다. 순간 회전은 로봇처럼 보였다.</summary>
+        IEnumerator TurnTo(Quaternion want)
+        {
+            while (Quaternion.Angle(hero.transform.rotation, want) > 1f)
+            {
+                hero.transform.rotation = Quaternion.RotateTowards(hero.transform.rotation, want, TurnRate * Time.deltaTime);
+                yield return null;
+            }
+            hero.transform.rotation = want;
+        }
+
+        IEnumerator TurnTo(Vector3 target)
+        {
+            Vector3 d = Flat(target - hero.transform.position);
+            if (d.sqrMagnitude > 0.0001f) yield return TurnTo(Quaternion.LookRotation(d));
         }
 
         /// <summary>주인 등 뒤에서 받침대 줄을 본다 — 주인·강아지·물건이 한 화면에 든다.</summary>
@@ -466,8 +551,10 @@ namespace DogShop.Show
             phase = Phase.AgilitySpec;
             // 사람이 허들마다 반응할 수 있는 속도. 6m/s 를 넘기면 16m 코스가 3초도 안 걸렸다
             runSpeed = Mathf.Lerp(2.2f, 4.0f, bodyN);
-            jumpHeight = Mathf.Lerp(0.35f, 1.0f, bodyN);
-            airTime = Mathf.Lerp(0.42f, 0.8f, bodyN);
+            // 허들 사이가 3.5m 다. 예전 값(높이 1m, 체공 0.8초)이면 한 번 뛰면 다음 허들 앞까지 날아가서
+            // 허들이 다닥다닥 붙어 보였다. 바(0.25m)를 넉넉히 넘는 정도로 낮췄다
+            jumpHeight = Mathf.Lerp(0.35f, 0.62f, bodyN);
+            airTime = Mathf.Lerp(0.42f, 0.55f, bodyN);
 
             PlaceDog(laneStart.position, Quaternion.LookRotation(laneEnd.position - laneStart.position));
             AimCamera(laneStart.position, 4.2f, 1.6f, 0f);
@@ -577,27 +664,32 @@ namespace DogShop.Show
             while (Time.time < end) yield return null;
         }
 
-        IEnumerator RunTo(Vector3 target, float speed)
-        {
-            hero.Animator.Play(DogAnim.Run);
-            float baseY = target.y + DogBaseOffset();
-            Vector3 flat = new Vector3(target.x, baseY, target.z);
-            while (true)
-            {
-                Vector3 p = hero.transform.position;
-                Vector3 to = flat - p;
-                to.y = 0f;
-                if (to.magnitude < 0.05f) break;
-                hero.transform.rotation = Quaternion.LookRotation(to);
-                hero.transform.position = Vector3.MoveTowards(p, flat, speed * Mathf.Lerp(0.8f, 1.3f, bodyN) * Time.deltaTime);
-                yield return null;
-            }
-        }
+        /// <summary>
+        /// 발바닥이 무대 바닥에 닿는 높이(강아지 원점 기준). NavMeshAgent.baseOffset 을 쓰면 안 된다 —
+        /// 그건 가게 내비메시(바닥보다 4cm 남짓 떠 있다)에 맞춘 값이라, 무대에서는 다리 짧은 견종이
+        /// 바닥과 단상에 발이 묻혀 보였다. 쇼를 시작할 때 실제 메시를 구워 가장 낮은 점(발바닥)을 잰다.
+        /// </summary>
+        float pawOffset = float.NaN;
 
         float DogBaseOffset()
         {
-            var agent = hero.GetComponent<UnityEngine.AI.NavMeshAgent>();
-            return agent != null ? agent.baseOffset : 0f;
+            if (float.IsNaN(pawOffset)) pawOffset = MeasurePawOffset();
+            return pawOffset;
+        }
+
+        float MeasurePawOffset()
+        {
+            float minY = float.MaxValue;
+            var baked = new Mesh();
+            foreach (SkinnedMeshRenderer smr in hero.GetComponentsInChildren<SkinnedMeshRenderer>())
+            {
+                smr.BakeMesh(baked, true);
+                Matrix4x4 m = smr.transform.localToWorldMatrix;
+                foreach (Vector3 v in baked.vertices) minY = Mathf.Min(minY, m.MultiplyPoint3x4(v).y);
+            }
+            Destroy(baked);
+            if (minY == float.MaxValue) return 0f;
+            return Mathf.Clamp(hero.transform.position.y - minY, -0.2f, 0.2f);
         }
 
         void PlaceDog(Vector3 at, Quaternion rot)
@@ -849,6 +941,32 @@ namespace DogShop.Show
             dotTex = MakeRing(256, 1f);
         }
 
+        static readonly Color PerfectColor = new Color(1f, 0.8f, 0.22f);
+        static readonly Color GoodColor = new Color(0.45f, 0.9f, 0.78f);
+
+        /// <summary>
+        /// 안쪽 반지름(바깥=1 기준 비율)부터 바깥까지 채운 띠. <paramref name="featherPx"/> 만큼
+        /// 양쪽 가장자리를 부드럽게 흐린다 — 딱딱한 테두리 두 줄이 겹쳐 보이던 게 어색했다.
+        /// </summary>
+        static Texture2D MakeBand(int size, float inner, float featherPx)
+        {
+            var t = new Texture2D(size, size, TextureFormat.RGBA32, false) { hideFlags = HideFlags.HideAndDontSave };
+            float r = size * 0.5f;
+            float f = Mathf.Max(1f, featherPx);
+            var px = new Color[size * size];
+            for (int y = 0; y < size; y++)
+                for (int x = 0; x < size; x++)
+                {
+                    float d = Vector2.Distance(new Vector2(x + 0.5f, y + 0.5f), new Vector2(r, r));   // 픽셀
+                    float a = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((d - inner * r) / f + 0.5f))
+                            * Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((r - 1f - d) / f + 0.5f));
+                    px[y * size + x] = new Color(1f, 1f, 1f, a);
+                }
+            t.SetPixels(px);
+            t.Apply();
+            return t;
+        }
+
         static Texture2D MakeRing(int size, float thickness)
         {
             var t = new Texture2D(size, size, TextureFormat.RGBA32, false) { hideFlags = HideFlags.HideAndDontSave };
@@ -884,19 +1002,21 @@ namespace DogShop.Show
             float size = Mathf.Min(Screen.width, Screen.height) * 0.42f;
             Vector2 c = new Vector2(Screen.width * 0.5f, Screen.height * 0.58f);
 
-            // 목표 원 = 판정 띠 그 자체. 미모가 높을수록 원이 크고 띠가 두껍다.
-            // 띠 한가운데 가는 선이 PERFECT 자리다
-            float outer = (targetRadius + poseWindow) * size;
-            GUI.color = new Color(1f, 0.82f, 0.28f, 0.75f);
-            if (zoneTex != null) GUI.DrawTexture(new Rect(c.x - outer, c.y - outer, outer * 2f, outer * 2f), zoneTex);
-            GUI.color = new Color(1f, 0.97f, 0.75f, 1f);
-            float tr = targetRadius * size;
-            GUI.DrawTexture(new Rect(c.x - tr, c.y - tr, tr * 2f, tr * 2f), ringTex);
+            // 바깥 GOOD 띠(민트, 반투명·가장자리 부드럽게) 위에 PERFECT 띠(금색, 또렷하게)를 얹는다.
+            // 미모가 높을수록 금색 띠가 두껍다
+            float g = (targetRadius + goodHalf) * size;
+            GUI.color = new Color(GoodColor.r, GoodColor.g, GoodColor.b, 0.42f);
+            if (goodTex != null) GUI.DrawTexture(new Rect(c.x - g, c.y - g, g * 2f, g * 2f), goodTex);
+            float pr = (targetRadius + perfectHalf) * size;
+            GUI.color = new Color(PerfectColor.r, PerfectColor.g, PerfectColor.b, 0.95f);
+            if (perfectTex != null) GUI.DrawTexture(new Rect(c.x - pr, c.y - pr, pr * 2f, pr * 2f), perfectTex);
 
             if (ringRadius > 0f)
             {
+                // 줄어드는 원은 지금 누르면 받을 판정의 색으로 물든다
+                float diff = Mathf.Abs(ringRadius - targetRadius);
+                GUI.color = diff <= perfectHalf ? PerfectColor : diff <= goodHalf ? GoodColor : Color.white;
                 float rr = ringRadius * size;
-                GUI.color = Color.white;
                 GUI.DrawTexture(new Rect(c.x - rr, c.y - rr, rr * 2f, rr * 2f), ringTex);
             }
             GUI.color = Color.white;
@@ -947,7 +1067,7 @@ namespace DogShop.Show
             float grow = Mathf.Clamp01((Time.time - specShownAt) / 1.6f);
             var panel = new Rect(Screen.width * 0.5f - 300f, Screen.height * 0.5f - 120f, 600f, 250f);
             GUI.Box(panel, GUIContent.none, UiSkin.Panel_);
-            GUI.Label(new Rect(panel.x, panel.y + 10f, panel.width, 32f), hero.BreedKo + "의 지금 몸 상태", midStyle);
+            GUI.Label(new Rect(panel.x, panel.y + 10f, panel.width, 32f), hero.DisplayName + "의 지금 몸 상태", midStyle);
 
             DrawBar(panel, 0, "달리기 속도", Mathf.Lerp(2.2f, runSpeed, grow).ToString("0.0") + " m/s", Mathf.Lerp(0f, bodyN, grow), UiSkin.Sky);
             DrawBar(panel, 1, "점프 높이", Mathf.Lerp(0.35f, jumpHeight, grow).ToString("0.00") + " m", Mathf.Lerp(0f, bodyN, grow), UiSkin.Green);

@@ -44,7 +44,11 @@ namespace DogShop.Dogs
             // 가게 씬을 에디터에서 바로 열어 눌렀을 때는 씬에 박아 둔 값이 그대로 쓰인다
             int breed = GameStart.FromMenu && !GameStart.Continue ? GameStart.BreedIndex : heroBreedIndex;
 
-            if (Hero == null) Spawn(breed);
+            if (Hero == null)
+            {
+                Dog dog = Spawn(breed);
+                if (dog != null && GameStart.FromMenu && !GameStart.Continue) dog.SetName(GameStart.DogName);
+            }
         }
 
         void OnDestroy()
@@ -105,6 +109,7 @@ namespace DogShop.Dogs
                 new DogSave
                 {
                     breedIndex = Hero.BreedIndex,
+                    name = Hero.Name,
                     isHero = true,
                     daysOwned = Hero.DaysOwned,
                     cleanliness = st.Cleanliness,
@@ -131,6 +136,7 @@ namespace DogShop.Dogs
             if (dog == null) return;
 
             dog.RestoreState(s.daysOwned);
+            dog.SetName(s.name);
             dog.Stats.Restore(s.cleanliness, s.health, s.beauty, s.training);
             dog.SyncMood();
 

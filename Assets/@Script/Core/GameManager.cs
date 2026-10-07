@@ -57,6 +57,13 @@ namespace DogShop.Core
             OnDaySettled?.Invoke(customers != null ? customers.ReputationToday : 0);
         }
 
+        /// <summary>테스트용. 날짜만 바꾼다(도그쇼 바로 가기 — DogShow.DebugStart).</summary>
+        public void DebugSetDay(int day)
+        {
+            Day = Mathf.Max(1, day);
+            OnDayChanged?.Invoke(Day);
+        }
+
         public void BeginNextDay()
         {
             if (!TimeManager.Instance.IsDayOver) return;

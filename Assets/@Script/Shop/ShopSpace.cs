@@ -23,10 +23,20 @@ namespace DogShop.Shop
 
         [SerializeField] NavMeshSurface surface;
 
-        [Header("판매장 — 오른쪽으로 늘어나는 부분")]
+        [Header("판매장 — 가운데(문)에서 양쪽으로 늘어나는 부분")]
         [SerializeField] Transform floor;        // Floor
         [SerializeField] Transform rightWall;    // Wall_Right
         [SerializeField] Transform frontRight;   // Wall_FrontB — 출입문 오른쪽 앞벽
+        [SerializeField] Transform leftWall;     // Wall_Left
+        [SerializeField] Transform frontLeft;    // Wall_FrontA — 출입문 왼쪽 앞벽
+        [SerializeField] Transform backLeft;     // Wall_Back_L — 창고 문 왼쪽 뒷벽(왼쪽으로 늘어난 만큼 따라 늘어난다)
+
+        [Header("앞마당 — 가게 폭을 따라 넓어진다")]
+        [SerializeField] Transform forecourtFloor;   // Forecourt_Floor
+        [SerializeField] Transform fenceLeft;        // Forecourt_Fence_L
+        [SerializeField] Transform fenceRight;       // Forecourt_Fence_R
+        [SerializeField] Transform edgeWest;         // 거리 경계벽(앞마당 왼쪽 인도 경계)
+        [SerializeField] Transform edgeEast;         // 거리 경계벽(앞마당 오른쪽 인도 경계)
 
         /// <summary>
         /// 매장 천장과 지붕. 바닥만 늘이면 넓어진 쪽이 뚜껑 없이 뚫린다.
@@ -49,6 +59,7 @@ namespace DogShop.Shop
 
         /// <summary>출입문 오른쪽 기둥이 시작하는 x. 문틈(x 3~5)은 넓혀도 그대로 둔다.</summary>
         const float DoorRightEdge = 5f;
+        const float DoorLeftEdge = 3f;
 
         /// <summary>지붕이 벽 밖으로 나오는 처마 길이. 지붕을 세울 때 쓴 값과 같아야 한다.</summary>
         const float RoofOverhang = 0.35f;
@@ -56,8 +67,17 @@ namespace DogShop.Shop
         /// <summary>지금 판매장 가로 길이. 바닥에서 직접 읽는다 — 저장할 필요가 없다.</summary>
         public float Width => floor != null ? floor.localScale.x : 8f;
 
-        /// <summary>판매장 바닥 범위(x 0~Width, z 0~6). 가구를 놓을 자리를 찾을 때 쓴다.</summary>
-        public Rect FloorRect => new Rect(0f, 0f, Width, Depth);
+        /// <summary>
+        /// 판매장 가운데 x. <b>출입문(x 3~5) 한가운데</b>다 — 가게는 여기를 기준으로 양쪽으로 넓어진다
+        /// (8m: x 0~8 → 9.5m: -0.75~8.75 → 12m: -2~10). 그래서 문·앞마당·배송 자리는 언제나 가게 정중앙이다.
+        /// </summary>
+        public const float CenterX = 4f;
+
+        public float LeftX => CenterX - Width * 0.5f;
+        public float RightX => CenterX + Width * 0.5f;
+
+        /// <summary>판매장 바닥 범위(x LeftX~RightX, z 0~6). 가구를 놓을 자리를 찾을 때 쓴다.</summary>
+        public Rect FloorRect => new Rect(LeftX, 0f, Width, Depth);
 
         /// <summary>다시 굽는 동안 잃어버리지 않으려고 적어 두는 것.</summary>
         struct Traveler
@@ -77,19 +97,47 @@ namespace DogShop.Shop
             if (surface == null) surface = FindFirstObjectByType<NavMeshSurface>();
         }
 
-        void Start() => ToggleLights(Width);
+        void Start() => ToggleLights(LeftX, RightX);
 
         void OnDestroy()
         {
             if (Instance == this) Instance = null;
         }
 
+        /// <summary>
+        /// 앞마당을 가게 정면 폭에 맞춘다. 문·배송 자리는 가운데 그대로고 양옆 울타리만 벌어진다.
+        /// 거리 경계벽(투명)도 울타리 끝에 맞춰 줄여서, 앞마당 옆으로 빠지는 틈이 생기지 않게 한다.
+        /// </summary>
+        void FitForecourt(float left, float right)
+        {
+            if (forecourtFloor != null)
+            {
+                forecourtFloor.localScale = new Vector3(right - left, forecourtFloor.localScale.y, forecourtFloor.localScale.z);
+                forecourtFloor.position = new Vector3(CenterX, forecourtFloor.position.y, forecourtFloor.position.z);
+            }
+            if (fenceLeft != null) fenceLeft.position = new Vector3(left - 0.1f, fenceLeft.position.y, fenceLeft.position.z);
+            if (fenceRight != null) fenceRight.position = new Vector3(right + 0.1f, fenceRight.position.y, fenceRight.position.z);
+
+            if (edgeWest != null)
+            {
+                float x0 = edgeWest.position.x - edgeWest.localScale.x * 0.5f, x1 = left - 0.2f;
+                edgeWest.localScale = new Vector3(x1 - x0, edgeWest.localScale.y, edgeWest.localScale.z);
+                edgeWest.position = new Vector3((x0 + x1) * 0.5f, edgeWest.position.y, edgeWest.position.z);
+            }
+            if (edgeEast != null)
+            {
+                float x1 = edgeEast.position.x + edgeEast.localScale.x * 0.5f, x0 = right + 0.2f;
+                edgeEast.localScale = new Vector3(x1 - x0, edgeEast.localScale.y, edgeEast.localScale.z);
+                edgeEast.position = new Vector3((x0 + x1) * 0.5f, edgeEast.position.y, edgeEast.position.z);
+            }
+        }
+
         /// <summary>매장 안에 드는 조명만 켠다. 조명 반경이 벽을 넘어도 되지만, 조명 자체가 벽 밖이면 끈다.</summary>
-        void ToggleLights(float width)
+        void ToggleLights(float left, float right)
         {
             if (shopLights == null) return;
             foreach (Transform lamp in shopLights)
-                lamp.gameObject.SetActive(lamp.position.x < width);
+                lamp.gameObject.SetActive(lamp.position.x > left && lamp.position.x < right);
         }
 
         /// <summary>
@@ -109,26 +157,48 @@ namespace DogShop.Shop
             width = Mathf.Clamp(width, 8f, 12f);
             if (width <= Width + 0.01f) return false;   // 이미 그만큼 넓다
 
+            // 문(x 4)을 가운데 두고 양쪽으로 넓힌다
+            float left = CenterX - width * 0.5f;
+            float right = CenterX + width * 0.5f;
+
             floor.localScale = new Vector3(width, floor.localScale.y, Depth);
-            floor.position = new Vector3(width * 0.5f, floor.position.y, Depth * 0.5f);
+            floor.position = new Vector3(CenterX, floor.position.y, Depth * 0.5f);
 
             if (rightWall != null)
-                rightWall.position = new Vector3(width + WallThickness * 0.5f, rightWall.position.y, rightWall.position.z);
+                rightWall.position = new Vector3(right + WallThickness * 0.5f, rightWall.position.y, rightWall.position.z);
+            if (leftWall != null)
+                leftWall.position = new Vector3(left - WallThickness * 0.5f, leftWall.position.y, leftWall.position.z);
 
             if (frontRight != null)
             {
-                float span = width - DoorRightEdge;
+                float span = right - DoorRightEdge;
                 frontRight.localScale = new Vector3(span, frontRight.localScale.y, WallThickness);
                 frontRight.position = new Vector3(DoorRightEdge + span * 0.5f, frontRight.position.y, frontRight.position.z);
             }
+            if (frontLeft != null)
+            {
+                float span = DoorLeftEdge - left;
+                frontLeft.localScale = new Vector3(span, frontLeft.localScale.y, WallThickness);
+                frontLeft.position = new Vector3(left + span * 0.5f, frontLeft.position.y, frontLeft.position.z);
+            }
 
-            ToggleLights(width);
+            // 뒷벽 왼쪽도 왼쪽 끝까지 따라 늘인다. 오른쪽은 옆방 앞벽(x 8~12.4)이 이미 막고 있다
+            if (backLeft != null)
+            {
+                float edge = backLeft.position.x + backLeft.localScale.x * 0.5f;   // 창고 문 쪽 끝(x 3.2)은 그대로
+                float span = edge - left;
+                backLeft.localScale = new Vector3(span, backLeft.localScale.y, backLeft.localScale.z);
+                backLeft.position = new Vector3(left + span * 0.5f, backLeft.position.y, backLeft.position.z);
+            }
+
+            ToggleLights(left, right);
+            FitForecourt(left, right);
 
             // 뚜껑도 같이 늘인다. 바닥만 넓히면 늘어난 쪽이 하늘로 뚫려 보인다
             if (ceiling != null)
             {
                 ceiling.localScale = new Vector3(width, ceiling.localScale.y, ceiling.localScale.z);
-                ceiling.position = new Vector3(width * 0.5f, ceiling.position.y, ceiling.position.z);
+                ceiling.position = new Vector3(CenterX, ceiling.position.y, ceiling.position.z);
             }
 
             // 맞배지붕은 처마만큼 더 길다. 비율을 그대로 유지한 채 폭만 따라간다
@@ -137,7 +207,7 @@ namespace DogShop.Shop
                 foreach (Transform slope in roof)
                 {
                     slope.localScale = new Vector3(width + RoofOverhang * 2f, slope.localScale.y, slope.localScale.z);
-                    slope.localPosition = new Vector3(width * 0.5f, slope.localPosition.y, slope.localPosition.z);
+                    slope.localPosition = new Vector3(CenterX, slope.localPosition.y, slope.localPosition.z);
                 }
             }
 

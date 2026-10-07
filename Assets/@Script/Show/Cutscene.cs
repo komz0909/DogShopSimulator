@@ -87,7 +87,7 @@ namespace DogShop.Show
         static Dictionary<string, string> BreedTokens()
         {
             Dog hero = DogManager.Instance != null ? DogManager.Instance.Hero : null;
-            return new Dictionary<string, string> { { "breed", hero != null ? hero.BreedKo : "강아지" } };
+            return new Dictionary<string, string> { { "breed", hero != null ? hero.DisplayName : "강아지" } };   // 이름을 지어 줬으면 이름으로 부른다
         }
 
         void Play(Slide[] slides, Dictionary<string, string> values, Action done)

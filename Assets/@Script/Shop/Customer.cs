@@ -28,6 +28,9 @@ namespace DogShop.Shop
 
         NavMeshAgent agent;
         float baseSpeed;
+
+        /// <summary>배속을 안 탄 걷기 속도. 거리를 걸을 때(<see cref="StreetWalker"/>) 쓴다.</summary>
+        public float BaseSpeed => baseSpeed > 0f ? baseSpeed : 1.6f;
         float baseAcceleration;
         float baseAngularSpeed;
         Vector3 destination;

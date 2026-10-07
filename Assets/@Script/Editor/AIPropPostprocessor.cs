@@ -41,7 +41,10 @@ namespace DogShop.EditorTools
             importer.importCameras = false;
             importer.importLights = false;
             importer.importVisibility = false;
-            importer.isReadable = false;
+            // 가게 건물 모델(P_ShopShell*)과 정문 문짝(P_ShopDoor*)만 읽기를 허용한다 — 게임 중에 벽면을 광선으로 찾고 문 자리를 잘라 내며,
+            // 문짝은 뒷면(바르코가 지어낸 어두운 판)을 버리고 앞면을 뒤집어 붙인다(ShopExterior)
+            string file = System.IO.Path.GetFileName(assetPath);
+            importer.isReadable = file.StartsWith("P_ShopShell") || file.StartsWith("P_ShopDoor");
         }
 
         void OnPreprocessTexture()

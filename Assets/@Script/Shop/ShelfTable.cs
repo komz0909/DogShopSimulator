@@ -364,15 +364,43 @@ namespace DogShop.Shop
         /// 조준한 높이에 가장 가까운 칸. 벽 진열대처럼 위아래 두 칸이면
         /// 플레이어가 어디를 보느냐로 칸이 정해진다 — 키를 더 만들 이유가 없다.
         /// </summary>
-        public int SlotNear(float worldY)
-        {
-            float local = worldY - transform.position.y;
+        /// <summary>상판 앞 모서리·두께를 조준해도 그 칸으로 친다.</summary>
+        const float BoardTolerance = 0.06f;
 
+        /// <summary>
+        /// 조준한 지점이 가리키는 칸.
+        ///
+        /// 예전엔 <b>높이가 가장 가까운 상판</b>을 골랐다. 그러면 두 번째 칸의 물건 놓는 공간을
+        /// 조준해도 지점이 바로 위 상판(세 번째 칸)의 밑면에 더 가까워 세 번째 칸으로 들어갔고,
+        /// 같은 높이에 좌우·앞뒤 칸이 있는 진열대는 늘 첫 번째(왼쪽) 칸만 골랐다.
+        ///
+        /// 지금은 ① 조준점 <b>아래에 있는 상판 중 가장 높은 것</b>(물건이 그 위에 놓이므로)을 층으로 고르고
+        /// ② 그 층 안에서 좌우·앞뒤 중심이 가장 가까운 칸을 고른다.
+        /// </summary>
+        public int SlotAt(Vector3 worldPoint)
+        {
+            Vector3 local = transform.InverseTransformPoint(worldPoint);
+
+            // ① 층: 조준점 아래(허용치 포함) 상판 중 가장 높은 것. 맨 아래 상판보다 낮으면 맨 아래 층
+            float floor = float.MinValue;
+            float lowest = float.MaxValue;
+            for (int i = 0; i < SlotCount; i++)
+            {
+                float h = slotHeights[i];
+                lowest = Mathf.Min(lowest, h);
+                if (h <= local.y + BoardTolerance && h > floor) floor = h;
+            }
+            if (floor == float.MinValue) floor = lowest;
+
+            // ② 그 층에서 좌우·앞뒤로 가장 가까운 칸
             int best = 0;
             float bestDistance = float.MaxValue;
             for (int i = 0; i < SlotCount; i++)
             {
-                float d = Mathf.Abs(slotHeights[i] - local);
+                if (Mathf.Abs(slotHeights[i] - floor) > 0.02f) continue;
+                float dx = local.x - CenterXOf(i);
+                float dz = local.z - CenterZOf(i);
+                float d = dx * dx + dz * dz;
                 if (d >= bestDistance) continue;
                 bestDistance = d;
                 best = i;

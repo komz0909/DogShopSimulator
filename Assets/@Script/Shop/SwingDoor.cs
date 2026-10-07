@@ -6,21 +6,18 @@ namespace DogShop.Shop
     /// <summary>
     /// 경첩으로 여닫는 문. 가게 정문(두 짝)과 침대방 문(한 짝)에 붙는다.
     ///
-    /// - <b>정문</b>(<see cref="followsShopHours"/>)은 <b>가게를 열면 활짝 열리고, 닫으면 닫힌다.</b>
-    ///   영업 중에는 열린 채로 고정이고, 영업 시간이 아닐 때만 E 로 여닫는다 —
-    ///   문 닫고 앞마당에 나가 있다가 갇히면 침대로 못 간다
-    /// - <b>침대방 문</b>은 언제든 E 로 여닫는다
+    /// <b>자동문</b>이다 — 주인공이 다가오거나 손님·강아지가 문을 건너가려 하면 열리고, 아무도 없으면 닫힌다.
+    /// 예전엔 정문은 영업 시간을 따르고 E 로 여닫았는데, 상자를 들고 오갈 때마다 멈춰 E 를 눌러야 했다.
     ///
     /// 닫히면 문짝이 벽처럼 막는다 — 플레이어도 카메라도 못 지나간다.
     /// 손님·강아지는 NavMesh 로 걷고 NavMesh 는 문을 모르므로(구울 때 빼 둔다),
-    /// 닫힌 문을 <b>건너가려는</b> 에이전트에게만 잠깐 열어 준다. 영업 중엔 정문이 늘 열려 있으니
-    /// 이건 문 닫은 뒤 늦게 나가는 손님이나 방을 드나드는 강아지가 문을 뚫고 지나가 보이지 않게 하는 안전망이다.
+    /// 문을 <b>건너가려는</b> 에이전트가 오면 열어 준다.
     /// "건너가려는"은 목적지가 문 반대편이라는 뜻이다 — 문 앞에서 쉬는 강아지 때문에 문이 안 닫히면 안 된다.
     ///
-    /// 문짝 콜라이더는 열려 있는 동안 트리거다. 조준(E)에는 걸리지만 몸은 통과한다 —
+    /// 문짝 콜라이더는 열려 있는 동안 트리거다. 몸은 통과한다 —
     /// 열린 정문 짝은 앞마당 쪽으로 튀어나와 있어서, 단단하면 배달 상자를 나르다 걸린다.
     ///
-    /// 열림 상태는 저장하지 않는다. 침대방 문은 열린 채로, 정문은 영업 상태대로 시작한다.
+    /// 열림 상태는 저장하지 않는다. 처음엔 닫힌 채로 시작한다.
     /// </summary>
     public class SwingDoor : MonoBehaviour
     {
@@ -33,9 +30,6 @@ namespace DogShop.Shop
         }
 
         [SerializeField] Leaf[] leaves;
-
-        /// <summary>켜면 영업 상태를 따라간다. 열 때 열리고 닫을 때 닫히며, 영업 중엔 E 로 못 닫는다.</summary>
-        [SerializeField] bool followsShopHours;
 
         /// <summary>
         /// 초당 회전 각도. 105° 를 0.23초에 돈다. 손님은 문에서 45cm 앞에 생겨나
@@ -65,9 +59,6 @@ namespace DogShop.Shop
         float nextScan;
         bool solid;
 
-        /// <summary>지난 프레임의 영업 상태. 바뀌는 순간에만 문을 움직인다 — 그 사이엔 플레이어 몫이다.</summary>
-        bool shopWasOpen;
-
         Collider[] panels;
         Bounds doorway;
 
@@ -77,18 +68,32 @@ namespace DogShop.Shop
         /// <summary>지금 상태(열림/닫힘). 손님이 지나가느라 잠깐 열린 것은 치지 않는다.</summary>
         public bool IsOpen => wantOpen;
 
-        static bool ShopOpen => ShopHours.Instance != null && ShopHours.Instance.IsOpen;
+        /// <summary>E 로 여닫지 않는다(자동문).</summary>
+        public bool PlayerOperable => false;
 
-        /// <summary>지금 E 로 여닫을 수 있는가. 정문은 영업 중엔 못 건드린다.</summary>
-        public bool PlayerOperable => !followsShopHours || !ShopOpen;
+        /// <summary>문짝 경첩과 닫힌 각도. 건물 모델의 문을 문짝으로 붙일 때 쓴다(ShopExterior).</summary>
+        public int LeafCount => leaves != null ? leaves.Length : 0;
+        public Transform HingeOf(int i) => leaves[i].hinge;
+        public float ClosedYawOf(int i) => leaves[i].closedYaw;
 
         void Awake()
         {
             panels = GetComponentsInChildren<Collider>(true);
+            Remeasure();
+            SetSolid(false);
+        }
+
+        /// <summary>
+        /// 문간 자리를 다시 잰다. 가게 단계마다 건물 모델의 문 구멍에 맞춰 문짝 크기가 바뀌므로(ShopExterior) 그때마다 부른다.
+        /// </summary>
+        public void Remeasure()
+        {
+            float keep = openness;
 
             // 닫힌 자세에서 문짝이 차지하는 자리를 재 둔다 — 그게 문간이다
             openness = 0f;
             Pose();
+            Physics.SyncTransforms();
             bool any = false;
             foreach (Renderer r in GetComponentsInChildren<Renderer>())
             {
@@ -100,19 +105,23 @@ namespace DogShop.Shop
             across = doorway.size.x < doorway.size.z ? Vector3.right : Vector3.forward;
             doorway.Expand(across * (DoorwayDepth * 2f));
 
-            openness = 1f;
+            openness = keep;
             Pose();
-            SetSolid(false);
+        }
+
+        /// <summary>닫힌 자세로 세운다 — 실행 전 에디터 화면을 게임 시작 때와 같게 보이려고(ShopExterior).</summary>
+        public void ShowClosed()
+        {
+            wantOpen = false;
+            openness = 0f;
+            Pose();
         }
 
         void Start()
         {
-            // 정문은 첫 화면부터 영업 상태대로 서 있어야 한다 — 아침마다 닫히는 장면을 보여 줄 이유가 없다
-            if (!followsShopHours) return;
-
-            shopWasOpen = ShopOpen;
-            wantOpen = shopWasOpen;
-            openness = wantOpen ? 1f : 0f;
+            // 자동문 — 처음엔 닫힌 채로 선다. 누가 다가오면 그때 열린다
+            wantOpen = false;
+            openness = 0f;
             Pose();
         }
 
@@ -124,43 +133,24 @@ namespace DogShop.Shop
             return false;
         }
 
-        /// <summary>E 를 눌렀을 때. 문간에 누가 서 있으면 닫지 않는다 — 문짝이 몸에 박혀 갇힌다.</summary>
-        public bool TryToggle(out string reason)
-        {
-            if (!PlayerOperable)
-            {
-                reason = "영업 중에는 정문을 닫을 수 없다 — 가게를 닫으면 닫힌다";
-                return false;
-            }
+        /// <summary>주인공이 이 거리 안(문간 중심 기준)으로 오면 연다.</summary>
+        const float PlayerOpenRadius = 2.0f;
 
-            if (wantOpen && Occupied())
-            {
-                reason = "문간에 누가 서 있다 — 비키면 닫을 것";
-                return false;
-            }
-
-            wantOpen = !wantOpen;
-            reason = null;
-            return true;
-        }
-
+        /// <summary>
+        /// <b>자동문</b>이다. 주인공이 다가오거나, 손님·강아지가 문을 건너가려 하면 열리고,
+        /// 아무도 없으면 <see cref="AutoCloseDelay"/> 뒤에 닫힌다. E 로 여닫던 것은 없앴다 —
+        /// 상자를 들고 다니는 가게에서 문 앞에서 매번 멈춰 E 를 누르는 게 번거로웠다.
+        /// </summary>
         void Update()
         {
-            if (followsShopHours)
-            {
-                bool shopOpen = ShopOpen;
-                if (shopOpen != shopWasOpen) wantOpen = shopOpen;   // 열면 열고, 닫으면 닫는다
-                if (shopOpen) wantOpen = true;                      // 영업 중엔 열린 채로 고정
-                shopWasOpen = shopOpen;
-            }
-
-            if (!wantOpen && Time.time >= nextScan)
+            if (Time.time >= nextScan)
             {
                 nextScan = Time.time + ScanInterval;
-                if (AgentCrossing()) lastAgentSeen = Time.time;
+                if (PlayerNear() || AgentCrossing() || StreetCustomerNear()) lastAgentSeen = Time.time;
             }
 
-            bool open = wantOpen || Time.time - lastAgentSeen < AutoCloseDelay;
+            wantOpen = Time.time - lastAgentSeen < AutoCloseDelay || Occupied();
+            bool open = wantOpen;
             float before = openness;
             openness = Mathf.MoveTowards(openness, open ? 1f : 0f, swingSpeed / 105f * Time.deltaTime);
             if (!Mathf.Approximately(before, openness)) Pose();
@@ -203,8 +193,32 @@ namespace DogShop.Shop
             return false;
         }
 
+        /// <summary>주인공(CharacterController)이 문 가까이 있는가.</summary>
+        bool PlayerNear()
+        {
+            int n = Physics.OverlapSphereNonAlloc(doorway.center, PlayerOpenRadius, buffer, ~0, QueryTriggerInteraction.Ignore);
+            for (int i = 0; i < n; i++)
+                if (buffer[i] is CharacterController && !buffer[i].transform.IsChildOf(transform)) return true;
+            return false;
+        }
+
         /// <summary>
-        /// 손님·강아지가 닫힌 문을 <b>건너가려고</b> 가까이 왔는가. 플레이어는 치지 않는다 — 플레이어는 E 로 연다.
+        /// 인도에서 걸어 들어오거나 나가는 손님. 이때는 길찾기(NavMeshAgent)가 꺼져 있어서
+        /// <see cref="AgentCrossing"/>에 안 잡힌다 — 거리를 걷는 중인 손님이 가까이 오면 연다.
+        /// </summary>
+        bool StreetCustomerNear()
+        {
+            int n = Physics.OverlapSphereNonAlloc(doorway.center, autoOpenRadius, buffer, ~0, QueryTriggerInteraction.Collide);
+            for (int i = 0; i < n; i++)
+            {
+                StreetWalker w = buffer[i].GetComponentInParent<StreetWalker>();
+                if (w != null && w.Walking) return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// 손님·강아지가 닫힌 문을 <b>건너가려고</b> 가까이 왔는가.
         /// 지금 자리와 목적지가 문 면의 반대편이거나, 이미 문간에 걸쳐 걷는 중이면 연다.
         /// </summary>
         bool AgentCrossing()

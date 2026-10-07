@@ -114,8 +114,9 @@ namespace DogShop.Player
             Vector3 pivot = transform.position + Vector3.up * pivotHeight;
             Vector3 dir = look * Vector3.back;
 
+            // 거리 끝의 투명 경계벽(Ignore Raycast)에는 카메라가 걸리지 않는다
             float applied = distance;
-            if (Physics.SphereCast(pivot, 0.25f, dir, out RaycastHit hit, distance, ~0, QueryTriggerInteraction.Ignore))
+            if (Physics.SphereCast(pivot, 0.25f, dir, out RaycastHit hit, distance, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
                 applied = Mathf.Max(minDistance, hit.distance - 0.1f);
 
             camT.position = pivot + dir * applied;

@@ -14,6 +14,10 @@ namespace DogShop.Dogs
         public string BreedKo { get; private set; } = "";
         public int BreedIndex { get; private set; }
 
+        /// <summary>메인 화면에서 지어 준 이름. 비워 두면 견종 이름으로 부른다.</summary>
+        public string Name { get; private set; } = "";
+        public string DisplayName => string.IsNullOrEmpty(Name) ? BreedKo : Name;
+
         /// <summary>함께 지낸 날수. 값어치가 아니라 엔딩에 쓰는 기록이다.</summary>
         public int DaysOwned { get; private set; }
 
@@ -49,6 +53,8 @@ namespace DogShop.Dogs
             BreedIndex = breedIndex;
             DaysOwned = 0;
         }
+
+        public void SetName(string name) => Name = (name ?? "").Trim();
 
         public void RestoreState(int daysOwned) => DaysOwned = daysOwned;
 

@@ -576,7 +576,8 @@ namespace DogShop.Shop
                 DrawPhoto(card, item.icon, unlocked);
                 GUI.Label(new Rect(card.x + 4f, card.y + NameY, card.width - 8f, 20f), item.nameKo, UiSkin.Caption);
                 DrawTag(card, PriceY, item.price.ToString("N0") + "원", UiSkin.Cream);
-                GUI.Label(new Rect(card.x + 4f, card.y + RetailY, card.width - 8f, 18f), item.note, UiSkin.Caption);
+                // 장식 가구는 쓰임새 대신 효과를 적는다 — 고르는 기준이 그것뿐이다
+                GUI.Label(new Rect(card.x + 4f, card.y + RetailY, card.width - 8f, 18f), item.IsDecor ? item.DecorText : item.note, UiSkin.Caption);
 
                 if (!unlocked)
                 {

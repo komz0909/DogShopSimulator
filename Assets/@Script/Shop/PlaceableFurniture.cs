@@ -35,6 +35,18 @@ namespace DogShop.Shop
         /// </summary>
         [SerializeField] bool frontFacesMinusZ;
 
+        /// <summary>
+        /// 손님 길을 막는가(NavMesh 를 깎는가). 진열대·계산대는 켜고, <b>장식 가구는 끈다</b> —
+        /// 화분 하나 때문에 손님이 빙 돌아가거나 좁은 통로에서 막혀 버리면 꾸미는 게 벌이 된다.
+        /// </summary>
+        [SerializeField] bool blocksCustomers = true;
+
+        /// <summary>
+        /// 벽걸이를 바닥에서 얼마나 띄워 거는가(아랫면 기준, m). 진열대는 0 — 바닥에 선다.
+        /// 액자·벽장식은 눈높이쯤에 걸려야 한다. 바닥에 붙여 두면 벽 밑에 떨어진 것처럼 보인다.
+        /// </summary>
+        [SerializeField] float mountHeight;
+
         /// <summary>벽을 찾는 반경. 이보다 먼 곳을 조준하면 붙일 벽이 없다고 본다.</summary>
         public const float WallSearchRadius = 1.6f;
 
@@ -78,7 +90,7 @@ namespace DogShop.Shop
 
             BottomOffset = transform.position.y - bounds.min.y;
 
-            EnsureObstacle(bounds);
+            if (blocksCustomers) EnsureObstacle(bounds);
         }
 
         /// <summary>
@@ -176,7 +188,7 @@ namespace DogShop.Shop
             position = floorPoint;
             rotation = transform.rotation;
 
-            float probeHeight = floorPoint.y + Mathf.Max(0.35f, HalfExtents.y);
+            float probeHeight = floorPoint.y + mountHeight + Mathf.Max(0.35f, HalfExtents.y);
             Vector3 origin = new Vector3(floorPoint.x, probeHeight, floorPoint.z);
 
             float nearest = float.MaxValue;
@@ -189,7 +201,7 @@ namespace DogShop.Shop
                 Vector3 dir = new Vector3(Mathf.Sin(angle), 0f, Mathf.Cos(angle));
 
                 RaycastHit hit;
-                if (!Physics.Raycast(origin, dir, out hit, WallSearchRadius, ~0, QueryTriggerInteraction.Ignore)) continue;
+                if (!Physics.Raycast(origin, dir, out hit, WallSearchRadius, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore)) continue;
 
                 // 벽만 본다. 사람·가구·상자에 등을 붙이면 안 된다 —
                 // 실측에서 매장 한가운데를 조준했을 때 근처에 서 있던 플레이어에게 붙었다.
@@ -222,7 +234,7 @@ namespace DogShop.Shop
             float centerAlongNormal = Vector3.Dot(offset, normal);
             float gap = Vector3.Dot(floorPoint - hitPoint, normal);
             position = floorPoint + normal * (RawHalfExtents.z - centerAlongNormal - gap);
-            position.y = floorPoint.y + BottomOffset;
+            position.y = floorPoint.y + BottomOffset + mountHeight;
 
             // 등 뒤가 <b>폭 전체에</b> 벽이어야 한다. 광선 하나로는 벽 <b>끝의 옆면</b>을 맞고도
             // 붙었다고 보게 되는데, 그러면 가구가 벽을 벗어나 문간에 선다 —
@@ -252,7 +264,7 @@ namespace DogShop.Shop
         /// <summary>그 점에 벽 같은 굳은 것이 있는가. 가구·사람·상자는 벽이 아니다.</summary>
         bool SolidAt(Vector3 probe)
         {
-            Collider[] hits = Physics.OverlapSphere(probe, 0.1f, ~0, QueryTriggerInteraction.Ignore);
+            Collider[] hits = Physics.OverlapSphere(probe, 0.1f, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
 
             for (int i = 0; i < hits.Length; i++)
             {

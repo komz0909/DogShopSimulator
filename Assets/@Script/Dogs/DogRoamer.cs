@@ -59,6 +59,10 @@ namespace DogShop.Dogs
 
         float walkSpeed = 0.75f;
         float runSpeed = 2.64f;
+
+        /// <summary>몸 길이에서 역산한 걷기·뛰기 기준 속도. 이 속도에서 다리 회전이 1배다(도그쇼가 같은 기준을 쓴다).</summary>
+        public float WalkSpeed => walkSpeed;
+        public float RunSpeed => runSpeed;
         float heelDistance = HeelDistance;
 
         /// <summary>

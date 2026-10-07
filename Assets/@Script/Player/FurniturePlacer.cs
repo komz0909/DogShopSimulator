@@ -275,7 +275,7 @@ namespace DogShop.Player
             if (cam == null) return false;
 
             Ray ray = cam.ScreenPointToRay(DogShop.Core.PointerMenus.PickPosition());
-            return Physics.Raycast(ray, out hit, RayRange, ~0, QueryTriggerInteraction.Ignore);
+            return Physics.Raycast(ray, out hit, RayRange, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
         }
 
         static bool IsGround(RaycastHit hit) => hit.normal.y > 0.7f && hit.point.y <= GroundLevel;

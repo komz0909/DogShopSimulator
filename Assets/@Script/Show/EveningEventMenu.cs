@@ -128,7 +128,7 @@ namespace DogShop.Show
                        + "   (심사 " + champ.WeightText + ")";
             gradeLine = "최종 랭크  " + champ.FinalGrade(rank, level, g.Money)
                       + "     가게 Lv " + level + "     자산 " + g.Money + "원"
-                      + "     " + hero.BreedKo + " 미모 " + hero.Stats.Beauty + " / 훈련도 " + hero.Stats.Training;
+                      + "     " + hero.DisplayName + " 미모 " + hero.Stats.Beauty + " / 훈련도 " + hero.Stats.Training;
         }
 
         /// <summary>

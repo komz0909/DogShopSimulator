@@ -44,6 +44,23 @@ namespace DogShop.Data
 
         /// <summary>창에 한 줄 붙는 설명. 무엇에 쓰는 물건인지.</summary>
         public string note = "";
+
+        /// <summary>
+        /// 장식 가구가 좋아하는 손님 연령대. 그 연령대 손님이 들어올 때 붙는 명성이
+        /// <see cref="decorBonus"/> 비율만큼 늘어난다(<see cref="Shop.DecorBonus"/>). 진열대는 비워 둔다.
+        ///
+        /// 가격이 아니라 명성에 거는 이유: 매출을 바로 올리는 보상은 돈 흐름을 흔든다.
+        /// 명성은 레벨 진행에만 쓰이고, 손님 연령이 날마다 바뀌므로 "언제 무엇을 들일지"가 선택이 된다.
+        /// </summary>
+        public Shop.CustomerAge decorAge;
+        [Range(0f, 1f)] public float decorBonus;
+
+        public bool IsDecor => decorBonus > 0f && (int)decorAge > 0;
+
+        public string DecorText => IsDecor ? AgeKo(decorAge) + " 명성 +" + Mathf.RoundToInt(decorBonus * 100f) + "%" : "";
+
+        public static string AgeKo(Shop.CustomerAge age) =>
+            age == Shop.CustomerAge.Kid ? "아이" : age == Shop.CustomerAge.Young ? "청년" : "어른";
     }
 
     [CreateAssetMenu(menuName = "DogShop/Furniture Catalog", fileName = "FurnitureCatalog")]

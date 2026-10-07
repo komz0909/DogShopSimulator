@@ -8,6 +8,7 @@ namespace DogShop.Core
     public class DogSave
     {
         public int breedIndex;
+        public string name;
         public bool isHero;
         public int daysOwned;
         public int cleanliness;
