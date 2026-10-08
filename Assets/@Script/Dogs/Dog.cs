@@ -54,7 +54,14 @@ namespace DogShop.Dogs
             DaysOwned = 0;
         }
 
-        public void SetName(string name) => Name = (name ?? "").Trim();
+        /// <summary>이름은 6자까지. 머리 위 이름표(DogNameTag)가 이 길이에 맞춰 글자를 줄인다.</summary>
+        public const int MaxNameLength = 6;
+
+        public void SetName(string name)
+        {
+            string n = (name ?? "").Trim();
+            Name = n.Length > MaxNameLength ? n.Substring(0, MaxNameLength) : n;
+        }
 
         public void RestoreState(int daysOwned) => DaysOwned = daysOwned;
 

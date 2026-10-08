@@ -415,7 +415,7 @@ namespace DogShop.Shop
             GUI.Label(new Rect(x, y + ButtonHeight + 1f, w, 18f),
                       usedUp ? "내일 다시 쓸 수 있다"
                       : hasFurniture ? "가구를 빼면 긴급으로 보낼 수 있다"
-                      : "1.5배 · " + InventoryManager.ExpressHours + "시간 뒤 · 하루 한 번",
+                      : "1.5배 / " + InventoryManager.ExpressHours + "시간 뒤 / 하루 한 번",
                       UiSkin.Caption);
         }
 
@@ -431,7 +431,7 @@ namespace DogShop.Shop
 
             if (GameManager.Instance.Money < total)
             {
-                ActionRunner.Reject("재화 부족 — " + GameManager.Instance.Money + " / " + total);
+                ActionRunner.Reject("재화 부족: " + GameManager.Instance.Money + " / " + total);
                 return;
             }
 
@@ -590,11 +590,20 @@ namespace DogShop.Shop
                     GUI.Label(new Rect(card.x + 4f, card.y + StockY, card.width - 8f, 18f),
                               "담음 " + furnitureCart[index], UiSkin.Caption);
 
-                // 몇 개든 살 수 있다. 자리와 돈이 유일한 한계다.
+                // 명성 장식은 종류마다 하나만 — 이미 가졌으면 담을 수 없고, 담기도 한 번만
+                bool oneOnly = shop != null && shop.OneOnly(index);
+                if (oneOnly && shop.OwnedCount(index) > 0)
+                {
+                    DrawTag(card, ActionY, "보유 중", UiSkin.Cream);
+                    continue;
+                }
+
+                // 그 밖의 가구는 몇 개든 살 수 있다. 자리와 돈이 유일한 한계다.
                 // 돈은 장바구니에서 한 번에 빠지므로 여기서는 잔고를 보지 않는다
-                GUI.enabled = canBuy || unlocked;
+                bool full = oneOnly && furnitureCart[index] >= 1;
+                GUI.enabled = (canBuy || unlocked) && !full;
                 if (GUI.Button(new Rect(card.x + 8f, card.y + ActionY, card.width - 16f, 26f),
-                               "담기", UiSkin.Button(UiSkin.Green)))
+                               full ? "1개만" : "담기", UiSkin.Button(UiSkin.Green)))
                     furnitureCart[index]++;
                 GUI.enabled = true;
 

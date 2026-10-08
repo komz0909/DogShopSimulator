@@ -24,6 +24,9 @@ namespace DogShop.Dogs
         [SerializeField] string[] breedNames = new string[0];
         [SerializeField] int heroBreedIndex;
 
+        public int BreedCount => breedNames.Length;
+        public string BreedName(int index) => index >= 0 && index < breedNames.Length ? breedNames[index] : "강아지";
+
         /// <summary>반려견. 게임 시작과 동시에 생기고 죽거나 팔리지 않는다.</summary>
         public Dog Hero { get; private set; }
 

@@ -205,7 +205,7 @@ namespace DogShop.Shop
             {
                 if (counts[i] <= 0) continue;
                 if (listed >= 3) { text.Append(" …"); break; }
-                if (listed > 0) text.Append(" · ");
+                if (listed > 0) text.Append(" / ");
                 text.Append(catalog.Get(i).nameKo).Append(" ").Append(counts[i]);
                 if (SlotCostOf(i) > 1) text.Append("(2칸)");
                 listed++;

@@ -132,7 +132,7 @@ namespace DogShop.Dogs
 
             DogStats st = target.Stats;
             title = target.DisplayName;
-            subtitle = (string.IsNullOrEmpty(target.Name) ? "" : target.BreedKo + "  ·  ") + "함께한 지 " + target.DaysOwned + "일";
+            subtitle = (string.IsNullOrEmpty(target.Name) ? "" : target.BreedKo + "  /  ") + "함께한 지 " + target.DaysOwned + "일";
             clean = st.Cleanliness;
             health = st.Health;
             beauty = st.Beauty;
@@ -190,7 +190,7 @@ namespace DogShop.Dogs
         /// <summary>두 축을 올리는 훈련은 양쪽을 다 적는다 — 같은 +4라도 값이 두 배다.</summary>
         static string AxisLabel(GrowthAxis axis)
         {
-            if (axis == GrowthAxis.Both) return "미모·훈련도";
+            if (axis == GrowthAxis.Both) return "미모/훈련도";
             return axis == GrowthAxis.Beauty ? "미모" : "훈련도";
         }
 
@@ -256,7 +256,7 @@ namespace DogShop.Dogs
             if (blocked)
             {
                 var warn = new Rect(r.x + r.width * 0.5f - 210f, r.yMax - 4f, 420f, 22f);
-                GUI.Box(warn, "성장 정지 — 청결·건강을 40 이상으로 올리자", UI.UiSkin.Tag(UI.UiSkin.Coral));
+                GUI.Box(warn, "성장 정지: 청결/건강을 40 이상으로 올리자", UI.UiSkin.Tag(UI.UiSkin.Coral));
             }
         }
 
@@ -352,7 +352,7 @@ namespace DogShop.Dogs
             }
 
             GUI.Label(new Rect(r.x, top + ch + 44f, r.width, 22f),
-                "카드를 누르면 훈련 · 같은 훈련을 여러 번 하면 단계업이 열린다(강화 중엔 그 훈련을 쉰다)", hintStyle);
+                "카드를 누르면 훈련 / 같은 훈련을 여러 번 하면 단계업이 열린다(강화 중엔 그 훈련을 쉰다)", hintStyle);
         }
 
         void DrawCard(int i, Rect c)

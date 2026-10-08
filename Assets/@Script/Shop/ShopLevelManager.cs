@@ -63,17 +63,17 @@ namespace DogShop.Shop
 
             if (gm.Reputation < next.requiredReputation)
             {
-                reason = "명성 부족 — " + gm.Reputation + " / " + next.requiredReputation;
+                reason = "명성 부족: " + gm.Reputation + " / " + next.requiredReputation;
                 return false;
             }
             if (next.heroStatGate > 0 && HeroGrowthStat < next.heroStatGate)
             {
-                reason = "주인공견 성장 스탯 부족 — " + HeroGrowthStat + " / " + next.heroStatGate;
+                reason = "주인공견 성장 스탯 부족: " + HeroGrowthStat + " / " + next.heroStatGate;
                 return false;
             }
             if (gm.Money < next.upgradeCost)
             {
-                reason = "재화 부족 — " + gm.Money + " / " + next.upgradeCost;
+                reason = "재화 부족: " + gm.Money + " / " + next.upgradeCost;
                 return false;
             }
 

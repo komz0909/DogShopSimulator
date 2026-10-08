@@ -45,10 +45,10 @@ namespace DogShop.Dogs
                 if (dog == null) { reason = "대상 없음"; return false; }
 
                 InventoryManager inv = InventoryManager.Instance;
-                if (!inv.IsUnlocked(productIndex)) { reason = label + " — 미해금 상품"; return false; }
+                if (!inv.IsUnlocked(productIndex)) { reason = label + ": 미해금 상품"; return false; }
                 if (inv.StorageOf(productIndex) <= 0)
                 {
-                    reason = label + " — 창고 재고 없음 (" + inv.Catalog.Get(productIndex).nameKo + ")";
+                    reason = label + ": 창고 재고 없음 (" + inv.Catalog.Get(productIndex).nameKo + ")";
                     return false;
                 }
 

@@ -12,16 +12,17 @@ namespace DogShop.Show
 {
     /// <summary>
     /// D30 도그쇼. 30일차 아침이 되면 가게를 열지 않고 <b>바로 쇼</b>다 — 화면 가운데
-    /// "도그쇼 시작" 버튼을 누르면 내 강아지가 무대로 옮겨지고 미니게임 셋을 한다.
+    /// "도그쇼 시작" 버튼을 누르면 내 강아지가 무대로 옮겨지고 미니게임 넷을 한다.
     ///
     /// ① 미모 심사 — 줄어드는 링이 목표 원에 겹칠 때 Space 로 포즈 (5회)
     /// ② 훈련 심사 — 심사위원이 말한 물건 카드를 골라 지시, 강아지가 물어 온다 (5회)
     /// ③ 어질리티 — 달리는 강아지를 Space 로 점프시켜 허들 5개를 넘긴다
+    /// ④ 장애물 달리기 — WASD 로 A-프레임, 터널, 도그 워크, 위브, 시소, 테이블을 순서대로 지난다(<see cref="ObstacleCourse"/>)
     ///
     /// <b>스탯이 결과를 정하고 실력은 거든다.</b> 미모가 높으면 포즈 판정 구간이 넓고, 훈련도가
     /// 높으면 엉뚱한 물건을 덜 물어 오고, 둘을 합친 몸 상태가 달리기 속도·점프 높이·체공 시간을
-    /// 정한다. 세 판의 성적 평균이 챔피언십 점수에 0.8~1.2 배로 곱해진다
-    /// (<see cref="ChampionshipManager.ShowMultiplier"/>).
+    /// 정한다. 네 판의 가중 평균(미모 20 / 훈련 25 / 어질리티 25 / 장애물 30%)이 100점 만점 총점이고,
+    /// 챔피언십 순위는 이 총점으로만 정한다(<see cref="ChampionshipManager.SetShowResult"/>).
     ///
     /// 무대는 가게에서 멀리 떨어진 곳에 미리 지어 둔 <see cref="stage"/> 이고 전용 카메라로 비춘다.
     /// 쇼 동안 플레이어 조작·HUD·게임 시계는 꺼 둔다. 무인 측정 중에는 쇼를 건너뛴다(배수 1).
@@ -39,6 +40,13 @@ namespace DogShop.Show
         [SerializeField] Transform[] hurdles = new Transform[0];
         [SerializeField] Transform[] itemPedestals = new Transform[0];   // 훈련 심사 물건 받침대
 
+        [Header("미모 심사 링 그림(바르코). 비우면 코드로 그린 흰 링")]
+        [SerializeField] Texture2D ringArt;     // 줄어드는 링
+        [SerializeField] Texture2D centerArt;   // 목표 원 안쪽 메달
+
+        [Header("④ 장애물 달리기")]
+        [SerializeField] ObstacleCourse course;
+
         [Header("훈련 심사 물건(상품 이름)")]
         [SerializeField] string[] fetchItemNames = { "장난감", "뼈다귀 장난감", "고기 인형", "목줄", "간식" };
 
@@ -53,12 +61,15 @@ namespace DogShop.Show
         /// <summary>쇼가 진행 중이다(시작 버튼 대기 포함).</summary>
         public static bool Running { get; private set; }
 
-        enum Phase { None, Waiting, Intro, Pose, Fetch, AgilitySpec, Agility, Result }
+        enum Phase { None, Waiting, Intro, Pose, Fetch, AgilitySpec, Agility, CourseGuide, Course, Result }
+        bool guideReady;
         Phase phase = Phase.None;
 
         Dog hero;
         float beautyN, trainingN, bodyN;   // 0~1
-        float poseScore, fetchScore, agilityScore;   // 0~1
+        float poseScore, fetchScore, agilityScore, courseScore;   // 0~1
+        /// <summary>총점 가중치(합 1). 장애물 달리기가 가장 길고 손이 많이 가서 비중을 크게 뒀다.</summary>
+        const float PoseWeight = 0.20f, FetchWeight = 0.25f, AgilityWeight = 0.25f, CourseWeight = 0.30f;
 
         // 화면 글
         string headline = "";
@@ -139,15 +150,15 @@ namespace DogShop.Show
             Dog dog = DogManager.Instance != null ? DogManager.Instance.Hero : null;
             if (dog == null) { reason = "출전견 없음"; return false; }
             // 능력치·날짜를 바꾸기 전에 확인한다 — 무대가 없어 못 열면 상태만 바뀐 채 남았다
-            if (stage == null || showCamera == null) { reason = "무대·카메라 연결 없음"; return false; }
-            if (TimeManager.Instance != null && TimeManager.Instance.IsDayOver) { reason = "하루가 끝난 뒤에는 열 수 없다 — 다음 날 아침에"; return false; }
+            if (stage == null || showCamera == null) { reason = "무대/카메라 연결 없음"; return false; }
+            if (TimeManager.Instance != null && TimeManager.Instance.IsDayOver) { reason = "하루가 끝난 뒤에는 열 수 없다, 다음 날 아침에"; return false; }
 
             int stat = Mathf.RoundToInt(StatFull * 0.8f);
             dog.Stats.Restore(DogStats.MaxUpkeep, DogStats.MaxUpkeep, stat, stat);
             GameManager.Instance.DebugSetDay(ChampionshipManager.FinalDay);
 
             Begin();
-            if (phase == Phase.None) { reason = "무대·카메라 연결 없음"; return false; }
+            if (phase == Phase.None) { reason = "무대/카메라 연결 없음"; return false; }
             return true;
         }
 
@@ -216,6 +227,7 @@ namespace DogShop.Show
             yield return PoseGame();
             yield return FetchGame();
             yield return AgilityGame();
+            yield return CourseGame();
             yield return Result();
         }
 
@@ -229,7 +241,7 @@ namespace DogShop.Show
             AimCamera(posePoint.position, 2.6f, 1.1f, 0f);
 
             headline = "미모 심사";
-            subline = "링이 가운데 원에 겹칠 때 Space — 5번. 미모가 높을수록 판정이 넉넉하다";
+            subline = "링이 가운데 원에 겹칠 때 Space (5번). 미모가 높을수록 판정이 넉넉하다";
             yield return Wait(2.6f);
         }
 
@@ -569,7 +581,7 @@ namespace DogShop.Show
             // 출발선에서 3초 세고 출발 — 바로 뛰면 첫 허들까지 마음의 준비를 할 틈이 없었다
             phase = Phase.Agility;
             headline = "어질리티";
-            subline = "출발선에서 대기 — Space 로 점프";
+            subline = "출발선에서 대기, Space 로 점프";
             PlaceDog(laneStart.position, Quaternion.LookRotation(laneEnd.position - laneStart.position));
             hero.Animator.Play(DogAnim.Idle);
             FollowCamera(hero.transform.position);
@@ -581,7 +593,7 @@ namespace DogShop.Show
             countdown = "GO!";
             countdownUntil = Time.time + 0.7f;
 
-            subline = "Space — 점프";
+            subline = "Space: 점프";
             cleared = 0;
             jumpRequested = false;
             jumpStart = -10f;
@@ -630,26 +642,162 @@ namespace DogShop.Show
             yield return Wait(1.8f);
         }
 
+        /// <summary>코스 제한 시간. 넘기면 거기까지 지난 장애물만 센다.</summary>
+        const float CourseLimit = 90f;
+        float courseTime;
+        Vector3 courseFacing;
+
+        /// <summary>
+        /// ④ 장애물 달리기. 점프 없이 WASD 로 몰고 다닌다 — 속도는 ③ 과 같은 몸 상태(미모+훈련도)에서 나온다.
+        /// 오르막은 장애물 표면을 따라 높이를 맞추고, 경사면에선 몸도 기울인다.
+        /// </summary>
+        IEnumerator CourseGame()
+        {
+            phase = Phase.Course;
+            if (course == null) course = GetComponent<ObstacleCourse>();
+            if (course == null) course = gameObject.AddComponent<ObstacleCourse>();
+            course.Build(stage);
+
+            float floorY = stage.TransformPoint(Vector3.zero).y;
+            courseFacing = stage.TransformDirection(ObstacleCourse.StartFacing);
+            PlaceDog(stage.TransformPoint(ObstacleCourse.StartPoint), Quaternion.LookRotation(courseFacing));
+            hero.Animator.SetPlaybackSpeed(1f);
+            hero.Animator.Play(DogAnim.Idle);
+            CourseCamera(hero.transform.position, true);
+
+            // 출발 전 안내 — 점프 키가 없는 종목이라 장애물마다 지나는 법을 먼저 보여 준다
+            headline = "장애물 달리기";
+            subline = "WASD 로 장애물 6개를 순서대로 지나자. 빨리 도착할수록 점수가 높고, 실수하면 감점";
+            phase = Phase.CourseGuide;
+            guideReady = false;
+            while (!guideReady) yield return null;
+            phase = Phase.Course;
+
+            for (int n = 3; n >= 1; n--)
+            {
+                countdown = n.ToString();
+                yield return Wait(1f);
+            }
+            countdown = "GO!";
+            countdownUntil = Time.time + 0.7f;
+            subline = "WASD: 달리기";
+
+            courseTime = 0f;
+            float y = hero.transform.position.y;
+            bool running = false;
+            float runAnimSpeed = Mathf.Lerp(1f, 1.6f, bodyN);
+
+            while (!course.Finished && courseTime < CourseLimit)
+            {
+                float dt = Time.deltaTime;
+                courseTime += dt;
+
+                Vector2 input = Vector2.zero;
+                Keyboard kb = Keyboard.current;
+                if (kb != null)
+                {
+                    if (kb.wKey.isPressed || kb.upArrowKey.isPressed) input.y += 1f;
+                    if (kb.sKey.isPressed || kb.downArrowKey.isPressed) input.y -= 1f;
+                    if (kb.dKey.isPressed || kb.rightArrowKey.isPressed) input.x += 1f;
+                    if (kb.aKey.isPressed || kb.leftArrowKey.isPressed) input.x -= 1f;
+                }
+                // 화면 기준으로 움직인다 — W 는 화면 위쪽
+                Vector3 camF = Flat(showCamera.transform.forward).normalized;
+                Vector3 camR = Flat(showCamera.transform.right).normalized;
+                Vector3 dir = camF * input.y + camR * input.x;
+                if (dir.sqrMagnitude > 1f) dir.Normalize();
+                bool still = dir.sqrMagnitude < 0.01f;
+
+                Vector3 pos = hero.transform.position + dir * runSpeed * dt;
+                Vector3 ls = stage.InverseTransformPoint(pos);
+                ls.x = Mathf.Clamp(ls.x, ObstacleCourse.Area.xMin, ObstacleCourse.Area.xMax);
+                ls.z = Mathf.Clamp(ls.z, ObstacleCourse.Area.yMin, ObstacleCourse.Area.yMax);
+                // 장애물에 닿아 시작했으면 지나온 쪽으로는 못 돌아간다(옆으로는 자유)
+                Vector3 from = stage.InverseTransformPoint(hero.transform.position);
+                ls = course.ConstrainForward(new Vector3(from.x, 0f, from.z), new Vector3(ls.x, 0f, ls.z));
+                pos = stage.TransformPoint(new Vector3(ls.x, 0f, ls.z));
+
+                Vector3 normal;
+                float surf = course.SurfaceY(pos, floorY, out normal);
+                y = Mathf.Lerp(y, surf + DogBaseOffset(), 1f - Mathf.Exp(-18f * dt));
+                pos.y = y;
+                hero.transform.position = pos;
+
+                if (!still) courseFacing = dir.normalized;
+                Quaternion want = Quaternion.LookRotation(Vector3.ProjectOnPlane(courseFacing, normal), normal);
+                hero.transform.rotation = Quaternion.Slerp(hero.transform.rotation, want, 1f - Mathf.Exp(-12f * dt));
+
+                if (!still && !running) { hero.Animator.Play(DogAnim.Run); hero.Animator.SetPlaybackSpeed(runAnimSpeed); running = true; }
+                else if (still && running) { hero.Animator.SetPlaybackSpeed(1f); hero.Animator.Play(DogAnim.Idle); running = false; }
+
+                string warn, penalty;
+                ObstacleCourse.Obstacle done = course.Tick(hero.transform.position, surf, floorY, dt, still, out warn, out penalty);
+                if (penalty != null) Flash(penalty, new Color(1f, 0.45f, 0.4f));
+                else if (done != null)
+                {
+                    if (done.kind == ObstacleCourse.Kind.Weave && done.alternations >= ObstacleCourse.PoleCount - 1) Flash("위브 완벽!", PerfectColor);
+                    else Flash(done.nameKo + " 통과!", new Color(0.6f, 1f, 0.75f));
+                }
+                else if (warn != null) Flash(warn, new Color(1f, 0.75f, 0.5f));
+                subline = course.Finished ? "" : course.Obstacles[course.Next].nameKo + ": " + course.Obstacles[course.Next].hint;
+
+                CourseCamera(hero.transform.position, false);
+                yield return null;
+            }
+
+            hero.Animator.SetPlaybackSpeed(1f);
+            hero.Animator.Play(course.Finished ? DogAnim.WagTail : DogAnim.Sit);
+
+            // 점수 = 도착 시간 점수(빠를수록 100 에 가깝다) - 감점.
+            // 기준 시간: 코스 약 50m 를 제 속도로 뛰고, 시소에서 기다리고, 테이블에서 버틴 시간 + 방향 바꾸는 몫
+            float par = 50f / Mathf.Max(0.5f, runSpeed) + ObstacleCourse.SeesawWait + ObstacleCourse.TableHold + 6f;
+            float timePoints = course.Finished
+                ? Mathf.Lerp(100f, 40f, Mathf.InverseLerp(par, CourseLimit, courseTime))
+                : 40f * course.Next / Mathf.Max(1, course.Obstacles.Count);   // 못 끝냈으면 지난 장애물 몫만
+            float points = Mathf.Max(0f, timePoints - course.PenaltyPoints);
+            courseScore = points / 100f;
+
+            headline = course.Finished ? "장애물 달리기 끝" : "시간 종료";
+            subline = "기록 " + courseTime.ToString("0.0") + "초 (" + Mathf.RoundToInt(timePoints) + "점)   감점 -" + course.PenaltyPoints
+                    + "   성적 " + Mathf.RoundToInt(points) + "점";
+            yield return Wait(2.2f);
+        }
+
+        void CourseCamera(Vector3 dogPos, bool snap)
+        {
+            // 코스 안쪽(무대 뒤편) 위에서 앞쪽을 내려다본다 — 윗줄은 화면 오른쪽, 아랫줄은 왼쪽으로 달린다
+            float k = Mathf.Lerp(0.85f, 1.3f, Mathf.InverseLerp(0.4f, 1.4f, DogSize()));
+            Vector3 focus = new Vector3(dogPos.x, stage.position.y, dogPos.z);
+            Vector3 want = focus + stage.rotation * new Vector3(0f, 3.6f * k, 4.2f * k);
+            showCamera.transform.position = snap ? want : Vector3.Lerp(showCamera.transform.position, want, 1f - Mathf.Exp(-6f * Time.deltaTime));
+            showCamera.transform.LookAt(focus + Vector3.up * 0.3f);
+        }
+
         IEnumerator Result()
         {
             phase = Phase.Result;
-            float avg = (poseScore + fetchScore + agilityScore) / 3f;
-            float mult = 0.8f + 0.4f * avg;
-            ChampionshipManager.Instance.ShowMultiplier = mult;
+            // 네 판 가중 평균(100점 만점): 미모 20% / 훈련 25% / 어질리티 25% / 장애물 30%.
+            // 챔피언십 순위는 이 총점으로만 정한다
+            float avg = poseScore * PoseWeight + fetchScore * FetchWeight + agilityScore * AgilityWeight + courseScore * CourseWeight;
+            int total = Mathf.RoundToInt(avg * 100f);
+            ChampionshipManager.Instance.SetShowResult(hero, total);
 
             PlaceDog(posePoint.position, posePoint.rotation);
             hero.Animator.Play(DogAnim.WagTail);
             AimCamera(posePoint.position, 3.2f, 1.4f, 0f);
 
-            headline = "심사 끝";
-            subline = "미모 " + Mathf.RoundToInt(poseScore * 100f) + "  ·  훈련 " + Mathf.RoundToInt(fetchScore * 100f)
-                    + "  ·  어질리티 " + Mathf.RoundToInt(agilityScore * 100f) + "   →   무대 점수 " + mult.ToString("0.00") + "배";
+            headline = "심사 결과";
+            subline = "미모 " + Mathf.RoundToInt(poseScore * 100f) + "  /  훈련 " + Mathf.RoundToInt(fetchScore * 100f)
+                    + "  /  어질리티 " + Mathf.RoundToInt(agilityScore * 100f) + "  /  장애물 " + Mathf.RoundToInt(courseScore * 100f)
+                    + "   →   총점 " + total + "점";
+            boardShownAt = Time.time;
             resultReady = true;
             while (resultReady) yield return null;
 
             // 결과 발표는 마감 화면이 한다 — 같은 경로로 랭크·엔딩까지 이어진다
             Running = false;
             phase = Phase.None;
+            if (course != null) course.Clear();
             Restore();
             TimeManager.Instance.EndDayNow();
         }
@@ -911,7 +1059,9 @@ namespace DogShop.Show
             if (phase == Phase.Pose) DrawRing();
             if (phase == Phase.Fetch) { DrawBubbles(); DrawFetch(); }
             if (phase == Phase.AgilitySpec) DrawSpec();
-            if (phase == Phase.Result) DrawResultButton();
+            if (phase == Phase.Course && course != null) DrawCourse();
+            if (phase == Phase.CourseGuide && course != null) DrawCourseGuide();
+            if (phase == Phase.Result) DrawBoard();
 
             // 카운트다운: "GO!" 는 잠깐만, 숫자는 다음 숫자가 올 때까지
             if (countdown.Length > 0 && (countdown != "GO!" || Time.time < countdownUntil))
@@ -1005,6 +1155,15 @@ namespace DogShop.Show
             float size = Mathf.Min(Screen.width, Screen.height) * 0.42f;
             Vector2 c = new Vector2(Screen.width * 0.5f, Screen.height * 0.58f);
 
+            // 목표 원 안쪽 메달(바르코 그림). 판정 띠보다 안쪽에 두어 띠를 가리지 않는다
+            if (centerArt != null)
+            {
+                float cr = Mathf.Max(0.05f, targetRadius - goodHalf - 0.015f) * size;
+                GUI.color = new Color(1f, 1f, 1f, 0.92f);
+                GUI.DrawTexture(new Rect(c.x - cr, c.y - cr, cr * 2f, cr * 2f), centerArt, ScaleMode.ScaleToFit);
+                GUI.color = Color.white;
+            }
+
             // 바깥 GOOD 띠(민트, 반투명·가장자리 부드럽게) 위에 PERFECT 띠(금색, 또렷하게)를 얹는다.
             // 미모가 높을수록 금색 띠가 두껍다
             float g = (targetRadius + goodHalf) * size;
@@ -1018,11 +1177,83 @@ namespace DogShop.Show
             {
                 // 줄어드는 원은 지금 누르면 받을 판정의 색으로 물든다
                 float diff = Mathf.Abs(ringRadius - targetRadius);
-                GUI.color = diff <= perfectHalf ? PerfectColor : diff <= goodHalf ? GoodColor : Color.white;
+                Color judge = diff <= perfectHalf ? PerfectColor : diff <= goodHalf ? GoodColor : Color.white;
+                // 그림 링은 제 색이 있으니 판정 색을 살짝만 입힌다
+                GUI.color = ringArt != null ? Color.Lerp(Color.white, judge, 0.65f) : judge;
                 float rr = ringRadius * size;
-                GUI.DrawTexture(new Rect(c.x - rr, c.y - rr, rr * 2f, rr * 2f), ringTex);
+                GUI.DrawTexture(new Rect(c.x - rr, c.y - rr, rr * 2f, rr * 2f), ringArt != null ? ringArt : ringTex, ScaleMode.ScaleToFit);
             }
             GUI.color = Color.white;
+        }
+
+        /// <summary>출발 전 안내판 — 장애물 6개를 지나는 법과 감점 규칙. [준비됐다]를 눌러야 출발한다.</summary>
+        void DrawCourseGuide()
+        {
+            var panel = new Rect(Screen.width * 0.5f - 350f, Screen.height * 0.5f - 220f, 700f, 450f);
+            GUI.Box(panel, GUIContent.none, UiSkin.Panel_);
+            GUI.Label(new Rect(panel.x, panel.y + 12f, panel.width, 32f), "장애물 달리기 안내", midStyle);
+
+            var line = new GUIStyle(UiSkin.Label) { fontSize = 16, alignment = TextAnchor.MiddleLeft };
+            float y = panel.y + 56f;
+            for (int i = 0; i < course.Obstacles.Count; i++)
+            {
+                ObstacleCourse.Obstacle o = course.Obstacles[i];
+                GUI.Box(new Rect(panel.x + 24f, y, 120f, 28f), (i + 1) + ". " + o.nameKo, UiSkin.Tag(UiSkin.Sky));
+                GUI.Label(new Rect(panel.x + 156f, y, panel.width - 180f, 28f), o.hint, line);
+                y += 38f;
+            }
+            y += 6f;
+            GUI.Label(new Rect(panel.x + 24f, y, panel.width - 48f, 26f),
+                      "닿으면 시작! 시작한 장애물은 뒤로 못 가고, 떨어지거나 벗어나면 감점", line);
+            GUI.Label(new Rect(panel.x + 24f, y + 26f, panel.width - 48f, 26f),
+                      "감점: 떨어지면 -" + ObstacleCourse.FallPenalty + ", 건너뛰면 -" + ObstacleCourse.SkipPenalty
+                      + ", 봉에 닿으면 -" + ObstacleCourse.TouchPenalty + ", 지그재그 빼먹은 칸 -" + ObstacleCourse.WeaveMissPenalty, line);
+            GUI.Label(new Rect(panel.x + 24f, y + 52f, panel.width - 48f, 26f),
+                      "빨리 도착할수록 점수가 높다. 제한 시간 " + CourseLimit.ToString("0") + "초", line);
+
+            var ok = new Rect(panel.center.x - 120f, panel.yMax - 62f, 240f, 48f);
+            bool space = Keyboard.current != null && Keyboard.current.spaceKey.wasPressedThisFrame;
+            if (GUI.Button(ok, "준비됐다 (Space)", new GUIStyle(UiSkin.Button(UiSkin.Green)) { fontSize = 20 }) || space)
+                guideReady = true;
+        }
+
+        void DrawCourse()
+        {
+            // 장애물 순서표: 지난 것 초록, 다음 것 하늘색, 남은 것 크림
+            float w = 108f, gap = 8f;
+            int n = course.Obstacles.Count;
+            float x = (Screen.width - (n * w + (n - 1) * gap)) * 0.5f;
+            for (int i = 0; i < n; i++)
+            {
+                ObstacleCourse.Obstacle o = course.Obstacles[i];
+                Color c = o.failed ? UiSkin.Coral : o.done ? UiSkin.Green : i == course.Next ? UiSkin.Sky : UiSkin.Cream;
+                GUI.Box(new Rect(x + i * (w + gap), 100f, w, 28f), (i + 1) + ". " + o.nameKo, UiSkin.Tag(c));
+            }
+
+            GUI.Label(new Rect(Screen.width - 220f, 100f, 200f, 28f), "시간 " + courseTime.ToString("0.0") + " / " + CourseLimit.ToString("0") + "초", UiSkin.Caption);
+            if (course.PenaltyPoints > 0)
+                GUI.Box(new Rect(Screen.width - 160f, 132f, 120f, 28f), "감점 -" + course.PenaltyPoints, UiSkin.Tag(UiSkin.Coral));
+
+            if (course.Finished) return;
+            ObstacleCourse.Obstacle next = course.Obstacles[course.Next];
+
+            // 다음 장애물 입구 위에 표시
+            Vector3 sp = showCamera.WorldToScreenPoint(course.EntryWorld(next) + Vector3.up * 0.9f);
+            if (sp.z > 0f)
+            {
+                float bob = Mathf.Sin(Time.time * 5f) * 4f;
+                GUI.Box(new Rect(sp.x - 70f, Screen.height - sp.y - 30f + bob, 140f, 28f), "다음: " + next.nameKo, UiSkin.Tag(UiSkin.Sky));
+            }
+
+            if (next.kind == ObstacleCourse.Kind.Table && next.stay > 0f)
+                GUI.Label(new Rect(0f, Screen.height * 0.70f, Screen.width, 40f),
+                          "버티기 " + next.stay.ToString("0.0") + " / " + ObstacleCourse.TableHold.ToString("0") + "초", midStyle);
+            else if (next.kind == ObstacleCourse.Kind.Seesaw && next.endWait > 0f && !next.tipped)
+                GUI.Label(new Rect(0f, Screen.height * 0.70f, Screen.width, 40f),
+                          "기다리기 " + Mathf.RoundToInt(course.SeesawProgress(next) * 100f) + "%", midStyle);
+            else if (next.kind == ObstacleCourse.Kind.Weave && next.entered)
+                GUI.Label(new Rect(0f, Screen.height * 0.70f, Screen.width, 40f),
+                          "지그재그 " + next.alternations + " / " + (ObstacleCourse.PoleCount - 1), midStyle);
         }
 
         void DrawFetch()
@@ -1078,7 +1309,7 @@ namespace DogShop.Show
                     Mathf.Lerp(0f, bodyN, grow), UiSkin.Coral);
 
             GUI.Label(new Rect(panel.x, panel.yMax - 34f, panel.width, 26f), "입양 첫날보다 속도 " + (runSpeed / 2.2f).ToString("0.0") + "배"
-                      + "  ·  점프 " + (jumpHeight / 0.35f).ToString("0.0") + "배", UiSkin.Caption);
+                      + "  /  점프 " + (jumpHeight / 0.35f).ToString("0.0") + "배", UiSkin.Caption);
         }
 
         void DrawBar(Rect panel, int row, string label, string value, float fill, Color color)
@@ -1094,10 +1325,117 @@ namespace DogShop.Show
             GUI.Label(new Rect(bg.xMax + 12f, y, 120f, 30f), value, UiSkin.Label);
         }
 
-        void DrawResultButton()
+        // ---- 순위표 ----
+
+        [Header("순위표")]
+        [SerializeField] Texture2D boardArt;
+        [Tooltip("금·은·동 순서")]
+        [SerializeField] Texture2D[] medalArt = new Texture2D[0];
+        [Tooltip("견종 번호 순서의 초상화(메인 메뉴 견종 카드와 같은 그림)")]
+        [SerializeField] Texture2D[] breedPortraits = new Texture2D[0];
+
+        /// <summary>순위표 그림 안쪽 빈 판(그림 크기 대비 비율). 그림에 맞춰 잡았다.</summary>
+        static readonly Rect BoardInner = new Rect(0.17f, 0.215f, 0.66f, 0.65f);
+        /// <summary>위쪽 빨간 띠(제목 자리).</summary>
+        static readonly Rect BoardRibbon = new Rect(0.2f, 0.06f, 0.6f, 0.09f);
+        /// <summary>6위부터 한 줄씩 공개하는 간격(초).</summary>
+        const float RevealStep = 0.45f;
+
+        float boardShownAt;
+        GUIStyle rowNameStyle, rowBreedStyle, rowScoreStyle, rowRankStyle, placeStyle, cheerStyle;
+
+        /// <summary>
+        /// 최종 순위표. 6위부터 1위까지 한 줄씩 올라오고, 다 열리면 몇 등인지 크게 띄운다.
+        /// 1~3위는 금·은·동 메달, 주인공 줄은 노랗게 칠한다.
+        /// </summary>
+        void DrawBoard()
         {
-            var r = new Rect((Screen.width - 300f) * 0.5f, Screen.height - 110f, 300f, 60f);
-            if (GUI.Button(r, "결과 발표", new GUIStyle(UiSkin.Button(UiSkin.Green)) { fontSize = 22 }))
+            ChampionshipManager champ = ChampionshipManager.Instance;
+            if (champ == null || !champ.HasShowResult) return;
+            System.Collections.Generic.List<ChampionshipManager.ShowEntry> list = champ.ShowBoard;
+            int n = list.Count;
+
+            if (rowNameStyle == null)
+            {
+                rowNameStyle = new GUIStyle(UiSkin.Title) { fontSize = 20, alignment = TextAnchor.MiddleLeft };
+                rowNameStyle.normal.textColor = UiSkin.Ink;
+                rowBreedStyle = new GUIStyle(UiSkin.Label) { fontSize = 13, alignment = TextAnchor.MiddleLeft };
+                rowBreedStyle.normal.textColor = new Color(UiSkin.Ink.r, UiSkin.Ink.g, UiSkin.Ink.b, 0.7f);
+                rowScoreStyle = new GUIStyle(UiSkin.Title) { fontSize = 22, alignment = TextAnchor.MiddleRight };
+                rowScoreStyle.normal.textColor = UiSkin.Ink;
+                rowRankStyle = new GUIStyle(UiSkin.Title) { fontSize = 22, alignment = TextAnchor.MiddleCenter };
+                rowRankStyle.normal.textColor = UiSkin.Ink;
+                placeStyle = new GUIStyle(UiSkin.Title) { fontSize = 64, alignment = TextAnchor.MiddleCenter };
+                cheerStyle = new GUIStyle(UiSkin.Title) { fontSize = 24, alignment = TextAnchor.MiddleCenter };
+                cheerStyle.normal.textColor = Color.white;
+            }
+
+            // 3:4 판을 화면 오른쪽에. 강아지는 가운데에서 왼쪽으로 보인다
+            float h = Mathf.Min(Screen.height - 120f, 660f);
+            float w = h * 0.75f;
+            var board = new Rect(Mathf.Min(Screen.width * 0.52f, Screen.width - w - 20f), 100f, w, h);
+            if (boardArt != null) GUI.DrawTexture(board, boardArt, ScaleMode.StretchToFill);
+            else GUI.Box(board, GUIContent.none, UiSkin.Panel_);
+            cheerStyle.fontSize = Mathf.RoundToInt(board.height * 0.042f);
+            GUI.Label(new Rect(board.x + board.width * BoardRibbon.x, board.y + board.height * BoardRibbon.y,
+                               board.width * BoardRibbon.width, board.height * BoardRibbon.height), "최종 순위", cheerStyle);
+            cheerStyle.fontSize = 24;
+
+            var inner = new Rect(board.x + board.width * BoardInner.x, board.y + board.height * BoardInner.y,
+                                 board.width * BoardInner.width, board.height * BoardInner.height);
+            float rowH = inner.height / n;
+            float elapsed = Time.time - boardShownAt;
+
+            for (int i = 0; i < n; i++)
+            {
+                // 아래(6위)부터 공개
+                float showAt = 0.3f + (n - 1 - i) * RevealStep;
+                if (elapsed < showAt) continue;
+                float a = Mathf.Clamp01((elapsed - showAt) / 0.25f);
+                ChampionshipManager.ShowEntry e = list[i];
+                var row = new Rect(inner.x, inner.y + i * rowH + (1f - a) * 12f, inner.width, rowH);
+
+                GUI.color = new Color(1f, 1f, 1f, a);
+                if (e.hero)
+                {
+                    GUI.color = new Color(1f, 0.82f, 0.25f, 0.45f * a);
+                    GUI.DrawTexture(new Rect(row.x - 4f, row.y + 2f, row.width + 8f, row.height - 4f), Texture2D.whiteTexture);
+                    GUI.color = new Color(1f, 1f, 1f, a);
+                }
+
+                float icon = Mathf.Min(rowH * 0.86f, 64f);
+                var rankRect = new Rect(row.x, row.y + (rowH - icon) * 0.5f, icon, icon);
+                if (i < 3 && i < medalArt.Length && medalArt[i] != null) GUI.DrawTexture(rankRect, medalArt[i], ScaleMode.ScaleToFit);
+                else GUI.Label(rankRect, (i + 1).ToString(), rowRankStyle);
+
+                float x = rankRect.xMax + 8f;
+                Texture2D face = e.breedIndex >= 0 && e.breedIndex < breedPortraits.Length ? breedPortraits[e.breedIndex] : null;
+                if (face != null)
+                {
+                    GUI.DrawTexture(new Rect(x, row.y + (rowH - icon) * 0.5f, icon, icon), face, ScaleMode.ScaleToFit);
+                    x += icon + 8f;
+                }
+
+                float scoreW = 70f;
+                GUI.Label(new Rect(x, row.y + rowH * 0.12f, row.xMax - scoreW - x, rowH * 0.5f), e.name, rowNameStyle);
+                GUI.Label(new Rect(x, row.y + rowH * 0.55f, row.xMax - scoreW - x, rowH * 0.35f), e.breed + (e.hero ? "  (우리 강아지)" : ""), rowBreedStyle);
+                GUI.Label(new Rect(row.xMax - scoreW, row.y, scoreW, rowH), e.score + "점", rowScoreStyle);
+            }
+            GUI.color = Color.white;
+
+            // 다 열리면 몇 등인지
+            float doneAt = 0.3f + n * RevealStep + 0.2f;
+            if (elapsed < doneAt) return;
+
+            int rank = champ.ShowRank;
+            var left = new Rect(0f, 0f, board.x, Screen.height);
+            placeStyle.normal.textColor = rank == 1 ? PerfectColor : rank <= 3 ? new Color(0.85f, 0.9f, 1f) : Color.white;
+            GUI.Label(new Rect(left.x, Screen.height * 0.62f, left.width, 80f), rank + "등!", placeStyle);
+            GUI.Label(new Rect(left.x, Screen.height * 0.62f + 78f, left.width, 34f),
+                      rank == 1 ? "우승! 최고의 강아지로 뽑혔다" : "다음 대회를 노려보자, 화이팅!", cheerStyle);
+
+            var ok = new Rect(left.center.x - 130f, Screen.height - 96f, 260f, 56f);
+            if (GUI.Button(ok, "확인", new GUIStyle(UiSkin.Button(UiSkin.Green)) { fontSize = 22 }))
                 resultReady = false;
         }
     }

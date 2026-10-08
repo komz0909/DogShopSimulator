@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using DogShop.Dogs;
 using UnityEngine;
 
@@ -46,13 +47,6 @@ namespace DogShop.Show
         public int TrainingWeight => 100 - BeautyWeight;
         public int RivalCount => RivalScores.Length;
 
-        /// <summary>
-        /// D30 도그쇼 미니게임 성적(0.8~1.2). 쇼를 하기 전·모의 심사·무인 측정에서는 1 이다.
-        /// <b>곱하기</b>인 이유: 30일 동안 키운 스탯이 결과를 정하고, 무대 위 실력은 한두 계단만
-        /// 움직이게 하려는 것이다. 더하기면 스탯이 낮을수록 실력 비중이 커진다.
-        /// </summary>
-        public float ShowMultiplier { get; set; } = 1f;
-
         void Awake()
         {
             if (Instance != null && Instance != this) { Destroy(this); return; }
@@ -76,7 +70,7 @@ namespace DogShop.Show
             if (dog == null) { reason = "출전견 없음"; return false; }
             if (dog.Stats.Health < HealthGate)
             {
-                reason = "건강 " + dog.Stats.Health + " — " + HealthGate + " 미만은 출전 불가";
+                reason = "건강 " + dog.Stats.Health + " (" + HealthGate + " 미만은 출전 불가)";
                 return false;
             }
 
@@ -94,9 +88,81 @@ namespace DogShop.Show
 
             if (st.Cleanliness < CleanlinessPenaltyBelow) raw *= 1f - CleanlinessPenalty;
             if (applyRandom) raw *= 1f + Random.Range(-RandomSpread, RandomSpread);
-            raw *= ShowMultiplier;
 
             return Mathf.RoundToInt(raw);
+        }
+
+        // ---- D30 도그쇼 순위 ----
+        // 순위는 도그쇼 총점(100점 만점)으로만 정한다 — 잘 키운 강아지를 무대에서 평가받는 게임이다.
+        // 육성은 미니게임 쪽으로 들어간다(미모 → 포즈 판정 폭, 훈련도 → 물어오기 정확도, 둘 다 → 달리기 속도).
+        // 위의 스탯 점수(Score·Rank·RivalScores)는 도그쇼를 건너뛰는 무인 측정에서만 쓴다.
+
+        public class ShowEntry
+        {
+            public string name;
+            public string breed;
+            public int breedIndex;
+            public int score;
+            public bool hero;
+        }
+
+        /// <summary>라이벌 다섯 자리의 기준 점수(±<see cref="RivalShowSpread"/>). <b>임시값</b> — 직접 해 보고 맞춘다.</summary>
+        static readonly int[] RivalShowScores = { 86, 79, 71, 62, 52 };
+        const int RivalShowSpread = 3;
+
+        static readonly string[] RivalNames =
+            { "초코", "콩이", "보리", "두부", "몽이", "코코", "루이", "별이", "탄이", "호두", "밤이", "쿠키", "모카", "뭉치", "까미", "해피" };
+
+        /// <summary>도그쇼 순위표(1위부터). 쇼를 마치기 전에는 null.</summary>
+        public List<ShowEntry> ShowBoard { get; private set; }
+        public int ShowRank { get; private set; }
+        public int ShowScore { get; private set; }
+        public bool HasShowResult => ShowBoard != null;
+
+        /// <summary>
+        /// 도그쇼 총점으로 순위표를 만든다. 주인공 견종을 뺀 나머지 견종이 하나씩 나오고,
+        /// 이름은 임의로, 점수는 기준 점수에 조금씩 흔들림을 준다. 같은 점수면 주인공이 앞.
+        /// </summary>
+        public void SetShowResult(Dog hero, int score)
+        {
+            DogManager dm = DogManager.Instance;
+            var board = new List<ShowEntry>
+            {
+                new ShowEntry { name = hero.DisplayName, breed = hero.BreedKo, breedIndex = hero.BreedIndex, score = score, hero = true },
+            };
+
+            var names = new List<string>(RivalNames);
+            names.Remove(hero.DisplayName);
+            var breeds = new List<int>();
+            for (int b = 0; b < dm.BreedCount; b++) if (b != hero.BreedIndex) breeds.Add(b);
+            Shuffle(names);
+            Shuffle(breeds);   // 어느 견종이 1위 자리에 서는지는 판마다 다르다
+
+            for (int i = 0; i < breeds.Count; i++)
+            {
+                int baseScore = RivalShowScores[Mathf.Min(i, RivalShowScores.Length - 1)];
+                board.Add(new ShowEntry
+                {
+                    name = names[i % names.Count],
+                    breed = dm.BreedName(breeds[i]),
+                    breedIndex = breeds[i],
+                    score = Mathf.Clamp(baseScore + Random.Range(-RivalShowSpread, RivalShowSpread + 1), 0, 100),
+                });
+            }
+
+            board.Sort((a, b) => a.score != b.score ? b.score.CompareTo(a.score) : b.hero.CompareTo(a.hero));
+            ShowBoard = board;
+            ShowScore = score;
+            ShowRank = board.FindIndex(e => e.hero) + 1;
+        }
+
+        static void Shuffle<T>(List<T> list)
+        {
+            for (int i = list.Count - 1; i > 0; i--)
+            {
+                int j = Random.Range(0, i + 1);
+                (list[i], list[j]) = (list[j], list[i]);
+            }
         }
 
         public int Rank(int score)

@@ -17,7 +17,10 @@ namespace DogShop.Dogs
 
         const float MaxDistance = 13f;
         const float FadeFrom = 10f;
-        const float BaseWidth = 190f;   // 3m 거리에서의 폭(px)
+        const float BaseWidth = 165f;   // 3m 거리에서의 폭(px). 190 은 머리 위에서 조금 컸다
+
+        /// <summary>글자 크기 상한(3m 거리 기준). 이름이 길면 이름표 안에 들어가도록 그보다 줄인다 — 이름은 6자까지.</summary>
+        const float MaxFont = 27f;
 
         GUIStyle style;
         Dog measuredDog;
@@ -29,6 +32,8 @@ namespace DogShop.Dogs
             if (Event.current.type != EventType.Repaint || plate == null) return;
             if (Show.Cutscene.Instance != null && Show.Cutscene.Instance.IsOpen) return;
             if (Show.DogShow.Running) return;   // 미니게임 판정 링·말풍선을 가린다
+            // 상점·강아지 창 같은 메뉴가 떠 있으면 숨긴다 — 이름표가 창 위로 그려져 가구 칸을 덮었다
+            if (Core.PointerMenus.AnyOpen) return;
 
             Dog dog = DogManager.Instance != null ? DogManager.Instance.Hero : null;
             if (dog == null) return;
@@ -60,10 +65,16 @@ namespace DogShop.Dogs
                 style = new GUIStyle(UI.UiSkin.Caption) { alignment = TextAnchor.MiddleCenter, clipping = TextClipping.Overflow };
                 style.normal.textColor = new Color(0.36f, 0.22f, 0.12f);
             }
-            style.fontSize = Mathf.Max(10, Mathf.RoundToInt(30f * scale));
             var tr = new Rect(r.x + r.width * textArea.x, r.y + r.height * textArea.y,
                               r.width * textArea.width, r.height * textArea.height);
-            GUI.Label(tr, dog.DisplayName, style);
+
+            // 글자는 이름표 안쪽 판에 꼭 들어가게 — 짧은 이름은 상한 크기로, 긴 이름(6자)은 판 폭에 맞춰 줄인다
+            string label = dog.DisplayName;
+            style.fontSize = Mathf.Max(9, Mathf.RoundToInt(MaxFont * scale));
+            float textW = style.CalcSize(new GUIContent(label)).x;
+            float room = tr.width * 0.94f;
+            if (textW > room) style.fontSize = Mathf.Max(9, Mathf.FloorToInt(style.fontSize * room / textW));
+            GUI.Label(tr, label, style);
             GUI.color = Color.white;
         }
 

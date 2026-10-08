@@ -201,7 +201,7 @@ namespace DogShop.Shop
             if (product[slot] >= 0 && product[slot] != productIndex)
             {
                 string other = InventoryManager.Instance.Catalog.Get(product[slot]).nameKo;
-                reason = other + "이(가) 올려져 있다 — 다 팔리거나 상자로 빼야 한다";
+                reason = other + "이(가) 올려져 있다. 다 팔리거나 상자로 빼야 한다";
                 return false;
             }
 
@@ -211,7 +211,7 @@ namespace DogShop.Shop
             {
                 string waiting = ShelfManager.Instance.WaitingName(acceptedBulk);
                 reason = (waiting != null ? waiting : "아직 한 칸도 못 받은 상품")
-                       + " 자리다 — 진열대를 더 놓아야 한다";
+                       + " 자리다. 진열대를 더 놓아야 한다";
                 return false;
             }
 

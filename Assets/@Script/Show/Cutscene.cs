@@ -37,6 +37,12 @@ namespace DogShop.Show
         [SerializeField] Slide[] opening = new Slide[0];
         [SerializeField] Slide[] ending = new Slide[0];
 
+        [Header("우승 못 한 엔딩")]
+        [Tooltip("엔딩에서 우승 그림 대신 쓸 장(0부터)")]
+        [SerializeField] int endingResultSlide = 1;
+        [Tooltip("견종 번호 순서. 주인과 강아지가 웃으며 '다음 대회 화이팅' 하는 그림")]
+        [SerializeField] Texture2D[] endingNotWonImages = new Texture2D[0];
+
         [SerializeField] string titleScene = "MainMenu";
 
         /// <summary>넘기기 입력을 이 시간(실시간 초) 동안 무시한다 — 연타로 장을 건너뛰지 않게.</summary>
@@ -85,6 +91,7 @@ namespace DogShop.Show
         {
             Dictionary<string, string> all = BreedTokens();
             if (values != null) foreach (var kv in values) all[kv.Key] = kv.Value;
+            notWon = all.TryGetValue("won", out string won) && won != "1";
 
             Play(ending, all, () => UnityEngine.SceneManagement.SceneManager.LoadScene(titleScene));
         }
@@ -148,12 +155,21 @@ namespace DogShop.Show
             return text;
         }
 
+        /// <summary>이번 엔딩이 우승을 못 한 판이다 — 결과 장의 트로피 그림을 바꿔 끼운다.</summary>
+        bool notWon;
+
         Texture2D ImageOf(Slide slide)
         {
-            if (slide.images == null || slide.images.Length == 0) return null;
-
             Dog hero = DogManager.Instance != null ? DogManager.Instance.Hero : null;
             int breed = hero != null ? hero.BreedIndex : 0;
+
+            if (notWon && playing == ending && index == endingResultSlide && endingNotWonImages.Length > 0)
+            {
+                Texture2D alt = breed >= 0 && breed < endingNotWonImages.Length ? endingNotWonImages[breed] : null;
+                return alt != null ? alt : endingNotWonImages[0];
+            }
+
+            if (slide.images == null || slide.images.Length == 0) return null;
             Texture2D picked = breed >= 0 && breed < slide.images.Length ? slide.images[breed] : null;
             return picked != null ? picked : slide.images[0];
         }
@@ -191,7 +207,7 @@ namespace DogShop.Show
                 Fill(slide.text), textStyle);
 
             GUI.Label(new Rect(Pad, Screen.height - Pad * 1.4f, Screen.width - Pad * 2f, Pad),
-                (index + 1) + " / " + playing.Length + "     클릭 · Space — 다음", hintStyle);
+                (index + 1) + " / " + playing.Length + "     클릭/Space: 다음", hintStyle);
 
             if (GUI.Button(new Rect(Screen.width - 120f - Pad, Pad, 120f, 36f), "건너뛰기", UiSkin.Button(UiSkin.Cream)))
             {

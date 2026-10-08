@@ -311,7 +311,7 @@ namespace DogShop.Shop
 
             if (expressed && ExpressUsedToday)
             {
-                reason = "긴급 발주는 하루 한 번 — 내일 다시";
+                reason = "긴급 발주는 하루 한 번, 내일 다시";
                 return false;
             }
 
@@ -320,7 +320,7 @@ namespace DogShop.Shop
 
             if (GameManager.Instance.Money < cost)
             {
-                reason = "재화 부족 — " + GameManager.Instance.Money + " / " + cost;
+                reason = "재화 부족: " + GameManager.Instance.Money + " / " + cost;
                 return false;
             }
             if (!GameManager.Instance.TrySpend(cost)) { reason = "결제 실패"; return false; }
@@ -693,7 +693,7 @@ namespace DogShop.Shop
                 int cost = inv.catalog.Get(index).wholesale * quantity;
                 if (GameManager.Instance.Money < cost)
                 {
-                    reason = "재화 부족 — " + GameManager.Instance.Money + " / " + cost;
+                    reason = "재화 부족: " + GameManager.Instance.Money + " / " + cost;
                     return false;
                 }
 

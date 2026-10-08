@@ -11,8 +11,8 @@ namespace DogShop.Shop
     /// 예전에는 09시에 저절로 장사가 시작되고 18시에 하루가 끝났다. 플레이어가 고를 것이
     /// 없었고, 마감 뒤에 발주·정리를 할 시간도 없었다. 이제 여는 것도 닫는 것도 손으로 한다.
     ///
-    /// - <b>준비중</b> 09시부터 열 수 있다. 늦게 열면 그 시간 손님을 그냥 놓친다
-    /// - <b>영업중</b> 손님이 도착한다. 18시가 지나면 점점 줄어 20시에 끊긴다
+    /// - <b>준비중</b> 08시부터 열 수 있다. 09시까지 안 열면 <b>저절로 연다</b>(오전 장사를 통째로 날리지 않게)
+    /// - <b>영업중</b> 손님이 도착한다. 18시가 지나면 점점 줄어 21시에 끊긴다. <b>닫기 버튼은 18시부터</b> 위에 뜬다
     /// - <b>마감</b> 손님이 더 오지 않는다. 발주하고 물건을 정리한 뒤 침대에서 잔다
     ///
     /// 하루를 끝내는 것은 <b>잠자리</b>다(<see cref="Bed"/>). 닫는 것과 자는 것을 나눈 이유는
@@ -32,8 +32,11 @@ namespace DogShop.Shop
         /// </summary>
         public const float FullFlowHour = 9f;
 
-        /// <summary>이 시각부터 손님이 줄기 시작한다.</summary>
+        /// <summary>이 시각부터 손님이 줄기 시작한다. <b>가게 닫기 버튼도 이때부터 나온다</b>.</summary>
         public const float WindDownHour = 18f;
+
+        /// <summary>준비중인 채로 이 시각이 되면 저절로 연다 — 깜빡하고 진열만 하다 오전 장사를 통째로 날리지 않게.</summary>
+        public const float AutoOpenHour = 9f;
 
         /// <summary>이 시각이면 손님이 끊긴다.</summary>
         public const float LastCustomerHour = 21f;
@@ -93,13 +96,37 @@ namespace DogShop.Shop
             return true;
         }
 
+        /// <summary>닫을 수 있는가. 영업 중이고 <see cref="WindDownHour"/>(18시)가 지났어야 한다.</summary>
+        public bool CanClose(out string reason)
+        {
+            if (Current != Phase.Open) { reason = "영업 중이 아니다"; return false; }
+            if (TimeManager.Instance.CurrentHour < WindDownHour) { reason = "18:00 부터 닫을 수 있다"; return false; }
+            reason = null;
+            return true;
+        }
+
         public bool Close()
         {
-            if (Current != Phase.Open) return false;
+            string reason;
+            if (!CanClose(out reason)) return false;
 
             Current = Phase.Closed;
             OnPhaseChanged?.Invoke();
             return true;
+        }
+
+        string notice = "";
+        float noticeUntil;
+
+        void Update()
+        {
+            // 08~09시에 안 열었으면 09시에 저절로 연다
+            if (Current == Phase.Preparing && TimeManager.Instance != null && !TimeManager.Instance.IsDayOver
+                && TimeManager.Instance.CurrentHour >= AutoOpenHour && Open())
+            {
+                notice = "09:00, 가게 문을 자동으로 열었다";
+                noticeUntil = Time.unscaledTime + 4f;
+            }
         }
 
         /// <summary>
@@ -130,10 +157,10 @@ namespace DogShop.Shop
             {
                 switch (Current)
                 {
-                    case Phase.Open: return TimeManager.Instance.CurrentHour >= WindDownHour ? "영업중 (손님 줄어드는 중)"
-                        : TimeManager.Instance.CurrentHour < FullFlowHour ? "영업중 (손님 늘어나는 중)" : "영업중";
+                    case Phase.Open: return TimeManager.Instance.CurrentHour >= WindDownHour ? "영업중 (손님 줄어드는 중), 이제 닫을 수 있다"
+                        : TimeManager.Instance.CurrentHour < FullFlowHour ? "영업중 (손님 늘어나는 중)" : "영업중 (18:00 부터 닫을 수 있다)";
                     case Phase.Closed: return "마감  발주하고 정리한 뒤 잠자리로";
-                    default: return TimeManager.Instance.CurrentHour < OpeningHour ? "준비중 (08:00 부터 열 수 있다)" : "준비중";
+                    default: return TimeManager.Instance.CurrentHour < OpeningHour ? "준비중 (08:00 부터 열 수 있다)" : "준비중 (09:00 이면 저절로 연다)";
                 }
             }
         }
@@ -165,7 +192,9 @@ namespace DogShop.Shop
 
             if (Current == Phase.Open)
             {
-                if (GUI.Button(new Rect(x, y, Width, Height), "가게 닫기", UiSkin.Button(UiSkin.Coral))) Close();
+                // 닫기는 18시부터 — 낮에는 버튼 대신 상태 글만 둔다
+                if (CanClose(out reason)
+                    && GUI.Button(new Rect(x, y, Width, Height), "가게 닫기", UiSkin.Button(UiSkin.Coral))) Close();
             }
             else if (Current == Phase.Preparing)
             {
@@ -174,8 +203,12 @@ namespace DogShop.Shop
                 GUI.enabled = true;
             }
 
-            // 넉넉한 칸에 가운데로 찍는다. 글자 폭에 칸을 맞추면 줄바꿈으로 뭉갠다
-            GUI.Label(new Rect((Screen.width - 520f) * 0.5f, y + Height + 5f, 520f, 22f), StatusText, UiSkin.Caption);
+            // 넉넉한 칸에 가운데로 찍는다. 글자 폭에 칸을 맞추면 줄바꿈으로 뭉갠다.
+            // 낮 영업 중엔 버튼이 없으니 글을 버튼 자리로 올린다
+            bool button = Current == Phase.Preparing || (Current == Phase.Open && CanClose(out reason));
+            float ty = button ? y + Height + 5f : y + 8f;
+            string text = Time.unscaledTime < noticeUntil ? notice : StatusText;
+            GUI.Label(new Rect((Screen.width - 520f) * 0.5f, ty, 520f, 22f), text, UiSkin.Caption);
         }
     }
 }

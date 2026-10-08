@@ -73,6 +73,14 @@ namespace DogShop.Player
 
             if (keyboard.eKey.wasPressedThisFrame) Interact(true);
             else if (keyboard.rKey.wasPressedThisFrame) Interact(false);
+
+            // T: 강아지 부르기 — 어디 있든 주인에게 뛰어온다
+            if (keyboard.tKey.wasPressedThisFrame && !PointerMenus.AnyOpen)
+            {
+                Dog hero = DogManager.Instance != null ? DogManager.Instance.Hero : null;
+                DogRoamer roamer = hero != null ? hero.GetComponent<DogRoamer>() : null;
+                if (roamer != null) roamer.Call();
+            }
         }
 
         /// <summary>
@@ -95,7 +103,7 @@ namespace DogShop.Player
             if (crate != null)
             {
                 if (!load) return;   // 상자를 내려놓는 것은 바닥을 보고 R
-                if (!inRange) { Reject("너무 멀다 — 가까이 갈 것"); return; }
+                if (!inRange) { Reject("너무 멀다, 가까이 갈 것"); return; }
                 ActionRunner.TryRun(new PickUpAction(carry, crate));
                 return;
             }
@@ -104,8 +112,8 @@ namespace DogShop.Player
             DeliveryParcel parcel = hit.collider.GetComponentInParent<DeliveryParcel>();
             if (parcel != null)
             {
-                if (!load) { Reject("상자는 뜯기만 한다 — E"); return; }
-                if (!inRange) { Reject("너무 멀다 — 상자에 가까이 갈 것"); return; }
+                if (!load) { Reject("상자는 뜯기만 한다 (E)"); return; }
+                if (!inRange) { Reject("너무 멀다, 상자에 가까이 갈 것"); return; }
                 if (DeliveryManager.Instance != null) DeliveryManager.Instance.Open(parcel);
                 return;
             }
@@ -115,7 +123,7 @@ namespace DogShop.Player
             {
                 // 배달 더미는 받기만 한다 — 트럭이 내려놓고 간 것을 되돌릴 데가 없다
                 if (!load) { Reject("배달 더미에는 되돌릴 수 없다"); return; }
-                if (!inRange) { Reject("너무 멀다 — 배달 더미에 가까이 갈 것"); return; }
+                if (!inRange) { Reject("너무 멀다, 배달 더미에 가까이 갈 것"); return; }
                 ActionRunner.TryRun(new TakeFromDeliveryAction(carry, delivery.ProductIndex));
                 return;
             }
@@ -123,7 +131,7 @@ namespace DogShop.Player
             StorageRack rack = hit.collider.GetComponentInParent<StorageRack>();
             if (rack != null)
             {
-                if (!inRange) { Reject("너무 멀다 — 창고 선반에 가까이 갈 것"); return; }
+                if (!inRange) { Reject("너무 멀다, 창고 선반에 가까이 갈 것"); return; }
 
                 if (load) ActionRunner.TryRun(new TakeOneAction(carry, rack.ProductIndex));
                 else ActionRunner.TryRun(new StoreOneAction(carry, rack.ProductIndex));
@@ -133,7 +141,7 @@ namespace DogShop.Player
             ShelfTable shelf = hit.collider.GetComponentInParent<ShelfTable>();
             if (shelf != null)
             {
-                if (!inRange) { Reject("너무 멀다 — 진열대에 가까이 갈 것"); return; }
+                if (!inRange) { Reject("너무 멀다, 진열대에 가까이 갈 것"); return; }
 
                 // 어느 칸인지는 <b>조준한 높이</b>가 정한다. 벽 진열대처럼 위아래 두 칸이면
                 // 플레이어가 보는 칸에 놓인다 — 칸 고르는 키를 따로 만들 이유가 없다.
@@ -147,7 +155,7 @@ namespace DogShop.Player
             Customer customer = hit.collider.GetComponentInParent<Customer>();
             if (customer != null)
             {
-                if (!inRange) { Reject("너무 멀다 — 계산대로 갈 것"); return; }
+                if (!inRange) { Reject("너무 멀다, 계산대로 갈 것"); return; }
                 CustomerManager.Instance.Checkout(customer);
                 return;
             }
@@ -157,7 +165,7 @@ namespace DogShop.Player
             if (dirt != null)
             {
                 if (!load) return;
-                if (!inRange) { Reject("너무 멀다 — 가까이 갈 것"); return; }
+                if (!inRange) { Reject("너무 멀다, 가까이 갈 것"); return; }
                 CleanlinessManager.Instance.Clean(dirt);
                 return;
             }
@@ -165,7 +173,7 @@ namespace DogShop.Player
             if (hit.collider.GetComponentInParent<ShopCounter>() != null)
             {
                 if (!load) return;
-                if (!inRange) { Reject("너무 멀다 — 계산대로 갈 것"); return; }
+                if (!inRange) { Reject("너무 멀다, 계산대로 갈 것"); return; }
                 if (orderMenu != null) orderMenu.Open(ScreenPointOf(hit.point));
                 return;
             }
@@ -174,7 +182,7 @@ namespace DogShop.Player
             if (dog != null)
             {
                 if (!load) return;
-                if (!inRange) { Reject("너무 멀다 — 강아지에게 가까이 갈 것"); return; }
+                if (!inRange) { Reject("너무 멀다, 강아지에게 가까이 갈 것"); return; }
                 if (dogMenu != null) dogMenu.Open(dog, ScreenPointOf(hit.point));
                 return;
             }
@@ -183,7 +191,7 @@ namespace DogShop.Player
             if (bed != null)
             {
                 if (!load) return;
-                if (!inRange) { Reject("너무 멀다 — 침대로 갈 것"); return; }
+                if (!inRange) { Reject("너무 멀다, 침대로 갈 것"); return; }
                 bed.Open(ScreenPointOf(hit.point));
                 return;
             }
@@ -196,8 +204,8 @@ namespace DogShop.Player
             // 벽을 스쳐도 놓아버리면 창고 랙에 담는 도중 상자를 계속 잃는다.
             if (carry == null || !carry.IsHolding) return;
 
-            if (!IsGround(hit)) { Reject("바닥에만 내려놓을 수 있다 — 발 앞 바닥을 볼 것"); return; }
-            if (!inRange) { Reject("너무 멀다 — 발 앞 바닥을 볼 것"); return; }
+            if (!IsGround(hit)) { Reject("바닥에만 내려놓을 수 있다, 발 앞 바닥을 볼 것"); return; }
+            if (!inRange) { Reject("너무 멀다, 발 앞 바닥을 볼 것"); return; }
 
             carry.DropAt(hit.point);
         }
@@ -275,7 +283,7 @@ namespace DogShop.Player
             public bool CanExecute(out string reason)
             {
                 if (carry == null) { reason = "플레이어 없음"; return false; }
-                if (carry.IsHolding) { reason = "이미 상자를 들고 있다 — 바닥을 보고 E로 내려놓기"; return false; }
+                if (carry.IsHolding) { reason = "이미 상자를 들고 있다, 바닥을 보고 E로 내려놓기"; return false; }
 
                 reason = null;
                 return true;
@@ -300,13 +308,13 @@ namespace DogShop.Player
                 if (carry == null || !carry.IsHolding) { reason = "상자를 들고 와야 한다 (E)"; return false; }
                 if (!carry.Held.Accepts(productIndex))
                 {
-                    reason = "칸이 부족하다 — " + CarryCrate.SlotCostOf(productIndex)
+                    reason = "칸이 부족하다: " + CarryCrate.SlotCostOf(productIndex)
                            + "칸 필요, 남은 " + carry.Held.Room + "칸";
                     return false;
                 }
                 if (InventoryManager.Instance.StorageOf(productIndex) <= 0)
                 {
-                    reason = "창고 재고 없음 — 계산대에서 발주할 것";
+                    reason = "창고 재고 없음, 계산대에서 발주할 것";
                     return false;
                 }
 
@@ -355,7 +363,7 @@ namespace DogShop.Player
                 if (carry == null || !carry.IsHolding) { reason = "상자를 들고 와야 한다 (E)"; return false; }
                 if (!carry.Held.Accepts(productIndex))
                 {
-                    reason = "칸이 부족하다 — " + CarryCrate.SlotCostOf(productIndex)
+                    reason = "칸이 부족하다: " + CarryCrate.SlotCostOf(productIndex)
                            + "칸 필요, 남은 " + carry.Held.Room + "칸";
                     return false;
                 }
@@ -448,14 +456,14 @@ namespace DogShop.Player
                 if (carry == null || !carry.IsHolding) { reason = "상자를 들고 와야 한다 (E)"; return false; }
 
                 CarryCrate crate = carry.Held;
-                if (crate.IsEmpty) { reason = "상자가 비었다 — 창고에서 담아올 것"; return false; }
+                if (crate.IsEmpty) { reason = "상자가 비었다, 창고에서 담아올 것"; return false; }
 
                 int productIndex = Pick();
                 if (productIndex < 0)
                 {
                     reason = table.AcceptedBulk == 1
-                        ? "작은 물건만 올릴 수 있다 — " + crate.Describe()
-                        : "사료처럼 부피 큰 물건만 올릴 수 있다 — " + crate.Describe();
+                        ? "작은 물건만 올릴 수 있다: " + crate.Describe()
+                        : "사료처럼 부피 큰 물건만 올릴 수 있다: " + crate.Describe();
                     return false;
                 }
 
@@ -505,7 +513,7 @@ namespace DogShop.Player
 
                 int productIndex = table.ProductAt(slot);
                 if (productIndex < 0 || table.CountAt(slot) <= 0) { reason = "이 칸은 비었다"; return false; }
-                if (!carry.Held.Accepts(productIndex)) { reason = "상자가 가득 찼다 — " + carry.Held.Describe(); return false; }
+                if (!carry.Held.Accepts(productIndex)) { reason = "상자가 가득 찼다: " + carry.Held.Describe(); return false; }
 
                 reason = null;
                 return true;

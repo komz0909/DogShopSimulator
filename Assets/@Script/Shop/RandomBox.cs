@@ -76,7 +76,7 @@ namespace DogShop.Shop
 
             if (GameManager.Instance.Money < Price)
             {
-                reason = "돈 부족 — " + GameManager.Instance.Money + " / " + Price;
+                reason = "돈 부족: " + GameManager.Instance.Money + " / " + Price;
                 return false;
             }
 

@@ -75,7 +75,7 @@ namespace DogShop.Show
 
             settlementLine = "Day " + g.Day + " 마감    매출 " + g.DailyRevenue
                            + "    판매 " + c.SoldToday + "건    놓침 " + c.LostToday + "건"
-                           + "    방문 " + c.VisitorsToday + "명 · 명성 +" + reputationGained + " (누적 " + g.Reputation + ")";
+                           + "    방문 " + c.VisitorsToday + "명 / 명성 +" + reputationGained + " (누적 " + g.Reputation + ")";
 
             Dog hero = DogManager.Instance.Hero;
             isFinal = champ.IsFinalDay(g.Day);
@@ -97,14 +97,12 @@ namespace DogShop.Show
             string reason;
             if (!champ.CanEnter(hero, out reason))
             {
-                mockLine = "모의 심사 — " + reason;
+                mockLine = "모의 심사: " + reason;
                 return;
             }
 
-            int score = champ.Score(hero, false);
-            int rank = champ.Rank(score);
-            mockLine = "모의 심사 — 총점 " + score + " → 챔피언십에서 " + rank + "위 예상"
-                     + "   (1위 기준선 " + champ.RivalScore(0) + ", 심사 " + champ.WeightText + ")";
+            // 챔피언십 순위는 D30 도그쇼 총점으로만 정한다 — 여기서는 미니게임에 쓰일 몸 상태만 보여 준다
+            mockLine = "모의 심사: 미모 " + hero.Stats.Beauty + " / 훈련도 " + hero.Stats.Training + "  (D30 도그쇼 난이도에 반영)";
         }
 
         void BuildFinalResult(Dog hero, ChampionshipManager champ, GameManager g)
@@ -114,35 +112,44 @@ namespace DogShop.Show
             string reason;
             if (!champ.CanEnter(hero, out reason))
             {
-                resultLine = "챔피언십 출전 불가 — " + reason;
+                resultLine = "챔피언십 출전 불가: " + reason;
                 gradeLine = "최종 랭크  " + champ.FinalGrade(champ.RivalCount + 1, level, g.Money);
                 FillEnding(-1, champ.FinalGrade(champ.RivalCount + 1, level, g.Money), level, g.Money);
                 return;
             }
 
-            int score = champ.Score(hero, true);
-            int rank = champ.Rank(score);
+            int rank;
+            if (champ.HasShowResult)
+            {
+                rank = champ.ShowRank;
+                resultLine = "도그쇼 챔피언십 결과: 총점 " + champ.ShowScore + "점   " + rank + "위 / " + champ.ShowBoard.Count + "마리";
+            }
+            else
+            {
+                // 도그쇼를 건너뛰는 무인 측정만 이쪽 — 스탯으로 어림한다
+                int score = champ.Score(hero, true);
+                rank = champ.Rank(score);
+                resultLine = "챔피언십 결과(스탯 추정): 총점 " + score + "   " + rank + "위 / " + (champ.RivalCount + 1) + "명";
+            }
             FillEnding(rank, champ.FinalGrade(rank, level, g.Money), level, g.Money);
-
-            resultLine = "챔피언십 결과 — 총점 " + score + "   " + rank + "위 / " + (champ.RivalCount + 1) + "명"
-                       + "   (심사 " + champ.WeightText + ")";
             gradeLine = "최종 랭크  " + champ.FinalGrade(rank, level, g.Money)
                       + "     가게 Lv " + level + "     자산 " + g.Money + "원"
                       + "     " + hero.DisplayName + " 미모 " + hero.Stats.Beauty + " / 훈련도 " + hero.Stats.Training;
         }
 
         /// <summary>
-        /// 엔딩 둘째 장의 한 줄은 순위로 갈린다. 그림은 한 장이라 글이 결과를 말한다 —
-        /// 우승 못 한 판에 트로피 그림이 나와도 글이 "그래도 빛났다"로 받아 준다.
+        /// 엔딩 둘째 장은 순위로 갈린다. 우승이면 트로피 그림, 아니면 "다음 대회를 노리자" 그림
+        /// (<see cref="Cutscene"/> 가 won 값으로 고른다)과 그에 맞는 한 줄.
         /// </summary>
         void FillEnding(int rank, string grade, int level, int money)
         {
             string place;
             if (rank == 1) place = "심사위원의 손끝이 우리를 가리켰다. 챔피언이다!";
-            else if (rank >= 2 && rank <= 3) place = rank + "위. 우승은 놓쳤지만, 오늘 무대에서 이 아이는 누구보다 빛났다.";
-            else if (rank > 3) place = rank + "위. 순위표 위쪽은 아니었다. 그래도 함께 선 이 무대는 평생 잊지 못할 거다.";
-            else place = "무대에는 서지 못했다. 그래도 30일을 함께 버틴 우리는 이미 한 팀이다.";
+            else if (rank >= 2 && rank <= 3) place = rank + "위! 우승까지 딱 한 걸음. 다음 대회에선 꼭 정상에 서자, 화이팅!";
+            else if (rank > 3) place = rank + "위. 이번엔 아쉬웠지만 더 노력해서 다음 대회를 노려보자, 화이팅!";
+            else place = "무대에는 서지 못했다. 그래도 30일을 함께 버틴 우리는 이미 한 팀이다. 다음엔 같이 서자!";
 
+            endingValues["won"] = rank == 1 ? "1" : "0";
             endingValues["place"] = place;
             endingValues["grade"] = grade;
             endingValues["level"] = level.ToString();
@@ -202,7 +209,7 @@ namespace DogShop.Show
                 GUI.Label(new Rect(ix, iy, iw, RowHeight + 4f), gradeLine, bigStyle);
                 iy += RowHeight + Pad;
 
-                if (!finished && GUI.Button(new Rect(ix, iy, iw, RowHeight), "게임 종료 — 30일 완주", rowStyle))
+                if (!finished && GUI.Button(new Rect(ix, iy, iw, RowHeight), "게임 종료: 30일 완주", rowStyle))
                 {
                     finished = true;
                     open = false;
@@ -215,7 +222,7 @@ namespace DogShop.Show
             }
 
             iy += Pad;
-            if (GUI.Button(new Rect(ix, iy, iw, RowHeight), "다음 날 아침으로 — Day " + (GameManager.Instance.Day + 1), rowStyle)) Continue();
+            if (GUI.Button(new Rect(ix, iy, iw, RowHeight), "다음 날 아침으로: Day " + (GameManager.Instance.Day + 1), rowStyle)) Continue();
         }
     }
 }

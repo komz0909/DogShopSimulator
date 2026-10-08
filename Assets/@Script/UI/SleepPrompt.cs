@@ -60,7 +60,7 @@ namespace DogShop.UI
                 Rect warn = new Rect((Screen.width - 440f) * 0.5f, 84f, 440f, RowHeight + 8f);
                 GUI.Box(warn, GUIContent.none, UiSkin.Panel_);
                 GUI.Label(new Rect(warn.x + Pad, warn.y + 4f, warn.width - Pad * 2f, RowHeight),
-                    time.ClockText + " — 잘 시간이 다가온다. 23시에 잠자리에 든다", UiSkin.Label);
+                    time.ClockText + ", 잘 시간이 다가온다. 23시에 잠자리에 든다", UiSkin.Label);
                 return;
             }
 
@@ -72,7 +72,7 @@ namespace DogShop.UI
             float w = Width - Pad * 2f;
             float y = panel.y + Pad;
 
-            GUI.Label(new Rect(x, y, w, RowHeight), time.ClockText + " — 잘 시간이다", UiSkin.Title);
+            GUI.Label(new Rect(x, y, w, RowHeight), time.ClockText + ", 잘 시간이다", UiSkin.Title);
             y += RowHeight;
             GUI.Label(new Rect(x, y, w, RowHeight), "자정이 되면 그대로 하루가 끝난다", UiSkin.Label);
             y += RowHeight + Pad;

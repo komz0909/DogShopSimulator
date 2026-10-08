@@ -94,7 +94,7 @@ namespace DogShop.Shop
                 NavMeshHit hit;
                 if (NavMesh.SamplePosition(want, out hit, RoomTolerance, Customer.WalkableAreas)) continue;
 
-                reason = "계산대 앞에 줄 설 자리가 없다 — " + (i + 1) + "번째가 막힌다";
+                reason = "계산대 앞에 줄 설 자리가 없다: " + (i + 1) + "번째가 막힌다";
                 return false;
             }
 

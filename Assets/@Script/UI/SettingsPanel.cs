@@ -17,8 +17,8 @@ namespace DogShop.UI
         /// <summary>고를 수 있는 프레임 상한. 120·무제한은 뺐다 — 이 게임엔 필요 없고 노트북만 뜨거워진다.</summary>
         static readonly int[] FpsChoices = { 30, 45, 60 };
 
-        const float Width = 520f;
-        const float Height = 300f;
+        const float Width = 640f;
+        const float Height = 470f;
         /// <summary>닫기 발바닥 크기(화면 px). 강아지 창 닫기도 이 크기에 맞춘다.</summary>
         public const float PawSize = 72f;
 
@@ -87,9 +87,24 @@ namespace DogShop.UI
             GUI.Label(new Rect(panel.x + 34f, row, panel.width - 68f, 26f),
                 "지금 " + Mathf.RoundToInt(1f / Mathf.Max(0.0001f, dt)) + " fps", UiSkin.Caption);
 
-            row += 38f;
-            GUI.Label(new Rect(panel.x + 34f, row, panel.width - 68f, 26f),
-                "조작: WASD 이동 / E 상호작용 / F 가구 배치 / Q 회전 / ESC 설정", UiSkin.Caption);
+            // 단축키 안내 — 두 줄로
+            row += 34f;
+            GUI.DrawTexture(new Rect(panel.x + 30f, row, panel.width - 60f, 1.5f), Line());
+            row += 10f;
+            var head = new GUIStyle(UiSkin.Title) { fontSize = 18, alignment = TextAnchor.MiddleLeft };
+            GUI.Label(new Rect(panel.x + 34f, row, 200f, 26f), "단축키", head);
+            row += 32f;
+
+            float colW = (panel.width - 68f - 16f) * 0.5f;
+            int rows = (Keys.Length + 1) / 2;
+            for (int i = 0; i < Keys.Length; i++)
+            {
+                float cx = panel.x + 34f + (i / rows) * (colW + 16f);
+                float cy = row + (i % rows) * KeyRow;
+                float chip = Mathf.Max(34f, UiSkin.Caption.CalcSize(new GUIContent(Keys[i].key)).x + 14f);
+                GUI.Box(new Rect(cx, cy, chip, 24f), Keys[i].key, UiSkin.Tag(UiSkin.Cream));
+                GUI.Label(new Rect(cx + chip + 8f, cy, colW - chip - 8f, 24f), Keys[i].what, KeyText());
+            }
 
             // 닫기는 X 가 아니라 발바닥이다
             var pawRect = new Rect(panel.xMax - PawSize * 0.62f, panel.y - PawSize * 0.38f, PawSize, PawSize);
@@ -98,6 +113,43 @@ namespace DogShop.UI
             // 가림판은 맨 마지막 — 위 버튼들이 안 받은 클릭만 삼킨다
             GUI.Button(screen, GUIContent.none, GUIStyle.none);
             return close;
+        }
+
+        /// <summary>ESC 창에 띄우는 단축키 목록. 키를 새로 붙이면 여기에도 적는다.</summary>
+        static readonly (string key, string what)[] Keys =
+        {
+            ("W A S D", "이동"),
+            ("우클릭", "끌어서 시점 돌리기"),
+            ("V", "1인칭 / 3인칭 바꾸기"),
+            ("E", "상호작용 / 상자에 담기"),
+            ("R", "상자에서 꺼내기"),
+            ("T", "강아지 부르기"),
+            ("F", "가구 들기 / 배치"),
+            ("Q", "가구 돌리기"),
+            ("1  2  3", "게임 속도 x1 / x4 / x16"),
+            ("F5 / F9", "저장 / 불러오기"),
+            ("ESC", "설정 / 창 닫기"),
+            ("Space, 1~4", "도그쇼 점프 / 카드 고르기"),
+        };
+
+        const float KeyRow = 30f;
+        static GUIStyle keyText;
+        static Texture2D line;
+
+        static GUIStyle KeyText()
+        {
+            if (keyText != null) return keyText;
+            keyText = new GUIStyle(UiSkin.Caption) { alignment = TextAnchor.MiddleLeft };
+            return keyText;
+        }
+
+        static Texture2D Line()
+        {
+            if (line != null) return line;
+            line = new Texture2D(1, 1) { hideFlags = HideFlags.HideAndDontSave };
+            line.SetPixel(0, 0, new Color(0.45f, 0.35f, 0.28f, 0.35f));
+            line.Apply();
+            return line;
         }
 
         static bool PawButton(Rect rect, Texture2D pawImage)

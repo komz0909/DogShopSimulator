@@ -158,7 +158,7 @@ namespace DogShop.UI
         void HandleRejected(IPlayerAction action, string reason) => Toast(reason, WarnColor);
 
         void HandleLevelUp(int level) =>
-            Toast("가게 레벨 " + level + " — " + ShopLevelManager.Instance.Current.unlockKo, MoneyColor);
+            Toast("가게 레벨 " + level + ": " + ShopLevelManager.Instance.Current.unlockKo, MoneyColor);
 
         public void Toast(string message, Color color)
         {

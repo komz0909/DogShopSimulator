@@ -119,6 +119,12 @@ namespace DogShop.Dogs
             agent.acceleration = 8f;
             agent.stoppingDistance = 0f;
             agent.autoBraking = true;
+
+            // 손님이 우선이다. 프리팹 값(20)은 손님(30~70)보다 높아서 손님 전원이 반려견을 피해
+            // 옆으로 밀려났다. 문으로 들어오던 손님이 문간의 반려견에 떠밀렸다.
+            // 우선순위가 낮은 쪽만 비키므로 반려견을 맨 뒤로 두면 손님은 제 길을 가고 반려견이 비킨다
+            // (주인과는 Dog 에서 몸 충돌을 아예 끈다)
+            agent.avoidancePriority = 90;
         }
 
         void Start()
@@ -229,6 +235,25 @@ namespace DogShop.Dogs
             return Vector3.Dot(desired.normalized, toward.normalized) > 0f;
         }
 
+        /// <summary>
+        /// 주인이 불렀다(T). 곁에 올 때까지 하던 일을 멈추고 <b>뛰어온다</b> — 평소 따라오기는 6m 넘게 벌어져야 시작하지만
+        /// 부르면 거리와 상관없이 온다. 도착하면 주인을 보며 꼬리를 흔든다.
+        /// </summary>
+        public void Call()
+        {
+            called = true;
+            showTimer = 0f;          // 하던 연출(훈련 동작 등)은 끊고 바로 출발
+            pauseTimer = 0f;
+            if (agent != null && agent.isOnNavMesh) agent.isStopped = false;
+        }
+
+        bool called;
+
+        /// <summary>부르면 오는 동안 이 거리를 넘으면 주인 쪽 <see cref="CalledWarpTo"/>m 자리로 옮겨 놓고 거기서부터 뛰게 한다 —
+        /// 다른 방에서 한참 걸리거나 길이 막혀 영영 못 오는 일이 없게. 마지막 몇 m 는 꼭 뛰어오는 게 보이게 한다.</summary>
+        const float CalledWarpFrom = 14f;
+        const float CalledWarpTo = 7f;
+
         /// <summary>세이브 복원처럼 순간이동시킬 때. NavMeshAgent는 transform 대입을 싫어한다.</summary>
         public void Warp(Vector3 position)
         {
@@ -300,8 +325,15 @@ namespace DogShop.Dogs
                 ? Vector3.Distance(transform.position, owner.position)
                 : 0f;
 
+            // 불러서 곁에 왔으면 주인을 보며 꼬리를 흔든다
+            if (called && (owner == null || toOwner <= heelDistance + 0.3f))
+            {
+                called = false;
+                if (owner != null) { Show(DogAnim.WagTail, 1.6f); return; }
+            }
+
             // 주인이 멀어지면 하던 일을 멈추고 붙는다. 가게 밖으로 나가도 이 규칙 하나로 따라온다.
-            bool shouldFollow = owner != null && toOwner > FollowRange;
+            bool shouldFollow = owner != null && (toOwner > FollowRange || called);
             if (shouldFollow != following)
             {
                 following = shouldFollow;
@@ -368,15 +400,25 @@ namespace DogShop.Dogs
                 return;
             }
 
+            // 불렀을 때는 멀어도 마지막 몇 m 는 뛰어오는 게 보이게, 주인 쪽 가까운 곳으로만 옮긴다
+            if (called && toOwner > CalledWarpFrom)
+            {
+                Vector3 away = transform.position - owner.position;
+                away.y = 0f;
+                Warp(owner.position + (away.sqrMagnitude > 0.01f ? away.normalized : -owner.forward) * CalledWarpTo);
+                return;
+            }
+
             // 너무 벌어졌으면 달리게 두지 말고 옮긴다 (위 LostRange 주석 참고)
-            if (toOwner > LostRange)
+            if (!called && toOwner > LostRange)
             {
                 Warp(owner.position - owner.forward * heelDistance);
                 return;
             }
 
             agent.isStopped = false;
-            agent.speed = runSpeed * Mathf.Clamp(toOwner / FollowRange, 1f, MaxCatchUp);
+            // 부르면 있는 힘껏 — 작은 견종도 최대 배수로
+            agent.speed = runSpeed * (called ? MaxCatchUp : Mathf.Clamp(toOwner / FollowRange, 1f, MaxCatchUp));
 
             // 주인 발밑이 아니라 주인 뒤쪽으로 간다 — 겹쳐 서면 몸이 파묻혀 보인다
             Vector3 behind = owner.position - owner.forward * heelDistance;

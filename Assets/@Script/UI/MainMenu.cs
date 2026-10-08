@@ -60,9 +60,11 @@ namespace DogShop.UI
         [Tooltip("DogManager.breedPrefabs 와 같은 순서. 카드 받침 위에 실제 3D 강아지를 띄운다")]
         [SerializeField] GameObject[] breedPrefabs = new GameObject[0];
         [SerializeField] Texture2D cardBackground;   // 흐린 가게 안 + 구름 가장자리
+        [SerializeField] Texture2D breedCardImage;   // 견종 목록의 작은 카드 바탕(크림 판 + 나무 테두리 + 받침)
         [SerializeField] Texture2D pedestalImage;    // 둥근 나무 받침
         [SerializeField] Texture2D newBadge;
         [SerializeField] Texture2D confirmButton;    // 노란 알약 버튼(글자 없음)
+        [SerializeField] Texture2D otherButton;      // 같은 알약을 빨간색으로 돌린 것 — [다른 강아지]
         [SerializeField] Texture2D iconHeart, iconBone, iconStar, iconPaw;
 
         [SerializeField] Breed[] breeds = new Breed[0];
@@ -219,13 +221,18 @@ namespace DogShop.UI
             DrawTitleImage(Screen.height * 0.12f, Mathf.Min(150f, Screen.height * 0.16f));
 
             GUI.Label(new Rect(0f, Screen.height * 0.22f, Screen.width, 26f),
-                "함께 지낼 강아지를 골라 보자 — 누르면 자세히 볼 수 있다", UiSkin.Caption);
+                "함께 지낼 강아지를 골라 보자. 누르면 자세히 볼 수 있다", UiSkin.Caption);
 
             float width = breeds.Length * CardWidth + (breeds.Length - 1) * Gap;
             float x = (Screen.width - width) * 0.5f;
             float y = Screen.height * 0.5f - CardHeight * 0.42f;
 
+            // 견종이 6종이라 카드 줄이 1280px 이다. 화면이 그보다 좁으면 줄 전체를 가운데 기준으로 줄인다
+            float fit = Mathf.Min(1f, (Screen.width - 40f) / width);
+            Matrix4x4 before = GUI.matrix;
+            if (fit < 1f) GUIUtility.ScaleAroundPivot(new Vector2(fit, fit), new Vector2(Screen.width * 0.5f, y));
             DrawBreeds(x, y);
+            GUI.matrix = before;
 
             // 시작은 소개 카드의 [확인]이 맡는다. 여기는 뒤로만
             float bw = 240f, bh = bw / BoneAspect;
@@ -237,8 +244,8 @@ namespace DogShop.UI
             }
         }
 
-        /// <summary>이름표에 들어갈 만큼. 한글 8자가 이름표 가운데에 한 줄로 들어간다.</summary>
-        const int MaxNameLength = 8;
+        /// <summary>이름 글자 수 상한(6자). 머리 위 이름표가 이 길이에 맞춰 글자 크기를 줄인다.</summary>
+        const int MaxNameLength = Dogs.Dog.MaxNameLength;
         string dogName = "";
 
         void DrawBreeds(float x, float y)
@@ -246,22 +253,29 @@ namespace DogShop.UI
             for (int i = 0; i < breeds.Length; i++)
             {
                 var card = new Rect(x + i * (CardWidth + Gap), y, CardWidth, CardHeight);
-                GUI.Box(card, GUIContent.none, UiSkin.Panel_);
+                // 그림 카드가 있으면 그것을 깐다(밝은 크림 판이라 글자를 진하게 바꾼다). 없으면 예전 어두운 판
+                bool art = breedCardImage != null;
+                if (art) GUI.DrawTexture(card, breedCardImage, ScaleMode.StretchToFill);
+                else GUI.Box(card, GUIContent.none, UiSkin.Panel_);
 
                 // 고른 카드는 테두리 대신 색판을 깔아 표시한다 — IMGUI 에 테두리만 그리는 수단이 마땅치 않다
                 if (picked == i)
                     GUI.Box(new Rect(card.x + 6f, card.y + 6f, card.width - 12f, 26f), "고름", UiSkin.Tag(UiSkin.Green));
 
-                float side = card.width - 56f;
-                var portrait = new Rect(card.x + 28f, card.y + 38f, side, side);
+                // 그림 카드는 받침이 높이 50~59% 에 있다 — 발이 받침 위에 오게 사진을 내리고, 글자는 아래 흰 칸(70%~)에 둔다
+                float side = art ? 140f : card.width - 56f;
+                var portrait = art ? new Rect(card.center.x - side * 0.5f, card.y + 46f, side, side)
+                                   : new Rect(card.x + 28f, card.y + 38f, side, side);
                 if (breeds[i].portrait != null) GUI.DrawTexture(portrait, breeds[i].portrait, ScaleMode.ScaleToFit);
                 else GUI.Box(portrait, GUIContent.none, UiSkin.Tag(UiSkin.Cream));
 
                 var name = new GUIStyle(UiSkin.Caption) { fontSize = 18 };
-                GUI.Label(new Rect(card.x, portrait.yMax + 6f, card.width, 26f), breeds[i].nameKo, name);
+                if (art) name.normal.textColor = UiSkin.Ink;
+                float nameY = art ? card.y + 190f : portrait.yMax + 6f;
+                GUI.Label(new Rect(card.x, nameY, card.width, 26f), breeds[i].nameKo, name);
 
                 // 몸집과 속도. 견종을 고르는 것이 겉모습만의 일이 아니라는 걸 숫자로 보여 준다
-                float tagY = portrait.yMax + 34f;
+                float tagY = art ? card.y + 224f : portrait.yMax + 34f;
                 float tagW = (card.width - 28f) * 0.5f;
                 GUI.Box(new Rect(card.x + 10f, tagY, tagW, 24f),
                     "몸길이 " + breeds[i].bodyLength.ToString("0.0") + "m", UiSkin.Tag(UiSkin.Cream));
@@ -269,7 +283,8 @@ namespace DogShop.UI
                     "달리기 " + breeds[i].runSpeed.ToString("0.0"), UiSkin.Tag(UiSkin.Sky));
 
                 var blurb = new GUIStyle(UiSkin.Label) { alignment = TextAnchor.UpperCenter, fontSize = 13 };
-                GUI.Label(new Rect(card.x + 10f, tagY + 30f, card.width - 20f, 52f), breeds[i].blurb, blurb);
+                if (art) blurb.normal.textColor = UiSkin.Ink;
+                GUI.Label(new Rect(card.x + 10f, tagY + 30f, card.width - 20f, art ? 44f : 52f), breeds[i].blurb, blurb);
 
                 if (GUI.Button(new Rect(card.x, card.y, card.width, card.height), GUIContent.none, GUIStyle.none))
                     OpenCard(i);
@@ -466,10 +481,16 @@ namespace DogShop.UI
                 return;
             }
 
-            // 다른 강아지 보기
-            Rect back = R(0.765f, 0.86f, 0.975f, 0.92f);
-            GUI.DrawTexture(back, RoundedPill(new Color(0.55f, 0.52f, 0.5f, 0.55f)), ScaleMode.StretchToFill);
-            GUI.Label(back, "다른 강아지", cardBackStyle);
+            // 다른 강아지 보기 — [확인]과 같은 알약을 빨간색으로. 회색 반투명 판은 눈에 띄지 않았다
+            Rect back = R(0.705f, 0.85f, 0.965f, 0.93f);
+            bool backHover = back.Contains(Event.current.mousePosition);
+            if (backHover) GUI.color = new Color(1.1f, 1.1f, 1.1f, 1f);
+            if (otherButton != null) GUI.DrawTexture(back, otherButton, ScaleMode.StretchToFill);
+            else GUI.DrawTexture(back, RoundedPill(new Color(0.88f, 0.22f, 0.22f)), ScaleMode.StretchToFill);
+            GUI.color = keep;
+            var backStyle = new GUIStyle(cardTitle) { fontSize = Mathf.RoundToInt(back.height * 0.36f), alignment = TextAnchor.MiddleCenter };
+            backStyle.normal.textColor = Color.white;
+            GUI.Label(back, "다른 강아지", backStyle);
             if (GUI.Button(back, GUIContent.none, GUIStyle.none)) { CloseCard(); return; }
 
             // 카드 밖을 누르면 닫힌다. 카드 안 빈 곳 클릭은 삼킨다 — 맨 마지막에 깐다(위 버튼이 먼저 받게)
@@ -499,7 +520,7 @@ namespace DogShop.UI
 
         // ---- 카드 스타일·바탕 그림(코드로 만든다) ----
 
-        GUIStyle cardTitle, cardTag, cardText, cardValue, cardAccent, cardBody, cardHint, cardField, cardBackStyle;
+        GUIStyle cardTitle, cardTag, cardText, cardValue, cardAccent, cardBody, cardHint, cardField;
         float stylesFor = -1f;
         readonly System.Collections.Generic.Dictionary<Color, Texture2D> solids = new System.Collections.Generic.Dictionary<Color, Texture2D>();
         readonly System.Collections.Generic.Dictionary<Color, Texture2D> pills = new System.Collections.Generic.Dictionary<Color, Texture2D>();
@@ -524,7 +545,6 @@ namespace DogShop.UI
             cardAccent = Make(0.024f, TextAnchor.MiddleRight, new Color(1f, 0.82f, 0.35f));
             cardBody = Make(0.019f, TextAnchor.UpperLeft, cream);
             cardHint = Make(0.019f, TextAnchor.MiddleCenter, new Color(0.55f, 0.52f, 0.5f));
-            cardBackStyle = Make(0.019f, TextAnchor.MiddleCenter, new Color(0.25f, 0.22f, 0.2f));
             cardField = null;
         }
 

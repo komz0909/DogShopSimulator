@@ -62,14 +62,32 @@ namespace DogShop.Shop
             FurnitureDef def = catalog.Get(index);
             if (def.placedPrefab == null) { reason = "아직 들여놓을 수 없다"; return false; }
             if (!IsUnlocked(index)) { reason = "Lv " + def.unlockLevel + " 부터"; return false; }
+            if (OneOnly(index) && OwnedCount(index) > 0) { reason = "하나만 둘 수 있다 (이미 있다)"; return false; }
             if (GameManager.Instance.Money < def.price)
             {
-                reason = "재화 부족 — " + GameManager.Instance.Money + " / " + def.price;
+                reason = "재화 부족: " + GameManager.Instance.Money + " / " + def.price;
                 return false;
             }
 
             reason = null;
             return true;
+        }
+
+        /// <summary>
+        /// 명성 장식 가구(<see cref="FurnitureDef.IsDecor"/>)는 <b>종류마다 하나만</b> 살 수 있다.
+        /// 같은 장식을 여러 개 깔아 명성을 불리는 대신, 여러 종류를 모으게 한다.
+        /// </summary>
+        public bool OneOnly(int index) => catalog != null && index >= 0 && index < catalog.Count && catalog.Get(index).IsDecor;
+
+        /// <summary>그 가구를 몇 개 가졌나 — 매장·앞마당에 서 있는 것과 배달을 기다리는 주문까지.</summary>
+        public int OwnedCount(int index)
+        {
+            int n = 0;
+            foreach (BoughtFurniture bought in FindObjectsByType<BoughtFurniture>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+                if (bought.CatalogIndex == index) n++;
+            for (int i = 0; i < ordered.Count; i++)
+                if (ordered[i] == index) n++;
+            return n;
         }
 
         public bool TryBuy(int index)
@@ -110,7 +128,8 @@ namespace DogShop.Shop
                 if (cart[i] <= 0) continue;
 
                 string why;
-                if (!CanBuy(i, out why)) { reason = catalog.Get(i).nameKo + " — " + why; return false; }
+                if (!CanBuy(i, out why)) { reason = catalog.Get(i).nameKo + ": " + why; return false; }
+                if (OneOnly(i) && cart[i] > 1) { reason = catalog.Get(i).nameKo + ": 하나만 둘 수 있다"; return false; }
             }
 
             if (!GameManager.Instance.TrySpend(cost)) { reason = "결제 실패"; return false; }

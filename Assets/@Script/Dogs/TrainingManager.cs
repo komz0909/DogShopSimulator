@@ -76,13 +76,13 @@ namespace DogShop.Dogs
         public bool CanUpgrade(int index, out string reason)
         {
             if (!IsUnlocked(index)) { reason = "미해금 훈련"; return false; }
-            if (IsUpgrading(index)) { reason = "강화 중 — " + UpgradeDaysLeft(index) + "일 남음"; return false; }
+            if (IsUpgrading(index)) { reason = "강화 중: " + UpgradeDaysLeft(index) + "일 남음"; return false; }
             if (StageOf(index) >= TrainingStages.Max) { reason = "최고 단계"; return false; }
 
             int need = RepsNeeded(index);
             if (RepsOf(index) < need)
             {
-                reason = "더 해 봐야 한다 — " + RepsOf(index) + " / " + need + "회";
+                reason = "더 해 봐야 한다: " + RepsOf(index) + " / " + need + "회";
                 return false;
             }
 
@@ -265,20 +265,20 @@ namespace DogShop.Dogs
         {
             if (dog == null) { reason = "대상 없음"; return false; }
             if (!IsUnlocked(index)) { reason = "미해금 훈련"; return false; }
-            if (IsUpgrading(index)) { reason = "강화 중 — " + UpgradeDaysLeft(index) + "일 남음"; return false; }
-            if (UsedToday(index)) { reason = "오늘 이미 했다 — 내일 다시"; return false; }
-            if (SlotsLeft <= 0) { reason = "훈련 슬롯 소진 — " + SlotsUsed + "/" + SlotsTotal; return false; }
+            if (IsUpgrading(index)) { reason = "강화 중: " + UpgradeDaysLeft(index) + "일 남음"; return false; }
+            if (UsedToday(index)) { reason = "오늘 이미 했다, 내일 다시"; return false; }
+            if (SlotsLeft <= 0) { reason = "훈련 슬롯 소진: " + SlotsUsed + "/" + SlotsTotal; return false; }
 
             if (dog.Stats.GrowthBlocked)
             {
-                reason = "유지 스탯 부족 — 청결 " + dog.Stats.Cleanliness + " / 건강 " + dog.Stats.Health;
+                reason = "유지 스탯 부족: 청결 " + dog.Stats.Cleanliness + " / 건강 " + dog.Stats.Health;
                 return false;
             }
 
             int cost = CostOf(index);
             if (GameManager.Instance.Money < cost)
             {
-                reason = "재화 부족 — " + GameManager.Instance.Money + " / " + cost;
+                reason = "재화 부족: " + GameManager.Instance.Money + " / " + cost;
                 return false;
             }
 

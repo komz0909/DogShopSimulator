@@ -795,7 +795,7 @@ namespace DogShop.Debugging
             }
 
             GUI.Label(new Rect(18f, Screen.height - 40f, 900f, 28f),
-                "● 측정 모드 (M) — 무인 진행 중. 실제 플레이가 아니다", banner);
+                "● 측정 모드 (M): 무인 진행 중. 실제 플레이가 아니다", banner);
         }
     }
 }

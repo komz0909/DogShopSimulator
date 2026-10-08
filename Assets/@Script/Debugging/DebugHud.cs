@@ -79,19 +79,19 @@ namespace DogShop.Debugging
             if (Debug.isDebugBuild)
             {
                 // R 은 상자에서 내리는 키다. 겹쳐 있어서 진열하려다 하루가 계속 리셋됐다 — 손이 안 가는 9 로 옮김
-                if (kb.digit9Key.wasPressedThisFrame) { TimeManager.Instance.StartNewDay(); Show("하루 리셋 — 08:00"); }
+                if (kb.digit9Key.wasPressedThisFrame) { TimeManager.Instance.StartNewDay(); Show("하루 리셋: 08:00"); }
 
                 // 0: D30 도그쇼로 바로 간다(미모·훈련도 80%)
                 if (kb.digit0Key.wasPressedThisFrame && DogShop.Show.DogShow.Instance != null)
                 {
-                    if (!DogShop.Show.DogShow.Instance.DebugStart(out string why)) Show("도그쇼 바로 가기 실패 — " + why);
+                    if (!DogShop.Show.DogShow.Instance.DebugStart(out string why)) Show("도그쇼 바로 가기 실패: " + why);
                 }
                 if (kb.lKey.wasPressedThisFrame) ActionRunner.TryRun(upgrade);
 
                 if (kb.nKey.wasPressedThisFrame && CleanlinessManager.Instance != null)
                 {
                     CleanlinessManager.Instance.ForceSpawn(3);
-                    Show("오염 +3 (테스트) — 청결 " + CleanlinessManager.Instance.Cleanliness);
+                    Show("오염 +3 (테스트), 청결 " + CleanlinessManager.Instance.Cleanliness);
                 }
             }
 
@@ -101,9 +101,9 @@ namespace DogShop.Debugging
 
         void HandleExecuted(IPlayerAction action) => Refresh();
 
-        void HandleRejected(IPlayerAction action, string reason) => Show("거절 — " + reason);
+        void HandleRejected(IPlayerAction action, string reason) => Show("거절: " + reason);
 
-        void HandleLevelUp(int level) => Show("레벨 " + level + " — " + ShopLevelManager.Instance.Current.unlockKo);
+        void HandleLevelUp(int level) => Show("레벨 " + level + ": " + ShopLevelManager.Instance.Current.unlockKo);
 
 
         void Show(string message)
@@ -139,7 +139,7 @@ namespace DogShop.Debugging
                           + clean.CustomerFactor.ToString("0.00")
                         : "");
 
-            line3 = inv.RushDelivery ? "재고 [승급일 — 발주 즉시 입고]  " : "재고  ";
+            line3 = inv.RushDelivery ? "재고 [승급일: 발주 즉시 입고]  " : "재고  ";
             for (int i = 0; i < inv.Catalog.Count; i++)
             {
                 ProductDef p = inv.Catalog.Get(i);
@@ -180,9 +180,9 @@ namespace DogShop.Debugging
             int needed = inv.DailyRestockCost(s.Level + 1, next.customersPerDay) * 2;
             int after = g.Money - next.upgradeCost;
 
-            return "      [L] Lv" + (s.Level + 1) + " 승격 가능 — 비용 " + next.upgradeCost
+            return "      [L] Lv" + (s.Level + 1) + " 승격 가능, 비용 " + next.upgradeCost
                  + ", 승격 후 남는 돈 " + after + " / 권장 운전자본 " + needed
-                 + (after < needed ? "  ※자금 부족 — 더 모으고 올릴 것" : "  OK")
+                 + (after < needed ? "  ※자금 부족, 더 모으고 올릴 것" : "  OK")
                  + "  (승급 당일 발주는 즉시 입고)";
         }
 
@@ -205,9 +205,9 @@ namespace DogShop.Debugging
             GUI.Label(new Rect(18f, 78f, 1140f, 20f), line4, style);
             GUI.Label(new Rect(18f, 100f, 1140f, 20f), line5, style);
             GUI.Label(new Rect(18f, 122f, 1140f, 20f),
-                "조준 + [E] 상호작용   ·   V 시점 전환(1인칭/3인칭)   ·   3인칭은 오른쪽 버튼 드래그로 시점   ·   WASD 이동", style);
+                "조준 + [E] 상호작용   /   V 시점 전환(1인칭/3인칭)   /   3인칭은 오른쪽 버튼 드래그로 시점   /   WASD 이동", style);
             GUI.Label(new Rect(18f, 142f, 1140f, 20f),
-                "F1 디버그 표시   ·   1/2/3 배속   9 하루리셋   0 도그쇼   L 레벨업   N 오염+3   F5/F9 저장/로드", style);
+                "F1 디버그 표시   /   1/2/3 배속   9 하루리셋   0 도그쇼   L 레벨업   N 오염+3   F5/F9 저장/로드", style);
             if (notice.Length > 0) GUI.Label(new Rect(18f, 162f, 1140f, 22f), notice, noticeStyle);
         }
     }

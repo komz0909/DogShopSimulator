@@ -151,7 +151,7 @@ namespace DogShop.Player
             if (Vector3.Distance(player.position, hit.point) > PlaceRange)
             {
                 valid = false;
-                reason = "너무 멀다 — 가까이 갈 것";
+                reason = "너무 멀다, 가까이 갈 것";
                 Tint(BadTint);
                 return;
             }
@@ -174,7 +174,7 @@ namespace DogShop.Player
                 {
                     held.transform.SetPositionAndRotation(target, rotation);
                     valid = false;
-                    reason = "벽걸이형이다 — 벽 앞 바닥을 조준할 것";
+                    reason = "벽걸이형이다, 벽 앞 바닥을 조준할 것";
                     Tint(BadTint);
                     return;
                 }
@@ -292,9 +292,9 @@ namespace DogShop.Player
                 : new Color(0.7f, 1f, 0.75f);
 
             string text;
-            if (held == null) text = "배치 모드 — 가구를 조준하고 [E]   ·   [F] 끄기";
-            else if (held.WallMounted) text = held.DisplayName + " (벽걸이) — [E] 놓기   [F] 취소";
-            else text = held.DisplayName + " — [E] 놓기   [Q] 회전   [F] 취소";
+            if (held == null) text = "배치 모드: 가구를 조준하고 [E]   /   [F] 끄기";
+            else if (held.WallMounted) text = held.DisplayName + " (벽걸이): [E] 놓기   [F] 취소";
+            else text = held.DisplayName + ": [E] 놓기   [Q] 회전   [F] 취소";
 
             if (reason.Length > 0) text += "\n" + reason;
 
