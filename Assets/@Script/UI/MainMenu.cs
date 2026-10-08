@@ -45,15 +45,10 @@ namespace DogShop.UI
             public float runSpeed = 2.5f;
 
             // ---- 소개 카드(고르면 뜨는 상태창) ----
-            // 견종별 성격·특성은 아직 구상 중이다. 지금 값은 <b>보여 주기용 자리</b>이고 게임 수치에는 쓰이지 않는다 —
-            // 성격 체계가 정해지면 여기 값을 그쪽에서 읽게 바꾼다.
+            // 능력치 별·특성 글은 견종 번호로 <see cref="Dogs.BreedTraits"/> 에서 읽는다(게임 수치와 같은 곳).
 
             /// <summary>등급 꼬리표(일반·희귀 …).</summary>
             public string grade = "일반";
-            [Range(0f, 1f)] public float affinity = 0.5f;   // 친화력
-            [Range(0f, 1f)] public float health = 0.5f;     // 건강
-            public string personality = "활발함";
-            [TextArea(2, 4)] public string description = "";
         }
 
         [Header("강아지 소개 카드 — 견종을 누르면 뜬다")]
@@ -65,7 +60,9 @@ namespace DogShop.UI
         [SerializeField] Texture2D newBadge;
         [SerializeField] Texture2D confirmButton;    // 노란 알약 버튼(글자 없음)
         [SerializeField] Texture2D otherButton;      // 같은 알약을 빨간색으로 돌린 것 — [다른 강아지]
-        [SerializeField] Texture2D iconHeart, iconBone, iconStar, iconPaw;
+        [SerializeField] Texture2D iconStar, iconPaw;
+        [Tooltip("건강·청결·미모·훈련도·어질리티 순서(가게 훈련장 창과 같은 아이콘)")]
+        [SerializeField] Texture2D[] statIcons = new Texture2D[0];
 
         [SerializeField] Breed[] breeds = new Breed[0];
 
@@ -426,7 +423,7 @@ namespace DogShop.UI
             }
 
             // 오른쪽 정보판
-            Rect panel = R(0.665f, 0.10f, 0.985f, 0.66f);
+            Rect panel = R(0.665f, 0.10f, 0.985f, 0.76f);
             GUI.DrawTexture(panel, RoundedPanel(), ScaleMode.StretchToFill);
             float px = panel.x + S * 0.025f, pw = panel.width - S * 0.05f;
             float y = panel.y + S * 0.022f, line = S * 0.05f;
@@ -441,17 +438,28 @@ namespace DogShop.UI
             y += line * 1.05f;
             Divider(px, y, pw); y += S * 0.018f;
 
-            StatRow(ref y, px, pw, line, iconHeart, "친화력", breed.affinity);
-            StatRow(ref y, px, pw, line, iconBone, "건강", breed.health);
-            Icon(new Rect(px, y, line * 0.8f, line * 0.8f), iconStar, "★");
-            GUI.Label(new Rect(px + line, y, pw * 0.4f, line * 0.8f), "성격", cardText);
-            GUI.Label(new Rect(px, y, pw, line * 0.8f), breed.personality, cardAccent);
-            y += line * 1.05f;
-            Divider(px, y, pw); y += S * 0.016f;
+            // 능력치 별 — 별 3개가 기본(0%), +15% 가 5개, 반별은 0.5. 건강·청결은 견종 보정이 없어 언제나 3개
+            float row = line * 0.84f;
+            StarRow(ref y, px, pw, row, 0, "건강", 0f);
+            StarRow(ref y, px, pw, row, 1, "청결", 0f);
+            StarRow(ref y, px, pw, row, 2, "미모", Dogs.BreedTraits.BonusPercent(picked, Data.GrowthAxis.Beauty));
+            StarRow(ref y, px, pw, row, 3, "훈련도", Dogs.BreedTraits.BonusPercent(picked, Data.GrowthAxis.Training));
+            StarRow(ref y, px, pw, row, 4, "어질리티", Dogs.BreedTraits.BonusPercent(picked, Data.GrowthAxis.Agility));
+            y += S * 0.006f;
+            Divider(px, y, pw); y += S * 0.014f;
 
-            string desc = string.IsNullOrEmpty(breed.description) ? breed.blurb.Replace("\n", " ") : breed.description;
-            GUI.Label(new Rect(px, y, pw, S * 0.13f), desc, cardBody);
-            y += S * 0.135f;
+            // 특성 — 한 줄 설명 + 실제 보정 수치
+            GUI.Label(new Rect(px, y, pw, line * 0.7f), "특성", cardAccentLeft);
+            y += line * 0.72f;
+            // 「」 는 글꼴에 없어 빈칸으로 나왔다. 줄은 "~지만" 뒤에서 직접 끊는다(그냥 두면 낱말 가운데서 잘렸다)
+            GUI.Label(new Rect(px, y, pw, S * 0.06f), Dogs.BreedTraits.TraitText(picked).Replace("지만 ", "지만\n"), cardBody);
+            y += S * 0.062f;
+            GUI.Label(new Rect(px, y, pw, line * 0.6f),
+                "미모 " + Dogs.BreedTraits.Format(Dogs.BreedTraits.BonusPercent(picked, Data.GrowthAxis.Beauty))
+                + " / 훈련 " + Dogs.BreedTraits.Format(Dogs.BreedTraits.BonusPercent(picked, Data.GrowthAxis.Training))
+                + " / 어질리티 " + Dogs.BreedTraits.Format(Dogs.BreedTraits.BonusPercent(picked, Data.GrowthAxis.Agility)), cardSmallNote);
+            y += line * 0.75f;
+            Divider(px, y, pw); y += S * 0.016f;
 
             // 이름 — 비워 두면 견종 이름으로 부른다
             GUI.Label(new Rect(px, y, pw * 0.25f, line * 0.8f), "이름", cardText);
@@ -498,16 +506,41 @@ namespace DogShop.UI
             GUI.Button(new Rect(0f, 0f, Screen.width, Screen.height), GUIContent.none, GUIStyle.none);
         }
 
-        void StatRow(ref float y, float px, float pw, float line, Texture2D icon, string label, float value)
+        /// <summary>아이콘 + 이름 + 별 5칸(0.5 단위, 반별은 왼쪽 반만 칠한다).</summary>
+        void StarRow(ref float y, float px, float pw, float row, int iconIndex, string label, float bonusPercent)
         {
-            Icon(new Rect(px, y, line * 0.8f, line * 0.8f), icon, "");
-            GUI.Label(new Rect(px + line, y, pw * 0.35f, line * 0.8f), label, cardText);
-            float bx = px + pw * 0.40f, bw = pw * 0.36f, bh = line * 0.3f;
-            var track = new Rect(bx, y + line * 0.25f, bw, bh);
-            GUI.DrawTexture(track, RoundedPill(new Color(1f, 1f, 1f, 0.22f)), ScaleMode.StretchToFill);
-            GUI.DrawTexture(new Rect(track.x, track.y, Mathf.Max(bh, bw * Mathf.Clamp01(value)), bh), RoundedPill(new Color(0.94f, 0.78f, 0.36f)), ScaleMode.StretchToFill);
-            GUI.Label(new Rect(px, y, pw, line * 0.8f), value < 0.34f ? "낮음" : value < 0.67f ? "보통" : "높음", cardValue);
-            y += line * 1.0f;
+            Texture2D icon = iconIndex < statIcons.Length ? statIcons[iconIndex] : null;
+            Icon(new Rect(px, y, row * 0.9f, row * 0.9f), icon, "");
+            GUI.Label(new Rect(px + row, y, pw * 0.4f, row * 0.9f), label, cardRowLabel);
+
+            float stars = Dogs.BreedTraits.Stars(bonusPercent);
+            // 이름 칸("어질리티")과 겹치지 않게 별을 조금 작게
+            float size = row * 0.64f, step = size * 1.04f;
+            float sx = px + pw - step * 5f;
+            float sy = y + (row * 0.9f - size) * 0.5f;
+            for (int i = 0; i < 5; i++)
+            {
+                var r = new Rect(sx + i * step, sy, size, size);
+                float fill = Mathf.Clamp01(stars - i);   // 1 = 꽉, 0.5 = 반, 0 = 빈칸
+                DrawStar(r, new Color(0.3f, 0.24f, 0.2f, 0.55f), 1f);   // 빈 칸(어둡게)
+                if (fill > 0f) DrawStar(r, Color.white, fill);
+            }
+            y += row;
+        }
+
+        void DrawStar(Rect r, Color tint, float fill)
+        {
+            Color keep = GUI.color;
+            GUI.color = tint;
+            if (iconStar != null)
+                GUI.DrawTextureWithTexCoords(new Rect(r.x, r.y, r.width * fill, r.height), iconStar, new Rect(0f, 0f, fill, 1f));
+            else
+            {
+                GUI.BeginGroup(new Rect(r.x, r.y, r.width * fill, r.height));
+                GUI.Label(new Rect(0f, 0f, r.width, r.height), "★", cardStarGlyph);
+                GUI.EndGroup();
+            }
+            GUI.color = keep;
         }
 
         void Icon(Rect r, Texture2D tex, string fallback)
@@ -520,7 +553,7 @@ namespace DogShop.UI
 
         // ---- 카드 스타일·바탕 그림(코드로 만든다) ----
 
-        GUIStyle cardTitle, cardTag, cardText, cardValue, cardAccent, cardBody, cardHint, cardField;
+        GUIStyle cardTitle, cardTag, cardText, cardRowLabel, cardAccentLeft, cardSmallNote, cardStarGlyph, cardBody, cardHint, cardField;
         float stylesFor = -1f;
         readonly System.Collections.Generic.Dictionary<Color, Texture2D> solids = new System.Collections.Generic.Dictionary<Color, Texture2D>();
         readonly System.Collections.Generic.Dictionary<Color, Texture2D> pills = new System.Collections.Generic.Dictionary<Color, Texture2D>();
@@ -541,8 +574,12 @@ namespace DogShop.UI
             cardTitle = Make(0.036f, TextAnchor.MiddleLeft, cream);
             cardTag = Make(0.02f, TextAnchor.MiddleCenter, new Color(0.35f, 0.22f, 0.2f));
             cardText = Make(0.022f, TextAnchor.MiddleLeft, cream);
-            cardValue = Make(0.021f, TextAnchor.MiddleRight, cream);
-            cardAccent = Make(0.024f, TextAnchor.MiddleRight, new Color(1f, 0.82f, 0.35f));
+            cardRowLabel = Make(0.02f, TextAnchor.MiddleLeft, cream);
+            cardRowLabel.wordWrap = false;
+            cardAccentLeft = Make(0.022f, TextAnchor.MiddleLeft, new Color(1f, 0.82f, 0.35f));
+            cardSmallNote = Make(0.0145f, TextAnchor.MiddleLeft, new Color(1f, 0.9f, 0.75f, 0.85f));
+            cardSmallNote.wordWrap = false;
+            cardStarGlyph = Make(0.026f, TextAnchor.MiddleCenter, Color.white);
             cardBody = Make(0.019f, TextAnchor.UpperLeft, cream);
             cardHint = Make(0.019f, TextAnchor.MiddleCenter, new Color(0.55f, 0.52f, 0.5f));
             cardField = null;

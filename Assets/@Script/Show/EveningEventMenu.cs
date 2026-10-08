@@ -102,7 +102,7 @@ namespace DogShop.Show
             }
 
             // 챔피언십 순위는 D30 도그쇼 총점으로만 정한다 — 여기서는 미니게임에 쓰일 몸 상태만 보여 준다
-            mockLine = "모의 심사: 미모 " + hero.Stats.Beauty + " / 훈련도 " + hero.Stats.Training + "  (D30 도그쇼 난이도에 반영)";
+            mockLine = "모의 심사: 미모 " + hero.Stats.Beauty + " / 훈련도 " + hero.Stats.Training + " / 어질리티 " + hero.Stats.Agility + "  (도그쇼 난이도 반영)";
         }
 
         void BuildFinalResult(Dog hero, ChampionshipManager champ, GameManager g)
@@ -134,7 +134,7 @@ namespace DogShop.Show
             FillEnding(rank, champ.FinalGrade(rank, level, g.Money), level, g.Money);
             gradeLine = "최종 랭크  " + champ.FinalGrade(rank, level, g.Money)
                       + "     가게 Lv " + level + "     자산 " + g.Money + "원"
-                      + "     " + hero.DisplayName + " 미모 " + hero.Stats.Beauty + " / 훈련도 " + hero.Stats.Training;
+                      + "     " + hero.DisplayName + " 미모 " + hero.Stats.Beauty + " / 훈련도 " + hero.Stats.Training + " / 어질리티 " + hero.Stats.Agility;
         }
 
         /// <summary>

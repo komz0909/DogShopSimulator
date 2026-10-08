@@ -167,10 +167,14 @@ MonoBehaviour:
   newBadge: {fileID: 2800000, guid: 5ad3b178effa209459bb6183f75ab63c, type: 3}
   confirmButton: {fileID: 2800000, guid: b275f287c2794724ebd31788035d37c4, type: 3}
   otherButton: {fileID: 2800000, guid: 3ca7a88c21e160a4e85b21841f3adbe5, type: 3}
-  iconHeart: {fileID: 2800000, guid: c9d77d6ccbae115449e2a41aaa37a826, type: 3}
-  iconBone: {fileID: 2800000, guid: defd2eab493cc97458cd5e5affacf0a2, type: 3}
   iconStar: {fileID: 2800000, guid: 6561ac79f1e71864595e6a7e734054c0, type: 3}
   iconPaw: {fileID: 2800000, guid: ca885e9864d57a540ad3734b5317ef2f, type: 3}
+  statIcons:
+  - {fileID: 2800000, guid: 5a5225f1a7259e241a5e6b4ac5c6df4f, type: 3}
+  - {fileID: 2800000, guid: 82c4ba34bae0d9542a4bf7ee82f82407, type: 3}
+  - {fileID: 2800000, guid: cf2af52dd163f8e46b681e1e3302200c, type: 3}
+  - {fileID: 2800000, guid: d5e30b6080eb2904eb624e66198cd091, type: 3}
+  - {fileID: 2800000, guid: 6cd22c3f3672925449a84b3caf43c23d, type: 3}
   breeds:
   - nameKo: "\uB2E5\uC2A4\uD6C8\uD2B8"
     blurb: "\uBAB8\uC774 \uAC00\uC7A5 \uAE38\uB2E4. \uC9E7\uC740 \uB2E4\uB9AC\uB85C\n\uC758\uC678\uB85C
@@ -179,11 +183,6 @@ MonoBehaviour:
     bodyLength: 0.76
     runSpeed: 2.39
     grade: "\uC77C\uBC18"
-    affinity: 0.7
-    health: 0.6
-    personality: "\uD638\uAE30\uC2EC"
-    description: "\uBAB8\uC774 \uAE38\uACE0 \uB2E4\uB9AC\uAC00 \uC9E7\uC740\n\uB2E5\uC2A4\uD6C8\uD2B8\uC608\uC694.\n\uB0C4\uC0C8
-      \uB9E1\uB294 \uAC78 \uC815\uB9D0 \uC88B\uC544\uD574\uC694."
   - nameKo: "\uBE44\uAE00"
     blurb: "\uADC0\uAC00 \uAE38\uACE0 \uBA85\uB791\uD558\uB2E4.\n\uBB34\uB09C\uD558\uAC8C
       \uB530\uB77C\uC628\uB2E4"
@@ -191,11 +190,6 @@ MonoBehaviour:
     bodyLength: 0.69
     runSpeed: 2.19
     grade: "\uC77C\uBC18"
-    affinity: 0.85
-    health: 0.75
-    personality: "\uBA85\uB791\uD568"
-    description: "\uB298\uC5B4\uC9C4 \uADC0\uAC00 \uB9E4\uB825\uC778\n\uBE44\uAE00\uC774\uC5D0\uC694.\n\uB204\uAD6C\uC640\uB3C4
-      \uAE08\uBC29 \uCE5C\uD574\uC838\uC694."
   - nameKo: "\uC2DC\uBC14\uACAC"
     blurb: "\uC5EC\uC6B0 \uAC19\uC740 \uC5BC\uAD74.\n\uC81C \uAC08 \uAE38\uC740 \uC81C\uAC00
       \uAC04\uB2E4"
@@ -203,11 +197,6 @@ MonoBehaviour:
     bodyLength: 0.69
     runSpeed: 2.19
     grade: "\uC77C\uBC18"
-    affinity: 0.45
-    health: 0.85
-    personality: "\uB3C4\uB3C4\uD568"
-    description: "\uAF2C\uB9AC\uB97C \uB9D0\uC544 \uC62C\uB9B0\n\uC2DC\uBC14\uACAC\uC774\uC5D0\uC694.\n\uB3C4\uB3C4\uD558\uC9C0\uB9CC
-      \uC758\uB9AC\uAC00 \uC788\uC5B4\uC694."
   - nameKo: "\uC6F0\uC2DC\uCF54\uAE30"
     blurb: "\uC9E7\uC740 \uB2E4\uB9AC\uC5D0 \uD070 \uC5C9\uB369\uC774.\n\uAC78\uC74C\uC774
       \uC57C\uBB34\uC9C0\uB2E4"
@@ -215,11 +204,6 @@ MonoBehaviour:
     bodyLength: 0.68
     runSpeed: 2.13
     grade: "\uC77C\uBC18"
-    affinity: 0.6
-    health: 0.55
-    personality: "\uD65C\uBC1C\uD568"
-    description: "\uC9E7\uC740 \uB2E4\uB9AC\uB85C \uC57C\uBB34\uC9C0\uAC8C \uAC77\uB294\n\uC6F0\uC2DC\uCF54\uAE30\uC608\uC694.\n\uAC00\uAC8C\uC5D0
-      \uD65C\uAE30\uB97C \uB354\uD574 \uC904 \uAC70\uC608\uC694!"
   - nameKo: "\uC7AD \uB7EC\uC140 \uD14C\uB9AC\uC5B4"
     blurb: "\uAC00\uC7A5 \uC791\uB2E4. \uC8FC\uC778\uC744 \uB193\uCE58\uBA74\n\uAE08\uC138
       \uB4A4\uCC98\uC9C4\uB2E4"
@@ -227,23 +211,12 @@ MonoBehaviour:
     bodyLength: 0.59
     runSpeed: 1.86
     grade: "\uC77C\uBC18"
-    affinity: 0.6
-    health: 0.7
-    personality: "\uC5D0\uB108\uC9C0 \uB118\uCE68"
-    description: "\uC791\uC740 \uBAB8\uC5D0 \uD798\uC774 \uB118\uCE58\uB294\n\uC7AD
-      \uB7EC\uC140 \uD14C\uB9AC\uC5B4\uC608\uC694.\n\uBC1C\uAC78\uC74C\uC744 \uB9DE\uCDB0
-      \uC8FC\uC138\uC694."
   - nameKo: "\uD504\uB80C\uCE58 \uBD88\uB3C5"
     blurb: "\uCEE4\uB2E4\uB780 \uBC15\uC950 \uADC0.\n\uB290\uAE0B\uD558\uAC8C \uB3CC\uC544\uB2E4\uB2CC\uB2E4"
     portrait: {fileID: 2800000, guid: 55fd9c3f558fa7f4c8f4b4f60b2a7955, type: 3}
     bodyLength: 0.61
     runSpeed: 1.93
     grade: "\uC77C\uBC18"
-    affinity: 0.9
-    health: 0.45
-    personality: "\uB290\uAE0B\uD568"
-    description: "\uADC0\uAC00 \uCAD1\uAE0B\uD55C\n\uD504\uB80C\uCE58 \uBD88\uB3C5\uC774\uC5D0\uC694.\n\uC0AC\uB78C
-      \uACC1\uC5D0 \uBD99\uC5B4 \uC788\uB294 \uAC78 \uC88B\uC544\uD574\uC694."
 --- !u!4 &83311207
 Transform:
   m_ObjectHideFlags: 0

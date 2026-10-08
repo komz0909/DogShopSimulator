@@ -118,7 +118,11 @@ namespace DogShop.Dogs
                     cleanliness = st.Cleanliness,
                     health = st.Health,
                     beauty = st.Beauty,
-                    training = st.Training
+                    training = st.Training,
+                    agility = st.Agility,
+                    beautyCarry = st.BeautyCarry,
+                    trainingCarry = st.TrainingCarry,
+                    agilityCarry = st.AgilityCarry
                 }
             };
         }
@@ -140,7 +144,7 @@ namespace DogShop.Dogs
 
             dog.RestoreState(s.daysOwned);
             dog.SetName(s.name);
-            dog.Stats.Restore(s.cleanliness, s.health, s.beauty, s.training);
+            dog.Stats.Restore(s.cleanliness, s.health, s.beauty, s.training, s.agility, s.beautyCarry, s.trainingCarry, s.agilityCarry);
             dog.SyncMood();
 
             PushHeroStatToLevelGate();

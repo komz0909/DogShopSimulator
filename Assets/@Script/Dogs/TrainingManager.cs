@@ -178,6 +178,87 @@ namespace DogShop.Dogs
 
         public event Action OnSlotsChanged;
 
+        // ---- 운동(어질리티) ----
+        // 훈련 슬롯을 쓰지 않고 돈만 낸다. 하루 한 번, 해금된 운동 중 하나를 고른다.
+        // 비싼 운동일수록 한 번에 많이 오르지만 1점당 값은 조금씩 비싸진다(40 → 42 → 45원) — 싼 운동이 죽지 않게.
+        // 30일 동안 레벨을 제때 올리며 매일 하면 대략 200 안팎(도그쇼 만점 기준 240)에 닿는다. 임시값이다.
+
+        public struct ExerciseDef
+        {
+            public string nameKo;
+            public int cost, gain, unlockLevel;
+        }
+
+        public static readonly ExerciseDef[] Exercises =
+        {
+            new ExerciseDef { nameKo = "공놀이", cost = 120, gain = 3, unlockLevel = 1 },
+            new ExerciseDef { nameKo = "달리기", cost = 250, gain = 6, unlockLevel = 3 },
+            new ExerciseDef { nameKo = "장애물", cost = 450, gain = 10, unlockLevel = 5 },
+        };
+
+        public bool ExercisedToday { get; private set; }
+        public int SpentTodayAgility { get; private set; }
+
+        /// <summary>운동을 마쳤다(강아지, 운동 번호, 실제로 오른 어질리티). 화면 가운데 "운동했다" 창이 받는다.</summary>
+        public event Action<Dog, int, int> OnExercised;
+
+        public bool IsExerciseUnlocked(int index) =>
+            index >= 0 && index < Exercises.Length && Exercises[index].unlockLevel <= ShopLevelManager.Instance.Level;
+
+        public bool CanExercise(Dog dog, int index, out string reason)
+        {
+            if (dog == null) { reason = "대상 없음"; return false; }
+            if (!IsExerciseUnlocked(index)) { reason = "Lv " + Exercises[Mathf.Clamp(index, 0, Exercises.Length - 1)].unlockLevel + " 해금"; return false; }
+            if (ExercisedToday) { reason = "오늘 운동 끝, 내일 다시"; return false; }
+            if (dog.Stats.GrowthBlocked)
+            {
+                reason = "유지 스탯 부족: 청결 " + dog.Stats.Cleanliness + " / 건강 " + dog.Stats.Health;
+                return false;
+            }
+            int cost = Exercises[index].cost;
+            if (GameManager.Instance.Money < cost)
+            {
+                reason = "재화 부족: " + GameManager.Instance.Money + " / " + cost;
+                return false;
+            }
+            reason = null;
+            return true;
+        }
+
+        public bool Exercise(Dog dog, int index)
+        {
+            if (!CanExercise(dog, index, out _)) return false;
+            ExerciseDef def = Exercises[index];
+            if (!GameManager.Instance.TrySpend(def.cost)) return false;
+
+            dog.Stats.AddGrowth(GrowthAxis.Agility, def.gain, out int gained);
+            ExercisedToday = true;
+            SpentTodayAgility += def.cost;
+
+            DogRoamer roamer = dog.GetComponent<DogRoamer>();
+            if (roamer != null) roamer.Show(DogAnim.Run, ShowSeconds);
+            else dog.Animator.Play(DogAnim.Run);
+
+            OnSlotsChanged?.Invoke();
+            OnExercised?.Invoke(dog, index, gained);
+            return true;
+        }
+
+        public sealed class ExerciseAction : IPlayerAction
+        {
+            readonly Dog dog;
+            readonly int index;
+
+            public ExerciseAction(Dog dog, int index)
+            {
+                this.dog = dog;
+                this.index = index;
+            }
+
+            public bool CanExecute(out string reason) => Instance.CanExercise(dog, index, out reason);
+            public void Execute() => Instance.Exercise(dog, index);
+        }
+
         void Awake()
         {
             if (Instance != null && Instance != this) { Destroy(this); return; }
@@ -212,6 +293,8 @@ namespace DogShop.Dogs
             SlotsUsed = 0;
             SpentTodayTraining = 0;
             SpentTodayBeauty = 0;
+            SpentTodayAgility = 0;
+            ExercisedToday = false;
             if (usedToday != null) Array.Clear(usedToday, 0, usedToday.Length);
 
             // 강화는 날짜로 흐른다. 하루가 시작될 때 하루씩 깎는다
@@ -223,6 +306,7 @@ namespace DogShop.Dogs
         public void CaptureInto(SaveData data)
         {
             data.trainingSlotsUsed = SlotsUsed;
+            data.exercisedToday = ExercisedToday;
             data.trainingUsedToday = usedToday != null ? (bool[])usedToday.Clone() : new bool[0];
             data.trainingStage = stage != null ? (int[])stage.Clone() : new int[0];
             data.trainingUpgradeDays = upgradeDays != null ? (int[])upgradeDays.Clone() : new int[0];
@@ -232,6 +316,7 @@ namespace DogShop.Dogs
         public void RestoreFrom(SaveData data)
         {
             SlotsUsed = Mathf.Max(0, data.trainingSlotsUsed);
+            ExercisedToday = data.exercisedToday;
 
             // 쿨타임도 같이 복원한다. 안 그러면 저장하고 불러오는 것만으로 하루 쿨이 풀린다
             for (int i = 0; usedToday != null && i < usedToday.Length; i++)

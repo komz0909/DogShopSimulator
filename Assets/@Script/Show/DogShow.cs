@@ -20,8 +20,8 @@ namespace DogShop.Show
     /// ④ 장애물 달리기 — WASD 로 A-프레임, 터널, 도그 워크, 위브, 시소, 테이블을 순서대로 지난다(<see cref="ObstacleCourse"/>)
     ///
     /// <b>스탯이 결과를 정하고 실력은 거든다.</b> 미모가 높으면 포즈 판정 구간이 넓고, 훈련도가
-    /// 높으면 엉뚱한 물건을 덜 물어 오고, 둘을 합친 몸 상태가 달리기 속도·점프 높이·체공 시간을
-    /// 정한다. 네 판의 가중 평균(미모 20 / 훈련 25 / 어질리티 25 / 장애물 30%)이 100점 만점 총점이고,
+    /// 높으면 엉뚱한 물건을 덜 물어 오고, 어질리티가 ③ 의 달리기 속도·점프 높이·체공 시간을,
+    /// 셋의 평균(종합 스탯)이 ④ 의 달리기 속도를 정한다. 네 판의 가중 평균(미모 20 / 훈련 25 / 어질리티 25 / 장애물 30%)이 100점 만점 총점이고,
     /// 챔피언십 순위는 이 총점으로만 정한다(<see cref="ChampionshipManager.SetShowResult"/>).
     ///
     /// 무대는 가게에서 멀리 떨어진 곳에 미리 지어 둔 <see cref="stage"/> 이고 전용 카메라로 비춘다.
@@ -61,12 +61,15 @@ namespace DogShop.Show
         /// <summary>쇼가 진행 중이다(시작 버튼 대기 포함).</summary>
         public static bool Running { get; private set; }
 
-        enum Phase { None, Waiting, Intro, Pose, Fetch, AgilitySpec, Agility, CourseGuide, Course, Result }
+        enum Phase { None, Waiting, Intro, Pose, Fetch, AgilitySpec, Agility, CourseGuide, Course, Result, Guide }
         bool guideReady;
+        // 종목 시작 전 안내창(①~③). ④ 는 장애물 목록을 따로 그린다(DrawCourseGuide)
+        string guideTitle = "";
+        string[] guideLines = new string[0];
         Phase phase = Phase.None;
 
         Dog hero;
-        float beautyN, trainingN, bodyN;   // 0~1
+        float beautyN, trainingN, agilityN, totalN;   // 0~1
         float poseScore, fetchScore, agilityScore, courseScore;   // 0~1
         /// <summary>총점 가중치(합 1). 장애물 달리기가 가장 길고 손이 많이 가서 비중을 크게 뒀다.</summary>
         const float PoseWeight = 0.20f, FetchWeight = 0.25f, AgilityWeight = 0.25f, CourseWeight = 0.30f;
@@ -141,7 +144,7 @@ namespace DogShop.Show
         /// <summary>
         /// 테스트용(디버그 0 키). 30일을 기다리지 않고 바로 도그쇼로 간다.
         /// 날짜를 D30 으로 올려 쇼가 끝난 뒤 챔피언십 결과·엔딩까지 이어서 볼 수 있게 하고,
-        /// 미모·훈련도는 만점 기준(<see cref="StatFull"/>)의 80% 로 맞춘다 — 잘 키운 강아지 기준.
+        /// 미모·훈련도·어질리티는 만점 기준(<see cref="StatFull"/>)의 80% 로 맞춘다 — 잘 키운 강아지 기준.
         /// </summary>
         public bool DebugStart(out string reason)
         {
@@ -154,7 +157,7 @@ namespace DogShop.Show
             if (TimeManager.Instance != null && TimeManager.Instance.IsDayOver) { reason = "하루가 끝난 뒤에는 열 수 없다, 다음 날 아침에"; return false; }
 
             int stat = Mathf.RoundToInt(StatFull * 0.8f);
-            dog.Stats.Restore(DogStats.MaxUpkeep, DogStats.MaxUpkeep, stat, stat);
+            dog.Stats.Restore(DogStats.MaxUpkeep, DogStats.MaxUpkeep, stat, stat, stat);
             GameManager.Instance.DebugSetDay(ChampionshipManager.FinalDay);
 
             Begin();
@@ -209,7 +212,9 @@ namespace DogShop.Show
             DogStats st = hero.Stats;
             beautyN = Mathf.Clamp01(st.Beauty / StatFull);
             trainingN = Mathf.Clamp01(st.Training / StatFull);
-            bodyN = (beautyN + trainingN) * 0.5f;
+            agilityN = Mathf.Clamp01(st.Agility / StatFull);
+            // 종목마다 맡은 스탯: ① 미모, ② 훈련도, ③ 어질리티, ④ 셋의 평균
+            totalN = (beautyN + trainingN + agilityN) / 3f;
 
             // 발바닥 높이는 무대로 옮기기 전에 잰다(가게에서 서 있던 자세 그대로)
             pawOffset = float.NaN;
@@ -241,8 +246,42 @@ namespace DogShop.Show
             AimCamera(posePoint.position, 2.6f, 1.1f, 0f);
 
             headline = "미모 심사";
-            subline = "링이 가운데 원에 겹칠 때 Space (5번). 미모가 높을수록 판정이 넉넉하다";
-            yield return Wait(2.6f);
+            subline = "안내를 읽고 [준비완료]를 누르면 3초 뒤 시작";
+            // 안내 글에는 글꼴에 없는 글자(①, —)를 쓰지 않는다 — 빈칸으로 나온다
+            yield return Guide("1. 미모 심사  (" + PoseRounds + "번)",
+                "바깥에서 링이 줄어들며 가운데 원으로 다가온다",
+                "링이 가운데 원의 띠에 겹치는 순간 Space 로 포즈!",
+                "가는 안쪽 띠 = PERFECT(100점), 그 바깥 띠 = GOOD(60점), 놓치면 MISS",
+                "뒤로 갈수록 링이 빨라진다",
+                "미모가 높을수록 띠가 넓어진다  (지금 미모 " + hero.Stats.Beauty + ")",
+                "다섯 번의 평균이 점수, 총점의 20%");
+        }
+
+        /// <summary>
+        /// 종목 시작 전 안내창. 진행 방식을 보여 주고 [준비완료](Space)를 누르면 3초 세고 시작한다.
+        /// 무대·카메라는 부르기 전에 맞춰 둔다 — 안내창 뒤로 그 종목 자리가 보인다.
+        /// </summary>
+        IEnumerator Guide(string title, params string[] lines)
+        {
+            Phase keep = phase;
+            guideTitle = title;
+            guideLines = lines;
+            guideReady = false;
+            phase = Phase.Guide;
+            while (!guideReady) yield return null;
+            phase = keep;
+            yield return CountdownToStart();
+        }
+
+        IEnumerator CountdownToStart()
+        {
+            for (int n = 3; n >= 1; n--)
+            {
+                countdown = n.ToString();
+                yield return Wait(1f);
+            }
+            countdown = "GO!";
+            countdownUntil = Time.time + 0.7f;
         }
 
         IEnumerator PoseGame()
@@ -315,8 +354,14 @@ namespace DogShop.Show
             FetchCamera();
 
             headline = "훈련 심사";
-            subline = "심사위원이 말한 물건 카드를 골라 지시하자. 훈련이 덜 됐으면 엉뚱한 걸 물어 온다";
-            yield return Wait(2.6f);
+            subline = "안내를 읽고 [준비완료]를 누르면 3초 뒤 시작";
+            yield return Guide("2. 훈련 심사  (" + FetchRounds + "번)",
+                "심사위원이 가져올 물건을 말한다",
+                "아래 카드 중 그 물건 카드를 눌러(또는 숫자 1~4) 강아지에게 지시하자",
+                "강아지가 받침대 줄에서 물건을 찾아 물어 온다",
+                "카드를 맞게 골라도 훈련도가 낮으면 헤매거나 엉뚱한 걸 물어 온다",
+                "훈련도가 높을수록 정확하다  (지금 훈련도 " + hero.Stats.Training + ")",
+                "맞게 물어 온 횟수가 점수, 총점의 25%");
 
             float success = Mathf.Lerp(0.35f, 0.95f, trainingN);
             int got = 0;
@@ -467,7 +512,7 @@ namespace DogShop.Show
             var roamer = hero.GetComponent<DogRoamer>();
             float refSpeed = run ? (roamer != null ? roamer.RunSpeed : 2.6f) : (roamer != null ? roamer.WalkSpeed : 0.75f);
             // 몸이 작은 견종도 무대가 지루하지 않게 하한을 둔다(다리는 최대 2배속까지 따라 돈다)
-            float pace = run ? Mathf.Max(1.8f, refSpeed * 1.35f) * Mathf.Lerp(0.9f, 1.15f, bodyN)
+            float pace = run ? Mathf.Max(1.8f, refSpeed * 1.35f) * Mathf.Lerp(0.9f, 1.15f, trainingN)
                              : Mathf.Max(0.7f, refSpeed * 1.1f);
             hero.Animator.Play(run ? DogAnim.Run : DogAnim.Walk);
 
@@ -565,11 +610,11 @@ namespace DogShop.Show
             // 몸 상태를 먼저 보여 준다 — 30일 키운 게 숫자로 커지는 장면
             phase = Phase.AgilitySpec;
             // 사람이 허들마다 반응할 수 있는 속도. 6m/s 를 넘기면 16m 코스가 3초도 안 걸렸다
-            runSpeed = Mathf.Lerp(2.2f, 4.0f, bodyN);
+            runSpeed = Mathf.Lerp(2.2f, 4.0f, agilityN);
             // 허들 사이가 3.5m 다. 예전 값(높이 1m, 체공 0.8초)이면 한 번 뛰면 다음 허들 앞까지 날아가서
             // 허들이 다닥다닥 붙어 보였다. 바(0.25m)를 넉넉히 넘는 정도로 낮췄다
-            jumpHeight = Mathf.Lerp(0.35f, 0.62f, bodyN);
-            airTime = Mathf.Lerp(0.42f, 0.55f, bodyN);
+            jumpHeight = Mathf.Lerp(0.35f, 0.62f, agilityN);
+            airTime = Mathf.Lerp(0.42f, 0.55f, agilityN);
 
             PlaceDog(laneStart.position, Quaternion.LookRotation(laneEnd.position - laneStart.position));
             AimCamera(laneStart.position, 4.2f, 1.6f, 0f);
@@ -578,20 +623,19 @@ namespace DogShop.Show
             specShownAt = Time.time;
             yield return Wait(4.2f);
 
-            // 출발선에서 3초 세고 출발 — 바로 뛰면 첫 허들까지 마음의 준비를 할 틈이 없었다
+            // 출발선에서 안내 → 3초 세고 출발 — 바로 뛰면 첫 허들까지 마음의 준비를 할 틈이 없었다
             phase = Phase.Agility;
             headline = "어질리티";
-            subline = "출발선에서 대기, Space 로 점프";
+            subline = "안내를 읽고 [준비완료]를 누르면 3초 뒤 시작";
             PlaceDog(laneStart.position, Quaternion.LookRotation(laneEnd.position - laneStart.position));
             hero.Animator.Play(DogAnim.Idle);
             FollowCamera(hero.transform.position);
-            for (int n = 3; n >= 1; n--)
-            {
-                countdown = n.ToString();
-                yield return Wait(1f);
-            }
-            countdown = "GO!";
-            countdownUntil = Time.time + 0.7f;
+            yield return Guide("3. 어질리티  (허들 " + hurdles.Length + "개)",
+                "출발하면 강아지가 레인을 따라 저절로 달린다",
+                "허들 바로 앞에서 Space 로 점프! 너무 이르거나 늦으면 허들에 걸린다",
+                "점프 중에는 다시 뛸 수 없다. 착지한 뒤 다음 허들을 노리자",
+                "어질리티가 높을수록 빠르고, 높고 오래 뛴다  (지금 어질리티 " + hero.Stats.Agility + ")",
+                "넘은 허들 수가 점수, 총점의 25%");
 
             subline = "Space: 점프";
             cleared = 0;
@@ -605,7 +649,7 @@ namespace DogShop.Show
             var passed = new bool[hurdles.Length];
 
             hero.Animator.Play(DogAnim.Run);
-            hero.Animator.SetPlaybackSpeed(Mathf.Lerp(1f, 1.6f, bodyN));
+            hero.Animator.SetPlaybackSpeed(Mathf.Lerp(1f, 1.6f, agilityN));
 
             while (pos < length)
             {
@@ -648,7 +692,7 @@ namespace DogShop.Show
         Vector3 courseFacing;
 
         /// <summary>
-        /// ④ 장애물 달리기. 점프 없이 WASD 로 몰고 다닌다 — 속도는 ③ 과 같은 몸 상태(미모+훈련도)에서 나온다.
+        /// ④ 장애물 달리기. 점프 없이 WASD 로 몰고 다닌다 — 속도는 미모·훈련도·어질리티 평균(종합 스탯)에서 나온다.
         /// 오르막은 장애물 표면을 따라 높이를 맞추고, 경사면에선 몸도 기울인다.
         /// </summary>
         IEnumerator CourseGame()
@@ -673,19 +717,14 @@ namespace DogShop.Show
             while (!guideReady) yield return null;
             phase = Phase.Course;
 
-            for (int n = 3; n >= 1; n--)
-            {
-                countdown = n.ToString();
-                yield return Wait(1f);
-            }
-            countdown = "GO!";
-            countdownUntil = Time.time + 0.7f;
+            yield return CountdownToStart();
             subline = "WASD: 달리기";
 
             courseTime = 0f;
             float y = hero.transform.position.y;
             bool running = false;
-            float runAnimSpeed = Mathf.Lerp(1f, 1.6f, bodyN);
+            runSpeed = Mathf.Lerp(2.2f, 4.0f, totalN);   // ③ 은 어질리티, ④ 는 종합 스탯
+            float runAnimSpeed = Mathf.Lerp(1f, 1.6f, totalN);
 
             while (!course.Finished && courseTime < CourseLimit)
             {
@@ -789,7 +828,7 @@ namespace DogShop.Show
             headline = "심사 결과";
             subline = "미모 " + Mathf.RoundToInt(poseScore * 100f) + "  /  훈련 " + Mathf.RoundToInt(fetchScore * 100f)
                     + "  /  어질리티 " + Mathf.RoundToInt(agilityScore * 100f) + "  /  장애물 " + Mathf.RoundToInt(courseScore * 100f)
-                    + "   →   총점 " + total + "점";
+                    + "   /   총점 " + total + "점";
             boardShownAt = Time.time;
             resultReady = true;
             while (resultReady) yield return null;
@@ -1061,6 +1100,7 @@ namespace DogShop.Show
             if (phase == Phase.AgilitySpec) DrawSpec();
             if (phase == Phase.Course && course != null) DrawCourse();
             if (phase == Phase.CourseGuide && course != null) DrawCourseGuide();
+            if (phase == Phase.Guide) DrawGuide();
             if (phase == Phase.Result) DrawBoard();
 
             // 카운트다운: "GO!" 는 잠깐만, 숫자는 다음 숫자가 올 때까지
@@ -1186,7 +1226,31 @@ namespace DogShop.Show
             GUI.color = Color.white;
         }
 
-        /// <summary>출발 전 안내판 — 장애물 6개를 지나는 법과 감점 규칙. [준비됐다]를 눌러야 출발한다.</summary>
+        /// <summary>①~③ 종목 안내판 — 진행 방식을 줄마다 번호를 붙여 보여 준다. [준비완료](Space)로 닫는다.</summary>
+        void DrawGuide()
+        {
+            const float rowH = 38f;
+            float h = 70f + guideLines.Length * rowH + 90f;
+            var panel = new Rect(Screen.width * 0.5f - 400f, Screen.height * 0.5f - h * 0.5f + 20f, 800f, h);
+            GUI.Box(panel, GUIContent.none, UiSkin.Panel_);
+            GUI.Label(new Rect(panel.x, panel.y + 14f, panel.width, 34f), guideTitle, midStyle);
+
+            var line = new GUIStyle(UiSkin.Label) { fontSize = 17, alignment = TextAnchor.MiddleLeft, wordWrap = false };
+            float y = panel.y + 62f;
+            for (int i = 0; i < guideLines.Length; i++)
+            {
+                GUI.Box(new Rect(panel.x + 26f, y + 3f, 28f, 28f), (i + 1).ToString(), UiSkin.Tag(UiSkin.Sky));
+                GUI.Label(new Rect(panel.x + 66f, y, panel.width - 90f, 34f), guideLines[i], line);
+                y += rowH;
+            }
+
+            var ok = new Rect(panel.center.x - 120f, panel.yMax - 66f, 240f, 48f);
+            bool space = Keyboard.current != null && Keyboard.current.spaceKey.wasPressedThisFrame;
+            if (GUI.Button(ok, "준비완료 (Space)", new GUIStyle(UiSkin.Button(UiSkin.Green)) { fontSize = 20 }) || space)
+                guideReady = true;
+        }
+
+        /// <summary>출발 전 안내판 — 장애물 6개를 지나는 법과 감점 규칙. [준비완료]를 눌러야 출발한다.</summary>
         void DrawCourseGuide()
         {
             var panel = new Rect(Screen.width * 0.5f - 350f, Screen.height * 0.5f - 220f, 700f, 450f);
@@ -1213,7 +1277,7 @@ namespace DogShop.Show
 
             var ok = new Rect(panel.center.x - 120f, panel.yMax - 62f, 240f, 48f);
             bool space = Keyboard.current != null && Keyboard.current.spaceKey.wasPressedThisFrame;
-            if (GUI.Button(ok, "준비됐다 (Space)", new GUIStyle(UiSkin.Button(UiSkin.Green)) { fontSize = 20 }) || space)
+            if (GUI.Button(ok, "준비완료 (Space)", new GUIStyle(UiSkin.Button(UiSkin.Green)) { fontSize = 20 }) || space)
                 guideReady = true;
         }
 
@@ -1303,10 +1367,10 @@ namespace DogShop.Show
             GUI.Box(panel, GUIContent.none, UiSkin.Panel_);
             GUI.Label(new Rect(panel.x, panel.y + 10f, panel.width, 32f), hero.DisplayName + "의 지금 몸 상태", midStyle);
 
-            DrawBar(panel, 0, "달리기 속도", Mathf.Lerp(2.2f, runSpeed, grow).ToString("0.0") + " m/s", Mathf.Lerp(0f, bodyN, grow), UiSkin.Sky);
-            DrawBar(panel, 1, "점프 높이", Mathf.Lerp(0.35f, jumpHeight, grow).ToString("0.00") + " m", Mathf.Lerp(0f, bodyN, grow), UiSkin.Green);
-            DrawBar(panel, 2, "미모 / 훈련도", Mathf.RoundToInt(hero.Stats.Beauty * grow) + " / " + Mathf.RoundToInt(hero.Stats.Training * grow),
-                    Mathf.Lerp(0f, bodyN, grow), UiSkin.Coral);
+            DrawBar(panel, 0, "달리기 속도", Mathf.Lerp(2.2f, runSpeed, grow).ToString("0.0") + " m/s", Mathf.Lerp(0f, agilityN, grow), UiSkin.Sky);
+            DrawBar(panel, 1, "점프 높이", Mathf.Lerp(0.35f, jumpHeight, grow).ToString("0.00") + " m", Mathf.Lerp(0f, agilityN, grow), UiSkin.Green);
+            DrawBar(panel, 2, "어질리티", Mathf.RoundToInt(hero.Stats.Agility * grow) + " / " + Mathf.RoundToInt(StatFull),
+                    Mathf.Lerp(0f, agilityN, grow), UiSkin.Coral);
 
             GUI.Label(new Rect(panel.x, panel.yMax - 34f, panel.width, 26f), "입양 첫날보다 속도 " + (runSpeed / 2.2f).ToString("0.0") + "배"
                       + "  /  점프 " + (jumpHeight / 0.35f).ToString("0.0") + "배", UiSkin.Caption);

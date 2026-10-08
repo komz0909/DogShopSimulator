@@ -39,6 +39,13 @@ namespace DogShop.Dogs
         [SerializeField] Texture2D healthIcon;
         [SerializeField] Texture2D beautyIcon;
         [SerializeField] Texture2D trainingIcon;
+        [SerializeField] Texture2D agilityIcon;
+
+        [Header("운동")]
+        [Tooltip("TrainingManager.Exercises 순서(공놀이·달리기·장애물)")]
+        [SerializeField] Texture2D[] exerciseIcons = new Texture2D[0];
+        [Tooltip("견종 번호 순서. 운동하면 화면 가운데 작은 창으로 띄우는 그림")]
+        [SerializeField] Texture2D[] exerciseArt = new Texture2D[0];
 
         IPointerMenu[] menus;
         Dog target;
@@ -47,8 +54,20 @@ namespace DogShop.Dogs
         // ---- 그릴 내용(0.25초마다 다시 계산) ----
         string title = "";
         string subtitle = "";
-        int clean, health, beauty, training;
+        int clean, health, beauty, training, agility;
+        int breed;
         bool blocked;
+
+        readonly bool[] exerciseEnabled = new bool[TrainingManager.Exercises.Length];
+        readonly string[] exerciseReason = new string[TrainingManager.Exercises.Length];
+        bool exercisedToday;
+
+        // "운동했다" 창
+        const float PopupSeconds = 2.6f;
+        float popupAt = -10f;
+        int popupBreed, popupGain;
+        string popupName = "";
+        bool PopupVisible => Time.unscaledTime - popupAt < PopupSeconds;
 
         readonly string[] careName = { "밥 주기", "목욕", "약 먹이기" };
         readonly int[] careProduct = { DogCare.FoodIndex, DogCare.ShampooIndex, DogCare.MedicineIndex };
@@ -72,6 +91,24 @@ namespace DogShop.Dogs
         void Awake()
         {
             menus = GetComponents<IPointerMenu>();
+        }
+
+        void Start()
+        {
+            if (TrainingManager.Instance != null) TrainingManager.Instance.OnExercised += ShowExercisePopup;
+        }
+
+        void OnDestroy()
+        {
+            if (TrainingManager.Instance != null) TrainingManager.Instance.OnExercised -= ShowExercisePopup;
+        }
+
+        void ShowExercisePopup(Dog dog, int index, int gained)
+        {
+            popupAt = Time.unscaledTime;
+            popupBreed = dog != null ? dog.BreedIndex : 0;
+            popupGain = gained;
+            popupName = TrainingManager.Exercises[index].nameKo;
         }
 
         bool PointerOverAnyMenu(Vector2 screenPos)
@@ -137,6 +174,8 @@ namespace DogShop.Dogs
             health = st.Health;
             beauty = st.Beauty;
             training = st.Training;
+            agility = st.Agility;
+            breed = target.BreedIndex;
             blocked = st.GrowthBlocked;
 
             InventoryManager inv = InventoryManager.Instance;
@@ -149,6 +188,15 @@ namespace DogShop.Dogs
             }
 
             TrainingManager tm = TrainingManager.Instance;
+            exercisedToday = tm.ExercisedToday;
+            for (int i = 0; i < TrainingManager.Exercises.Length; i++)
+            {
+                string reason;
+                exerciseEnabled[i] = tm.CanExercise(target, i, out reason);
+                // 버튼에는 앞부분만 — "재화 부족: 80 / 120" 에서 "재화 부족"
+                exerciseReason[i] = string.IsNullOrEmpty(reason) ? "" : reason.Split(':')[0].Trim();
+            }
+
             TrainingCatalog cat = tm.Catalog;
             if (cards.Length != cat.Count) cards = new Card[cat.Count];
 
@@ -203,6 +251,8 @@ namespace DogShop.Dogs
 
         public bool ContainsPoint(Vector2 screenPos)
         {
+            // "운동했다" 창을 눌러 닫을 때 뒤의 훈련장 창까지 닫히지 않게
+            if (PopupVisible && PopupRect().Contains(new Vector2(screenPos.x, Screen.height - screenPos.y))) return true;
             if (target == null) return false;
             float s = Scale;
             Vector2 o = Origin;
@@ -215,8 +265,14 @@ namespace DogShop.Dogs
 
         void OnGUI()
         {
-            if (target == null) return;
+            if (target == null && !PopupVisible) return;
             EnsureStyles();
+            if (target != null) DrawWindow();
+            if (PopupVisible) DrawExercisePopup();
+        }
+
+        void DrawWindow()
+        {
 
             GUI.depth = -10;
             Matrix4x4 keep = GUI.matrix;
@@ -238,20 +294,24 @@ namespace DogShop.Dogs
             if (GUI.Button(close, closeTex != null ? GUIContent.none : new GUIContent("X"), GUIStyle.none)) target = null;
             if (target == null) { GUI.matrix = keep; return; }
 
-            DrawStats(new Rect(62f, 112f, 876f, 78f));
-            DrawCare(new Rect(62f, 202f, 876f, 70f));
-            DrawTraining(new Rect(62f, 284f, 876f, 330f));
+            // 머리 판자(설계 y 22~121) 아래부터 채운다 — 위로 붙이면 스탯 칸이 판자에 걸쳐 겹쳐 보였다
+            DrawStats(new Rect(72f, 136f, 856f, 70f));
+            DrawCareAndExercise(new Rect(72f, 220f, 856f, 60f));
+            DrawTraining(new Rect(72f, 294f, 856f, 300f));
 
             GUI.matrix = keep;
         }
 
         void DrawStats(Rect r)
         {
-            float w = (r.width - 3f * 12f) / 4f;
-            Gauge(new Rect(r.x, r.y, w, r.height), cleanIcon, "청결", clean, 100f, true);
-            Gauge(new Rect(r.x + (w + 12f), r.y, w, r.height), healthIcon, "건강", health, 100f, true);
-            Gauge(new Rect(r.x + (w + 12f) * 2f, r.y, w, r.height), beautyIcon, "미모", beauty, 240f, false);
-            Gauge(new Rect(r.x + (w + 12f) * 3f, r.y, w, r.height), trainingIcon, "훈련도", training, 240f, false);
+            const float gap = 10f;
+            float w = (r.width - 4f * gap) / 5f;
+            Rect Cell(int i) => new Rect(r.x + i * (w + gap), r.y, w, r.height);
+            Gauge(Cell(0), healthIcon, "건강", health, 100f, true, GrowthAxis.Both);
+            Gauge(Cell(1), cleanIcon, "청결", clean, 100f, true, GrowthAxis.Both);
+            Gauge(Cell(2), beautyIcon, "미모", beauty, 240f, false, GrowthAxis.Beauty);
+            Gauge(Cell(3), trainingIcon, "훈련도", training, 240f, false, GrowthAxis.Training);
+            Gauge(Cell(4), agilityIcon, "어질리티", agility, 240f, false, GrowthAxis.Agility);
 
             if (blocked)
             {
@@ -260,51 +320,140 @@ namespace DogShop.Dogs
             }
         }
 
-        /// <summary>아이콘 + 이름·수치 + 막대. 청결·건강은 0~100 컨디션, 미모·훈련도는 쌓이는 값이다.</summary>
-        void Gauge(Rect r, Texture2D icon, string label, int value, float full, bool upkeep)
+        static readonly Color BeautyColor = new Color(0.93f, 0.5f, 0.72f);
+        static readonly Color TrainingColor = new Color(0.38f, 0.6f, 0.9f);
+        static readonly Color AgilityColor = new Color(0.98f, 0.6f, 0.22f);
+
+        /// <summary>
+        /// 아이콘 + 이름·수치 + 막대. 청결·건강은 0~100 컨디션, 미모·훈련도·어질리티는 쌓이는 값이고
+        /// 막대 아래에 견종 보정(성장량에 곱해지는 몫)을 적는다.
+        /// </summary>
+        void Gauge(Rect r, Texture2D icon, string label, int value, float full, bool upkeep, GrowthAxis axis)
         {
             Panel(r, new Color(1f, 1f, 1f, 0.55f));
-            var ic = new Rect(r.x + 8f, r.y + (r.height - 50f) * 0.5f, 50f, 50f);
+            var ic = new Rect(r.x + 6f, r.y + (r.height - 44f) * 0.5f, 44f, 44f);
             if (icon != null) GUI.DrawTexture(ic, icon, ScaleMode.ScaleToFit);
 
-            float tx = ic.xMax + 8f, tw = r.xMax - tx - 10f;
-            GUI.Label(new Rect(tx, r.y + 8f, tw, 22f), label, labelStyle);
-            GUI.Label(new Rect(tx, r.y + 8f, tw, 22f), value.ToString(), numStyle);
+            float tx = ic.xMax + 6f, tw = r.xMax - tx - 8f;
+            GUI.Label(new Rect(tx, r.y + 6f, tw, 22f), label, gaugeLabel);
+            GUI.Label(new Rect(tx, r.y + 6f, tw, 22f), value.ToString(), numStyle);
 
-            var bar = new Rect(tx, r.y + 40f, tw, 14f);
+            var bar = new Rect(tx, r.y + 34f, tw, 12f);
             Color fill = upkeep
                 ? (value >= 70 ? new Color(0.45f, 0.78f, 0.45f) : value >= 40 ? new Color(0.95f, 0.75f, 0.3f) : new Color(0.9f, 0.4f, 0.35f))
-                : label == "미모" ? new Color(0.93f, 0.5f, 0.72f) : new Color(0.38f, 0.6f, 0.9f);
+                : axis == GrowthAxis.Beauty ? BeautyColor : axis == GrowthAxis.Training ? TrainingColor : AgilityColor;
             Bar(bar, Mathf.Clamp01(value / full), fill);
+
+            if (!upkeep)
+            {
+                float bonus = BreedTraits.BonusPercent(breed, axis);
+                GUI.Label(new Rect(tx, r.y + 49f, tw, 18f), "견종 " + BreedTraits.Format(bonus), bonus > 0f ? bonusUp : bonus < 0f ? bonusDown : smallStyle);
+            }
         }
 
-        void DrawCare(Rect r)
+        /// <summary>한 줄을 반으로 나눠 왼쪽은 돌보기 3종(재고), 오른쪽은 운동 3종(돈, 하루 한 번).</summary>
+        void DrawCareAndExercise(Rect r)
         {
-            GUI.Label(new Rect(r.x, r.y - 2f, 120f, 22f), "돌보기", sectionStyle);
+            const float gap = 16f, labelW = 66f, bgap = 8f;
+            float half = (r.width - gap) * 0.5f;
+            float bw = (half - labelW - 2f * bgap) / 3f;
             InventoryManager inv = InventoryManager.Instance;
-            float w = (r.width - 120f - 2f * 12f) / 3f;
+
+            GUI.Label(new Rect(r.x, r.y + 18f, labelW, 24f), "돌보기", sectionStyle);   // 높이 60 의 가운데
             for (int i = 0; i < 3; i++)
             {
-                var b = new Rect(r.x + 120f + i * (w + 12f), r.y, w, r.height - 8f);
-                bool on = careEnabled[i];
-                bool hover = on && b.Contains(Event.current.mousePosition);
-                Panel(b, hover ? new Color(1f, 0.97f, 0.86f, 1f) : new Color(1f, 1f, 1f, on ? 0.75f : 0.35f));
-
+                var b = new Rect(r.x + labelW + i * (bw + bgap), r.y, bw, r.height);
                 Texture2D icon = inv.Catalog.Get(careProduct[i]).icon;
-                var ic = new Rect(b.x + 8f, b.y + 4f, b.height - 8f, b.height - 8f);
-                GUI.color = on ? Color.white : new Color(1f, 1f, 1f, 0.45f);
-                if (icon != null) GUI.DrawTexture(ic, icon, ScaleMode.ScaleToFit);
-                GUI.color = Color.white;
-
-                GUI.Label(new Rect(ic.xMax + 8f, b.y + 6f, b.width - ic.width - 20f, 24f), careName[i], labelStyle);
-                GUI.Label(new Rect(ic.xMax + 8f, b.y + 32f, b.width - ic.width - 20f, 20f),
-                    inv.Catalog.Get(careProduct[i]).nameKo + "  창고 " + careStock[i] + "개",
-                    careStock[i] > 0 ? smallStyle : warnSmall);
-
-                GUI.enabled = on;
-                if (GUI.Button(b, GUIContent.none, GUIStyle.none)) RunCare(i);
-                GUI.enabled = true;
+                if (ActionButton(b, icon, careName[i], "창고 " + careStock[i] + "개", careEnabled[i], careStock[i] <= 0))
+                    RunCare(i);
             }
+
+            float ex = r.x + half + gap;
+            // 운동은 셋 중 하나를 하루 한 번 — 오늘 한 횟수를 "운동" 아래에 적는다
+            GUI.Label(new Rect(ex, r.y + 6f, labelW, 24f), "운동", sectionStyle);
+            GUI.Label(new Rect(ex, r.y + 32f, labelW, 20f), (exercisedToday ? 1 : 0) + " / 1", exercisedToday ? exerciseDone : exerciseCount);
+            for (int i = 0; i < TrainingManager.Exercises.Length; i++)
+            {
+                TrainingManager.ExerciseDef def = TrainingManager.Exercises[i];
+                var b = new Rect(ex + labelW + i * (bw + bgap), r.y, bw, r.height);
+                bool unlocked = TrainingManager.Instance.IsExerciseUnlocked(i);
+                string line = !unlocked ? "Lv " + def.unlockLevel + " 해금"
+                            : exercisedToday ? "오늘 완료"
+                            : exerciseEnabled[i] ? def.cost.ToString("N0") + "원 / +" + def.gain
+                            : exerciseReason[i];
+                bool warn = unlocked && !exercisedToday && !exerciseEnabled[i];
+                Texture2D icon = i < exerciseIcons.Length ? exerciseIcons[i] : null;
+                if (ActionButton(b, icon, def.nameKo, line, exerciseEnabled[i], warn))
+                {
+                    ActionRunner.TryRun(new TrainingManager.ExerciseAction(target, i));
+                    Rebuild();
+                }
+            }
+        }
+
+        /// <summary>아이콘 + 이름 + 한 줄 설명을 담은 작은 버튼. 누르면 true.</summary>
+        bool ActionButton(Rect b, Texture2D icon, string name, string line, bool on, bool warn)
+        {
+            bool hover = on && b.Contains(Event.current.mousePosition);
+            Panel(b, hover ? new Color(1f, 0.97f, 0.86f, 1f) : new Color(1f, 1f, 1f, on ? 0.75f : 0.35f));
+
+            var ic = new Rect(b.x + 5f, b.y + (b.height - 40f) * 0.5f, 40f, 40f);
+            GUI.color = on ? Color.white : new Color(1f, 1f, 1f, 0.45f);
+            if (icon != null) GUI.DrawTexture(ic, icon, ScaleMode.ScaleToFit);
+            GUI.color = Color.white;
+
+            float tx = ic.xMax + 4f, tw = b.xMax - tx - 3f;
+            GUI.Label(new Rect(tx, b.y + 8f, tw, 22f), name, btnName);
+            GUI.Label(new Rect(tx, b.y + 34f, tw, 18f), line, warn ? warnSmall : btnLine);
+
+            GUI.enabled = on;
+            bool pressed = GUI.Button(b, GUIContent.none, GUIStyle.none);
+            GUI.enabled = true;
+            return pressed;
+        }
+
+        // ---- "운동했다" 창 ----
+
+        Rect PopupRect()
+        {
+            float w = Mathf.Min(520f, Screen.width * 0.5f);
+            float h = w * 0.75f + 96f;
+            return new Rect((Screen.width - w) * 0.5f, (Screen.height - h) * 0.5f, w, h);
+        }
+
+        /// <summary>화면 가운데 작은 창: 그 견종이 공원에서 뛰노는 그림 + "운동했다!" + 오른 어질리티. 잠깐 떴다 사라진다.</summary>
+        void DrawExercisePopup()
+        {
+            float t = Time.unscaledTime - popupAt;
+            float a = Mathf.Clamp01(t / 0.15f) * Mathf.Clamp01((PopupSeconds - t) / 0.35f);
+            float pop = Mathf.Lerp(0.9f, 1f, Mathf.Clamp01(t / 0.15f));
+
+            Matrix4x4 keep = GUI.matrix;
+            GUI.matrix = Matrix4x4.identity;
+            GUI.depth = -20;
+            Rect r = PopupRect();
+            r = new Rect(r.center.x - r.width * pop * 0.5f, r.center.y - r.height * pop * 0.5f, r.width * pop, r.height * pop);
+
+            GUI.color = new Color(1f, 1f, 1f, a);
+            GUI.Box(r, GUIContent.none, UI.UiSkin.Panel_);
+            var img = new Rect(r.x + 12f, r.y + 12f, r.width - 24f, (r.width - 24f) * 0.75f);
+            Texture2D art = popupBreed >= 0 && popupBreed < exerciseArt.Length ? exerciseArt[popupBreed] : null;
+            if (art == null && exerciseArt.Length > 0) art = exerciseArt[0];
+            if (art != null) GUI.DrawTexture(img, art, ScaleMode.ScaleAndCrop);
+
+            float bonus = BreedTraits.BonusPercent(popupBreed, GrowthAxis.Agility);
+            GUI.Label(new Rect(r.x, img.yMax + 6f, r.width, 36f), popupName + " 운동했다!", popupTitle);
+            GUI.Label(new Rect(r.x, img.yMax + 44f, r.width, 26f),
+                      "어질리티 +" + popupGain + (bonus != 0f ? "   (견종 " + BreedTraits.Format(bonus) + ")" : ""), popupLine);
+            GUI.color = Color.white;
+
+            // 누르면 바로 닫힌다
+            if (Event.current.type == EventType.MouseDown && r.Contains(Event.current.mousePosition))
+            {
+                popupAt = -10f;
+                Event.current.Use();
+            }
+            GUI.matrix = keep;
         }
 
         void DrawTraining(Rect r)
@@ -441,6 +590,7 @@ namespace DogShop.Dogs
         }
 
         static GUIStyle roundBox, sectionStyle, rightStyle, hintStyle, warnSmall, cardWarn;
+        static GUIStyle gaugeLabel, bonusUp, bonusDown, btnName, btnLine, popupTitle, popupLine, exerciseCount, exerciseDone;
 
         void EnsureStyles()
         {
@@ -481,6 +631,23 @@ namespace DogShop.Dogs
             btnStyle.padding = new RectOffset(4, 4, 3, 3);
 
             roundBox = new GUIStyle(UI.UiSkin.Tag(Color.white));
+
+            gaugeLabel = new GUIStyle(labelStyle) { fontSize = 15 };
+            bonusUp = new GUIStyle(smallStyle) { fontSize = 12 };
+            bonusUp.normal.textColor = new Color(0.2f, 0.55f, 0.25f);
+            bonusDown = new GUIStyle(smallStyle) { fontSize = 12 };
+            bonusDown.normal.textColor = new Color(0.78f, 0.3f, 0.25f);
+            btnName = new GUIStyle(labelStyle) { fontSize = 15 };
+            btnLine = new GUIStyle(smallStyle) { fontSize = 12 };
+            warnSmall.fontSize = 12;
+            exerciseCount = new GUIStyle(labelStyle) { fontSize = 15 };
+            exerciseDone = new GUIStyle(exerciseCount);
+            exerciseDone.normal.textColor = new Color(0.8f, 0.3f, 0.25f);
+
+            popupTitle = new GUIStyle(UI.UiSkin.Title) { fontSize = 26, alignment = TextAnchor.MiddleCenter };
+            popupTitle.normal.textColor = cream;   // 창 바탕(Panel_)이 어두워 진한 글씨는 안 읽혔다
+            popupLine = new GUIStyle(UI.UiSkin.Label) { fontSize = 18, alignment = TextAnchor.MiddleCenter };
+            popupLine.normal.textColor = new Color(1f, 0.78f, 0.35f);
         }
 
         void RunCare(int slot)

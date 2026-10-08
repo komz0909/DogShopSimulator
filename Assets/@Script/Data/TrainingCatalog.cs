@@ -8,8 +8,9 @@ namespace DogShop.Data
     /// 획득량을 나눠 갖는 게 아니라 미모와 훈련도에 같은 값이 따로 붙는다.
     ///
     /// 값을 <b>뒤에만</b> 붙인다. 직렬화가 정수라 순서를 바꾸면 기존 카탈로그의 축이 뒤집힌다.
+    /// <see cref="Agility"/> 는 훈련 카드가 아니라 운동(<see cref="DogShop.Dogs.TrainingManager"/> 의 운동)으로만 오른다.
     /// </summary>
-    public enum GrowthAxis { Training, Beauty, Both }
+    public enum GrowthAxis { Training, Beauty, Both, Agility }
 
     /// <summary>
     /// 훈련 1종. 훈련 슬롯 1개와 재화를 소모해 성장 스탯을 올린다.

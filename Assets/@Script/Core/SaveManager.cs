@@ -15,6 +15,14 @@ namespace DogShop.Core
         public int health;
         public int beauty;
         public int training;
+
+        /// <summary>어질리티(운동으로 오른다). 없던 시절 세이브는 0으로 시작한다.</summary>
+        public int agility;
+
+        /// <summary>견종 배율을 곱하고 남은 소수 몫. 버리면 저장·로드만으로 견종 차이가 깎인다.</summary>
+        public float beautyCarry;
+        public float trainingCarry;
+        public float agilityCarry;
     }
 
     /// <summary>플레이어가 사서 놓아 둔 가구 하나. 무엇을 어디에 놓았는지만 있으면 다시 세울 수 있다.</summary>
@@ -40,6 +48,9 @@ namespace DogShop.Core
         public int day;
         public int shopLevel = 1;
         public int trainingSlotsUsed;
+
+        /// <summary>오늘 운동을 했는가(하루 한 번). 없으면 저장·로드만으로 운동이 다시 열린다.</summary>
+        public bool exercisedToday;
 
         /// <summary>오늘 이미 쓴 훈련(하루 쿨타임). 없으면 저장·로드만으로 쿨이 풀린다.</summary>
         public bool[] trainingUsedToday = new bool[0];
@@ -152,8 +163,9 @@ namespace DogShop.Core
         /// 3 = 영업 단계·그날 판매/놓침 건수 추가 (2026-09-18).
         /// 4 = 가게가 오른쪽으로만 넓어지던 것을 문(x 4)을 가운데 두고 양쪽으로 넓어지게 바꿈 (2026-10-07).
         ///     v3 이하 세이브의 판매장 가구는 불러올 때 왼쪽으로 옮긴다(<see cref="Shop.FurnitureShop.RestoreFrom"/>).
+        /// 5 = 어질리티·견종 배율의 소수 몫·오늘 운동 여부 추가 (2026-10-08). v4 이하는 셋 다 0/false 로 시작하면 된다.
         /// </summary>
-        public const int SchemaVersion = 4;
+        public const int SchemaVersion = 5;
 
         public static SaveManager Instance { get; private set; }
 
