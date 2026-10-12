@@ -153,7 +153,8 @@ MonoBehaviour:
   background: {fileID: 2800000, guid: cbe58c2ca48060146ad6ba1d55f0bc9e, type: 3}
   titleImage: {fileID: 2800000, guid: a959a71ad18c90544942d7de9d2b6972, type: 3}
   boneImage: {fileID: 2800000, guid: 7b16efc88c3a9ce4088c4f71081815e6, type: 3}
-  pawImage: {fileID: 2800000, guid: 77535890f4592f743b35b2ca31e25fb2, type: 3}
+  closeImage: {fileID: 2800000, guid: 72b5f47ac8de53447865ed13095e6a63, type: 3}
+  frameImage: {fileID: 2800000, guid: a242272b269c58b439dd02f37642e0eb, type: 3}
   breedPrefabs:
   - {fileID: 5952123453980497148, guid: 78053e4df90f87c42a6fb027924f032e, type: 3}
   - {fileID: 438498341219531127, guid: cf0b9831efd766a41899567a54662863, type: 3}
@@ -169,6 +170,7 @@ MonoBehaviour:
   otherButton: {fileID: 2800000, guid: 3ca7a88c21e160a4e85b21841f3adbe5, type: 3}
   iconStar: {fileID: 2800000, guid: 6561ac79f1e71864595e6a7e734054c0, type: 3}
   iconPaw: {fileID: 2800000, guid: ca885e9864d57a540ad3734b5317ef2f, type: 3}
+  titleLogo: {fileID: 2800000, guid: d07e3335861a0034492ab0cf05cf8c25, type: 3}
   statIcons:
   - {fileID: 2800000, guid: 5a5225f1a7259e241a5e6b4ac5c6df4f, type: 3}
   - {fileID: 2800000, guid: 82c4ba34bae0d9542a4bf7ee82f82407, type: 3}
@@ -177,42 +179,44 @@ MonoBehaviour:
   - {fileID: 2800000, guid: 6cd22c3f3672925449a84b3caf43c23d, type: 3}
   breeds:
   - nameKo: "\uB2E5\uC2A4\uD6C8\uD2B8"
-    blurb: "\uBAB8\uC774 \uAC00\uC7A5 \uAE38\uB2E4. \uC9E7\uC740 \uB2E4\uB9AC\uB85C\n\uC758\uC678\uB85C
-      \uC798 \uB2EC\uB9B0\uB2E4"
+    blurb: "\uC8FC\uC778\uC5D0\uAC8C\uB294 \uBB34\uD55C\uD55C \uC560\uC815\uACFC\n\uCDA9\uC131\uC744
+      \uBCF4\uC5EC\uC90D\uB2C8\uB2E4."
     portrait: {fileID: 2800000, guid: d21bbf19f16597f4b85ff44977b58726, type: 3}
     bodyLength: 0.76
     runSpeed: 2.39
     grade: "\uC77C\uBC18"
   - nameKo: "\uBE44\uAE00"
-    blurb: "\uADC0\uAC00 \uAE38\uACE0 \uBA85\uB791\uD558\uB2E4.\n\uBB34\uB09C\uD558\uAC8C
-      \uB530\uB77C\uC628\uB2E4"
+    blurb: "\uB6F0\uC5B4\uB09C \uCE5C\uD654\uB825\uACFC \uCF8C\uD65C\uD55C \uC131\uACA9\uC744\n\uAC00\uC9C4
+      \uB9E4\uB825\uC801\uC778 \uACAC\uC885\uC785\uB2C8\uB2E4."
     portrait: {fileID: 2800000, guid: 0ab302eb301b5134da38e56fa78817ad, type: 3}
     bodyLength: 0.69
     runSpeed: 2.19
     grade: "\uC77C\uBC18"
   - nameKo: "\uC2DC\uBC14\uACAC"
-    blurb: "\uC5EC\uC6B0 \uAC19\uC740 \uC5BC\uAD74.\n\uC81C \uAC08 \uAE38\uC740 \uC81C\uAC00
-      \uAC04\uB2E4"
+    blurb: "\uBA38\uB9AC\uAC00 \uB611\uB611\uD558\uC5EC \uD6C8\uB828 \uBC18\uC751\uACFC\n\uC2B5\uB4DD\uB825\uC774
+      \uBE60\uB978 \uD3B8\uC785\uB2C8\uB2E4."
     portrait: {fileID: 2800000, guid: 971ac058f71a34e43a85c4101bf67413, type: 3}
     bodyLength: 0.69
     runSpeed: 2.19
     grade: "\uC77C\uBC18"
   - nameKo: "\uC6F0\uC2DC\uCF54\uAE30"
-    blurb: "\uC9E7\uC740 \uB2E4\uB9AC\uC5D0 \uD070 \uC5C9\uB369\uC774.\n\uAC78\uC74C\uC774
-      \uC57C\uBB34\uC9C0\uB2E4"
+    blurb: "\uAC1C\uB4E4 \uC911\uC5D0\uC11C\uB3C4 \uC0AC\uD68C\uC131\uACFC\n\uCE5C\uD654\uB825\uC774
+      \uB9E4\uC6B0 \uB6F0\uC5B4\uB09C \uD3B8\uC785\uB2C8\uB2E4."
     portrait: {fileID: 2800000, guid: 7046dc3cc934e354a997d97694bf463a, type: 3}
     bodyLength: 0.68
     runSpeed: 2.13
     grade: "\uC77C\uBC18"
   - nameKo: "\uC7AD \uB7EC\uC140 \uD14C\uB9AC\uC5B4"
-    blurb: "\uAC00\uC7A5 \uC791\uB2E4. \uC8FC\uC778\uC744 \uB193\uCE58\uBA74\n\uAE08\uC138
-      \uB4A4\uCC98\uC9C4\uB2E4"
+    blurb: "\uB9E4\uC6B0 \uC601\uB9AC\uD574\uC11C \uC0C8\uB85C\uC6B4 \uBA85\uB839\uC774\uB098\n\uD6C8\uB828,
+      \uD2B8\uB9AD\uC744 \uC544\uC8FC \uBE60\uB974\uAC8C\n\uC774\uD574\uD558\uACE0
+      \uC2B5\uB4DD\uD569\uB2C8\uB2E4."
     portrait: {fileID: 2800000, guid: 5d0223dcee5de9449812ba1ecef9ba2f, type: 3}
     bodyLength: 0.59
     runSpeed: 1.86
     grade: "\uC77C\uBC18"
   - nameKo: "\uD504\uB80C\uCE58 \uBD88\uB3C5"
-    blurb: "\uCEE4\uB2E4\uB780 \uBC15\uC950 \uADC0.\n\uB290\uAE0B\uD558\uAC8C \uB3CC\uC544\uB2E4\uB2CC\uB2E4"
+    blurb: "\uC628\uD654\uD558\uACE0 \uB2E4\uC815\uD558\uBA70\n\uC2E4\uB0B4 \uC0DD\uD65C\uC5D0
+      \uC798 \uC801\uC751\uD558\uB294\n\uB9E4\uB825\uC801\uC778 \uACAC\uC885\uC785\uB2C8\uB2E4."
     portrait: {fileID: 2800000, guid: 55fd9c3f558fa7f4c8f4b4f60b2a7955, type: 3}
     bodyLength: 0.61
     runSpeed: 1.93

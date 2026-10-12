@@ -207,6 +207,16 @@ namespace DogShop.Shop
         /// <summary>긴급 발주가 도착하기까지의 게임 시간.</summary>
         public const float ExpressHours = 1f;
 
+        /// <summary>
+        /// 긴급 발주를 받는 시간(10:00~17:00). 영업 중에 급한 구멍을 메우는 용도다 —
+        /// 17시에 시켜도 18시에 와서 문 닫기 전에 진열할 수 있다. 영업 전·후엔 보통 발주(내일 아침)를 쓴다.
+        /// </summary>
+        public const float ExpressFromHour = 10f, ExpressUntilHour = 17f;
+
+        public static bool ExpressOpenNow =>
+            TimeManager.Instance == null
+            || (TimeManager.Instance.CurrentHour >= ExpressFromHour && TimeManager.Instance.CurrentHour < ExpressUntilHour);
+
         /// <summary>아직 안 온 긴급 발주 수. 상점창이 보여 준다.</summary>
         public int ExpressPending => express.Count;
 
@@ -312,6 +322,11 @@ namespace DogShop.Shop
             if (expressed && ExpressUsedToday)
             {
                 reason = "긴급 발주는 하루 한 번, 내일 다시";
+                return false;
+            }
+            if (expressed && !ExpressOpenNow)
+            {
+                reason = "긴급 발주는 10:00 ~ 17:00 에만 된다";
                 return false;
             }
 

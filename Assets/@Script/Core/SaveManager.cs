@@ -132,6 +132,9 @@ namespace DogShop.Core
         /// <summary>영업 단계(0 준비중 / 1 영업중 / 2 마감). 없던 시절 세이브는 준비중으로 복원된다.</summary>
         public int shopPhase;
 
+        /// <summary>10시 전에 [가게 열기]를 눌러 둔 상태(10시에 연다). 없으면 예약 안 한 것으로 본다.</summary>
+        public bool shopReserved;
+
         /// <summary>
         /// 운반 상자. 상자 안의 물건은 <b>이미 창고에서 빠져나온</b> 상태라
         /// 저장하지 않으면 창고에도 상자에도 없는 채로 영구 유실된다.
@@ -164,8 +167,9 @@ namespace DogShop.Core
         /// 4 = 가게가 오른쪽으로만 넓어지던 것을 문(x 4)을 가운데 두고 양쪽으로 넓어지게 바꿈 (2026-10-07).
         ///     v3 이하 세이브의 판매장 가구는 불러올 때 왼쪽으로 옮긴다(<see cref="Shop.FurnitureShop.RestoreFrom"/>).
         /// 5 = 어질리티·견종 배율의 소수 몫·오늘 운동 여부 추가 (2026-10-08). v4 이하는 셋 다 0/false 로 시작하면 된다.
+        /// 6 = 영업시간 09~21시(10시 오픈 예약) — 오픈 예약 여부 추가 (2026-10-12). 옛 세이브의 08시대 시각은 09시로 당겨진다.
         /// </summary>
-        public const int SchemaVersion = 5;
+        public const int SchemaVersion = 6;
 
         public static SaveManager Instance { get; private set; }
 

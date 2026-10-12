@@ -79,7 +79,7 @@ namespace DogShop.Debugging
             if (Debug.isDebugBuild)
             {
                 // R 은 상자에서 내리는 키다. 겹쳐 있어서 진열하려다 하루가 계속 리셋됐다 — 손이 안 가는 9 로 옮김
-                if (kb.digit9Key.wasPressedThisFrame) { TimeManager.Instance.StartNewDay(); Show("하루 리셋: 08:00"); }
+                if (kb.digit9Key.wasPressedThisFrame) { TimeManager.Instance.StartNewDay(); Show("하루 리셋: 09:00"); }
 
                 // 0: D30 도그쇼로 바로 간다(미모·훈련도 80%)
                 if (kb.digit0Key.wasPressedThisFrame && DogShop.Show.DogShow.Instance != null)

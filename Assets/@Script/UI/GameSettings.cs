@@ -5,7 +5,7 @@ using UnityEngine.InputSystem;
 namespace DogShop.UI
 {
     /// <summary>
-    /// 게임 안 설정 창. <b>ESC 로 열고 닫는다</b>(발바닥으로도 닫힌다). 창은 메인 메뉴와 같은
+    /// 게임 안 설정 창. <b>ESC 로 열고 닫는다</b>(오른쪽 위 발바닥으로도 닫힌다). 창은 메인 메뉴와 같은
     /// <see cref="SettingsPanel"/> 이다.
     ///
     /// 열려 있는 동안 시간은 멈춘다 — 장사 중에 소리를 줄이려다 손님을 놓치면 안 된다.
@@ -14,7 +14,8 @@ namespace DogShop.UI
     /// </summary>
     public class GameSettings : MonoBehaviour, IPointerMenu
     {
-        [SerializeField] Texture2D pawImage;
+        [SerializeField] Texture2D closeImage;     // 닫기 귀퉁이 발바닥 (T_UI_SettingsClosePaw)
+        [SerializeField] Texture2D frameImage;     // 설정 창 틀 (T_UI_SettingsFrame)
 
         public bool IsOpen { get; private set; }
 
@@ -59,7 +60,7 @@ namespace DogShop.UI
 
             // HUD 와 다른 창보다 위에 그리고, 클릭도 먼저 받는다(GUI.depth 가 낮을수록 위)
             GUI.depth = -90;
-            if (SettingsPanel.Draw(pawImage)) Close();
+            if (SettingsPanel.Draw(closeImage, frameImage)) Close();
         }
     }
 }

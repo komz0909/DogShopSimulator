@@ -54,7 +54,8 @@ namespace DogShop.Show
         const float StatFull = 240f;
 
         const int PoseRounds = 5;
-        const int FetchRounds = 5;
+        /// <summary>물어오기 판 수. 한 판이 강아지가 다녀오는 데 10초 넘게 걸려 5판은 늘어졌다 — 3판으로.</summary>
+        const int FetchRounds = 3;
 
         public static DogShow Instance { get; private set; }
 
@@ -616,8 +617,11 @@ namespace DogShop.Show
             jumpHeight = Mathf.Lerp(0.35f, 0.62f, agilityN);
             airTime = Mathf.Lerp(0.42f, 0.55f, agilityN);
 
-            PlaceDog(laneStart.position, Quaternion.LookRotation(laneEnd.position - laneStart.position));
-            AimCamera(laneStart.position, 4.2f, 1.6f, 0f);
+            BuildTrack();
+            Vector3 startFace;
+            Vector3 trackStart = stage.TransformPoint(TrackPoint(0f, out startFace));
+            PlaceDog(trackStart, Quaternion.LookRotation(stage.TransformDirection(startFace)));
+            AimCamera(trackStart, 4.2f, 1.6f, 0f);
             headline = "어질리티";
             subline = "허들 앞에서 Space 로 점프! 30일 동안 키운 몸이 그대로 드러난다";
             specShownAt = Time.time;
@@ -627,15 +631,15 @@ namespace DogShop.Show
             phase = Phase.Agility;
             headline = "어질리티";
             subline = "안내를 읽고 [준비완료]를 누르면 3초 뒤 시작";
-            PlaceDog(laneStart.position, Quaternion.LookRotation(laneEnd.position - laneStart.position));
+            PlaceDog(trackStart, Quaternion.LookRotation(stage.TransformDirection(startFace)));
             hero.Animator.Play(DogAnim.Idle);
             FollowCamera(hero.transform.position);
-            yield return Guide("3. 어질리티  (허들 " + hurdles.Length + "개)",
-                "출발하면 강아지가 레인을 따라 저절로 달린다",
+            yield return Guide("3. 어질리티  (허들 " + trackHurdles.Count + "개 + 링)",
+                "출발하면 강아지가 U자 레인을 따라 저절로 달린다. 점프만 누르면 된다",
                 "허들 바로 앞에서 Space 로 점프! 너무 이르거나 늦으면 허들에 걸린다",
                 "점프 중에는 다시 뛸 수 없다. 착지한 뒤 다음 허들을 노리자",
                 "어질리티가 높을수록 빠르고, 높고 오래 뛴다  (지금 어질리티 " + hero.Stats.Agility + ")",
-                "넘은 허들 수가 점수, 총점의 25%");
+                "마지막 링 안으로 뛰어들면 끝! 넘은 허들과 링 수가 점수, 총점의 25%");
 
             subline = "Space: 점프";
             cleared = 0;
@@ -643,15 +647,15 @@ namespace DogShop.Show
             jumpStart = -10f;
 
             float baseY = laneStart.position.y + DogBaseOffset();
-            Vector3 dir = (laneEnd.position - laneStart.position).normalized;
-            float length = Vector3.Distance(laneStart.position, laneEnd.position);
             float pos = 0f;
-            var passed = new bool[hurdles.Length];
+            int total = trackHurdles.Count + 1;   // 허들 + 마지막 링
+            var passed = new bool[trackHurdles.Count];
+            bool hoopDone = false;
 
             hero.Animator.Play(DogAnim.Run);
             hero.Animator.SetPlaybackSpeed(Mathf.Lerp(1f, 1.6f, agilityN));
 
-            while (pos < length)
+            while (pos < TrackLength)
             {
                 pos += runSpeed * Time.deltaTime;
                 if (jumpRequested && Time.time - jumpStart > airTime) jumpStart = Time.time;
@@ -659,19 +663,33 @@ namespace DogShop.Show
 
                 float air = Time.time - jumpStart;
                 float h = air < airTime ? jumpHeight * 4f * (air / airTime) * (1f - air / airTime) : 0f;
-                Vector3 p = laneStart.position + dir * pos;
+                Vector3 tangent;
+                Vector3 p = stage.TransformPoint(TrackPoint(pos, out tangent));
                 hero.transform.position = new Vector3(p.x, baseY + h, p.z);
+                // U자 모퉁이에서도 달리는 쪽을 본다
+                Vector3 face = stage.TransformDirection(tangent);
+                hero.transform.rotation = Quaternion.Slerp(hero.transform.rotation, Quaternion.LookRotation(face), 1f - Mathf.Exp(-14f * Time.deltaTime));
 
-                for (int i = 0; i < hurdles.Length; i++)
+                for (int i = 0; i < trackHurdles.Count; i++)
                 {
-                    if (passed[i] || hurdles[i] == null) continue;
-                    float hurdleAt = Vector3.Dot(hurdles[i].position - laneStart.position, dir);
-                    if (pos < hurdleAt) continue;
-
+                    if (passed[i] || pos < TrackHurdleAt[i]) continue;
                     passed[i] = true;
                     // 바가 ~0.3m. 그 순간 그만큼 떠 있어야 넘는다
                     if (h > 0.25f) { cleared++; Flash("CLEAR!", new Color(0.6f, 1f, 0.75f)); }
-                    else { Flash("쿵!", new Color(1f, 0.55f, 0.5f)); KnockHurdle(hurdles[i]); }
+                    else { Flash("쿵!", new Color(1f, 0.55f, 0.5f)); KnockHurdle(trackHurdles[i]); }
+                }
+
+                // 마지막 링 — 링 안쪽 아래 끝(HoopInnerBottom)보다 높이 떠 있어야 원 안으로 들어간다
+                if (!hoopDone && pos >= TrackHoopAt)
+                {
+                    hoopDone = true;
+                    if (h > (hoopModel != null ? HoopModelClear : HoopInnerBottom)) { cleared++; Flash("링 통과!", PerfectColor); }
+                    else { Flash("링에 걸렸다", new Color(1f, 0.55f, 0.5f)); hoopWobble = 1f; }
+                }
+                if (hoop != null && hoopWobble > 0f)
+                {
+                    hoopWobble = Mathf.MoveTowards(hoopWobble, 0f, Time.deltaTime * 1.5f);
+                    hoop.localRotation = hoopRest * Quaternion.Euler(0f, 0f, Mathf.Sin(Time.time * 24f) * 10f * hoopWobble);
                 }
 
                 FollowCamera(hero.transform.position);
@@ -680,15 +698,250 @@ namespace DogShop.Show
 
             hero.Animator.SetPlaybackSpeed(1f);
             hero.Animator.Play(DogAnim.WagTail);
-            agilityScore = hurdles.Length > 0 ? cleared / (float)hurdles.Length : 0f;
+            agilityScore = cleared / (float)total;
             headline = "어질리티 끝";
-            subline = "허들 " + hurdles.Length + "개 중 " + cleared + "개";
+            subline = "허들과 링 " + total + "개 중 " + cleared + "개";
             yield return Wait(1.8f);
+        }
+
+        // ---- ③ U자 점프 트랙 ----
+        // 예전엔 무대 가운데 직선 16m 에 허들 4개라 금방 끝났다. 무대 앞쪽 빈 바닥에 U자로 32m 를 깐다.
+        //   윗줄(→)  z -2.0 에서 x -8 → 6.5, 허들 4개
+        //   반원     중심 (6.5, -3.6), 반지름 1.6 — 모퉁이에선 점프 없이 돈다
+        //   아랫줄(←) z -5.2 에서 x 6.5 → -7, 허들 3개, 끝에 링 하나(통과하면 끝)
+        // 아랫줄은 무대 앞 테두리(z -5.9)에서 0.7m 안쪽이고, ④ 장애물 코스(z -6.1 아래)와 겹치지 않는다.
+
+        const float TrackX0 = -8f, TrackTurnX = 6.5f, TrackEndX = -7f, TrackZ1 = -2f, TrackZ2 = -5.2f;
+        static float TrackR => (TrackZ1 - TrackZ2) * 0.5f;
+        static float TrackLeg1 => TrackTurnX - TrackX0;
+        static float TrackArc => Mathf.PI * TrackR;
+        static float TrackLength => TrackLeg1 + TrackArc + (TrackTurnX - TrackEndX);
+
+        /// <summary>허들 자리(트랙 처음부터 거리). 윗줄 x -5, -1.5, 2, 5.5 / 아랫줄 x 4, 0.5, -3. 사이 3.5m.</summary>
+        static readonly float[] TrackHurdleAt =
+        {
+            -5f - TrackX0, -1.5f - TrackX0, 2f - TrackX0, 5.5f - TrackX0,
+            TrackLeg1 + TrackArc + (TrackTurnX - 4f), TrackLeg1 + TrackArc + (TrackTurnX - 0.5f), TrackLeg1 + TrackArc + (TrackTurnX + 3f),
+        };
+        /// <summary>링 자리(아랫줄 x -5.5). 링을 지나 1.5m 뒤가 결승.</summary>
+        static float TrackHoopAt => TrackLeg1 + TrackArc + (TrackTurnX + 5.5f);
+
+        /// <summary>
+        /// 링 치수(m). 링 가운데 높이 0.62, 바깥 반지름 0.42, 굵기 0.06 — 안쪽 아래 끝이 0.26 이라
+        /// 허들 바(0.25)와 비슷한 높이로 떠 있어야 원 안으로 들어간다.
+        /// </summary>
+        const float HoopCenterY = 0.62f, HoopRadius = 0.42f, HoopTube = 0.06f;
+        const float HoopInnerBottom = 0.22f;   // 발 높이 기준. 안쪽 아래 끝(0.26)에서 몸이 둥근 만큼 조금 봐준다 — 허들(0.25)과 비슷한 박자
+
+        [Header("③ 링 점프(비우면 코드로 만든 줄무늬 링)")]
+        [SerializeField] GameObject hoopModel;
+
+        readonly List<Transform> trackHurdles = new List<Transform>();
+        Transform hoop;
+        Quaternion hoopRest;
+        float hoopWobble;
+
+        /// <summary>트랙 처음부터 <paramref name="d"/> 만큼 간 곳(무대 기준)과 달리는 방향.</summary>
+        static Vector3 TrackPoint(float d, out Vector3 tangent)
+        {
+            if (d < TrackLeg1)
+            {
+                tangent = Vector3.right;
+                return new Vector3(TrackX0 + d, 0f, TrackZ1);
+            }
+            if (d < TrackLeg1 + TrackArc)
+            {
+                float a = (d - TrackLeg1) / TrackR;
+                tangent = new Vector3(Mathf.Cos(a), 0f, -Mathf.Sin(a));
+                return new Vector3(TrackTurnX + TrackR * Mathf.Sin(a), 0f, (TrackZ1 + TrackZ2) * 0.5f + TrackR * Mathf.Cos(a));
+            }
+            tangent = Vector3.left;
+            return new Vector3(TrackTurnX - (d - TrackLeg1 - TrackArc), 0f, TrackZ2);
+        }
+
+        /// <summary>
+        /// 트랙을 깐다. 무대에 놓인 허들(4개)을 본으로 모자란 만큼 복제해 U자 위에 세우고,
+        /// 출발선·결승선을 옮기고, 마지막에 링을 세운다. 두 번 불려도 한 번만 만든다.
+        /// </summary>
+        void BuildTrack()
+        {
+            if (trackHurdles.Count == 0 && hurdles.Length > 0)
+            {
+                Transform proto = hurdles[0];
+                for (int i = 0; i < TrackHurdleAt.Length; i++)
+                {
+                    Transform h = i < hurdles.Length && hurdles[i] != null ? hurdles[i]
+                                : Instantiate(proto.gameObject, stage).transform;
+                    h.name = "TrackHurdle_" + i;
+                    Vector3 t;
+                    h.position = stage.TransformPoint(TrackPoint(TrackHurdleAt[i], out t));
+                    // 본 허들은 레인(+x)을 보고 서 있었다 — 달리는 방향만큼 돌린다
+                    h.rotation = stage.rotation * Quaternion.FromToRotation(Vector3.right, t) * Quaternion.Inverse(stage.rotation) * proto.rotation;
+                    trackHurdles.Add(h);
+                }
+            }
+
+            Vector3 tan;
+            Transform startLine = stage.Find("StartLine"), finishLine = stage.Find("FinishLine");
+            if (startLine != null) startLine.localPosition = TrackPoint(0.4f, out tan) + Vector3.up * 0.01f;
+            if (finishLine != null) finishLine.localPosition = TrackPoint(TrackLength - 0.4f, out tan) + Vector3.up * 0.01f;
+
+            if (hoop == null)
+            {
+                Vector3 at = TrackPoint(TrackHoopAt, out tan);
+                hoop = (hoopModel != null ? FitHoopModel() : BuildHoopShape()).transform;
+                hoop.name = "TrackHoop";
+                hoop.SetParent(stage, false);
+                hoop.localPosition = at;
+                hoop.localRotation = Quaternion.LookRotation(tan);   // 링 면이 달리는 방향을 마주 본다
+                hoopRest = hoop.localRotation;
+            }
+        }
+
+        /// <summary>
+        /// 사진 같은 링 점프를 기본 도형으로 세운다: 주황·흰·보라 줄무늬 링을 양옆 흰 A자 기둥이 받친다.
+        /// 링은 로컬 xy 평면(달리는 방향 z 를 마주 봄), 바닥 가운데가 원점이다.
+        /// </summary>
+        GameObject BuildHoopShape()
+        {
+            var root = new GameObject("Hoop");
+            Color[] stripe = { new Color(0.98f, 0.55f, 0.18f), new Color(0.97f, 0.97f, 0.95f), new Color(0.62f, 0.28f, 0.62f), new Color(0.97f, 0.97f, 0.95f) };
+            const int Segs = 32, Sides = 10;
+            // 줄무늬마다 메시를 따로 — 머티리얼 하나에 정점색을 쓰면 URP Lit 이 색을 무시한다
+            for (int s = 0; s < stripe.Length; s++)
+            {
+                var verts = new List<Vector3>();
+                var norms = new List<Vector3>();
+                var tris = new List<int>();
+                for (int i = s * 2; i < Segs; i += stripe.Length * 2)
+                {
+                    for (int k = 0; k < 2; k++)   // 줄 하나 = 마디 2개
+                    {
+                        int seg = i + k;
+                        int baseIndex = verts.Count;
+                        for (int e = 0; e <= 1; e++)
+                        {
+                            float a = (seg + e) / (float)Segs * Mathf.PI * 2f;
+                            Vector3 c = new Vector3(Mathf.Cos(a), Mathf.Sin(a), 0f);
+                            for (int j = 0; j <= Sides; j++)
+                            {
+                                float b = j / (float)Sides * Mathf.PI * 2f;
+                                Vector3 n = c * Mathf.Cos(b) + Vector3.forward * Mathf.Sin(b);
+                                verts.Add(c * HoopRadius + n * HoopTube + Vector3.up * HoopCenterY);
+                                norms.Add(n);
+                            }
+                        }
+                        for (int j = 0; j < Sides; j++)
+                        {
+                            int a0 = baseIndex + j, a1 = a0 + 1, b0 = a0 + Sides + 1, b1 = b0 + 1;
+                            tris.Add(a0); tris.Add(b0); tris.Add(a1);
+                            tris.Add(a1); tris.Add(b0); tris.Add(b1);
+                        }
+                    }
+                }
+                var mesh = new Mesh { name = "HoopStripe" + s };
+                mesh.SetVertices(verts);
+                mesh.SetNormals(norms);
+                mesh.SetTriangles(tris, 0);
+                mesh.RecalculateBounds();
+                var go = new GameObject("Stripe" + s);
+                go.transform.SetParent(root.transform, false);
+                go.AddComponent<MeshFilter>().sharedMesh = mesh;
+                go.AddComponent<MeshRenderer>().sharedMaterial = HoopMat(stripe[s]);
+            }
+
+            // 양옆 A자 기둥(흰색)과 바닥 받침
+            Material white = HoopMat(new Color(0.95f, 0.95f, 0.93f));
+            float side = HoopRadius + 0.12f;
+            for (int sgn = -1; sgn <= 1; sgn += 2)
+            {
+                for (int leg = -1; leg <= 1; leg += 2)
+                {
+                    var p = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                    Destroy(p.GetComponent<Collider>());
+                    p.transform.SetParent(root.transform, false);
+                    float h = HoopCenterY + HoopRadius + 0.1f;
+                    p.transform.localScale = new Vector3(0.04f, h * 0.5f, 0.04f);
+                    p.transform.localPosition = new Vector3(sgn * side, h * 0.5f, leg * 0.18f);
+                    p.transform.localRotation = Quaternion.Euler(-leg * 14f, 0f, 0f);
+                    p.GetComponent<MeshRenderer>().sharedMaterial = white;
+                }
+                var foot = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                Destroy(foot.GetComponent<Collider>());
+                foot.transform.SetParent(root.transform, false);
+                foot.transform.localScale = new Vector3(0.05f, 0.03f, 0.7f);
+                foot.transform.localPosition = new Vector3(sgn * side, 0.015f, 0f);
+                foot.GetComponent<MeshRenderer>().sharedMaterial = white;
+            }
+            // 링을 기둥에 거는 가로대(위)
+            var bar = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            Destroy(bar.GetComponent<Collider>());
+            bar.transform.SetParent(root.transform, false);
+            bar.transform.localScale = new Vector3(side * 2f + 0.06f, 0.04f, 0.04f);
+            bar.transform.localPosition = new Vector3(0f, HoopCenterY + HoopRadius + 0.1f, 0f);
+            bar.GetComponent<MeshRenderer>().sharedMaterial = white;
+            return root;
+        }
+
+        /// <summary>
+        /// 바르코 링 모델 높이(m). 모델은 링 가운데가 높이의 55%, 구멍 반지름이 높이의 19% 다 —
+        /// 1.1m 로 맞추면 구멍 아래 끝이 약 0.39m, 구멍 지름 0.42m. 링 튜브가 두꺼워 기본 링(0.26)보다 조금 높다.
+        /// </summary>
+        const float HoopModelHeight = 1.1f;   // 0.95 는 시바견 몸이 구멍보다 커 보였다
+        /// <summary>바르코 링을 통과했다고 보는 발 높이. 구멍 아래 끝(0.39)보다 조금 봐준다 — 어질리티가 낮아도(최고 0.35m) 꼭대기에서 맞추면 들어간다.</summary>
+        const float HoopModelClear = 0.3f;
+
+        /// <summary>
+        /// 바르코 링 모델을 바닥 가운데 원점에 높이 <see cref="HoopModelHeight"/> 로 맞춰 세운다.
+        /// 링 면이 앞(+z)을 보게 맞춘다 — 붙잡는 부모를 달리는 방향으로 돌리면 링이 강아지를 마주 본다.
+        /// </summary>
+        GameObject FitHoopModel()
+        {
+            var holder = new GameObject("Hoop");
+            GameObject model = Instantiate(hoopModel, holder.transform);
+            model.name = "Model";
+            foreach (Collider c in model.GetComponentsInChildren<Collider>()) Destroy(c);
+            Renderer[] rs = model.GetComponentsInChildren<Renderer>();
+            if (rs.Length == 0) return holder;
+            Bounds b = rs[0].bounds;
+            foreach (Renderer r in rs) b.Encapsulate(r.bounds);
+            // 링 면이 x 쪽을 보고 있으면(x 두께가 z 보다 얇으면) 90도 돌려 z 를 보게 한다
+            if (b.size.x < b.size.z)
+            {
+                model.transform.localRotation = Quaternion.Euler(0f, 90f, 0f) * model.transform.localRotation;
+                b = rs[0].bounds;
+                foreach (Renderer r in rs) b.Encapsulate(r.bounds);
+            }
+            float k = HoopModelHeight / Mathf.Max(0.01f, b.size.y);
+            model.transform.localScale *= k;
+            model.transform.localPosition = (model.transform.localPosition - new Vector3(b.center.x, b.min.y, b.center.z)) * k;
+            return holder;
+        }
+
+        static Material HoopMat(Color c)
+        {
+            Shader s = Shader.Find("Universal Render Pipeline/Lit");
+            var m = new Material(s != null ? s : Shader.Find("Standard")) { color = c };
+            if (m.HasProperty("_BaseColor")) m.SetColor("_BaseColor", c);
+            if (m.HasProperty("_Smoothness")) m.SetFloat("_Smoothness", 0.45f);
+            return m;
         }
 
         /// <summary>코스 제한 시간. 넘기면 거기까지 지난 장애물만 센다.</summary>
         const float CourseLimit = 90f;
         float courseTime;
+
+        /// <summary>
+        /// 위브에서 맞춰야 할 화살표 수. 성장도(종합 스탯)가 높을수록 적다 — 제한 시간(10초)은 같다.
+        /// 16개는 초당 1.6개를 쉬지 않고 눌러야 하는 박자, 8개는 여유 있게 따라가는 박자다.
+        /// </summary>
+        const int WeaveArrowsMax = 16, WeaveArrowsMin = 8;
+        int weaveArrows = 12;
+
+        /// <summary>구간 한 줄 안내를 띄운 구간 번호와 시각.</summary>
+        int introFor = -1;
+        float introAt;
+        const float IntroShow = 2.6f;
         Vector3 courseFacing;
 
         /// <summary>
@@ -725,6 +978,9 @@ namespace DogShop.Show
             bool running = false;
             runSpeed = Mathf.Lerp(2.2f, 4.0f, totalN);   // ③ 은 어질리티, ④ 는 종합 스탯
             float runAnimSpeed = Mathf.Lerp(1f, 1.6f, totalN);
+            weaveArrows = Mathf.RoundToInt(Mathf.Lerp(WeaveArrowsMax, WeaveArrowsMin, totalN));
+            introFor = -1;
+            course.TableEase = totalN;   // 잘 키웠으면 단상이 덜 기운다
 
             while (!course.Finished && courseTime < CourseLimit)
             {
@@ -740,21 +996,48 @@ namespace DogShop.Show
                     if (kb.dKey.isPressed || kb.rightArrowKey.isPressed) input.x += 1f;
                     if (kb.aKey.isPressed || kb.leftArrowKey.isPressed) input.x -= 1f;
                 }
-                // 화면 기준으로 움직인다 — W 는 화면 위쪽
-                Vector3 camF = Flat(showCamera.transform.forward).normalized;
-                Vector3 camR = Flat(showCamera.transform.right).normalized;
-                Vector3 dir = camF * input.y + camR * input.x;
-                if (dir.sqrMagnitude > 1f) dir.Normalize();
-                bool still = dir.sqrMagnitude < 0.01f;
+                // 구간이 바뀌면 그 구간 한 줄 안내를 띄운다
+                if (!course.Finished && course.Next != introFor) { introFor = course.Next; introAt = Time.time; }
 
-                Vector3 pos = hero.transform.position + dir * runSpeed * dt;
-                Vector3 ls = stage.InverseTransformPoint(pos);
-                ls.x = Mathf.Clamp(ls.x, ObstacleCourse.Area.xMin, ObstacleCourse.Area.xMax);
-                ls.z = Mathf.Clamp(ls.z, ObstacleCourse.Area.yMin, ObstacleCourse.Area.yMax);
-                // 장애물에 닿아 시작했으면 지나온 쪽으로는 못 돌아간다(옆으로는 자유)
-                Vector3 from = stage.InverseTransformPoint(hero.transform.position);
-                ls = course.ConstrainForward(new Vector3(from.x, 0f, from.z), new Vector3(ls.x, 0f, ls.z));
-                pos = stage.TransformPoint(new Vector3(ls.x, 0f, ls.z));
+                Vector3 dir;
+                Vector3 pos;
+                if (course.WeaveRhythm)
+                {
+                    // 위브는 리듬으로 — 손으로 몰지 않고 화면 위 화살표 줄을 차례로 맞추면 봉 사이를 오가며 나아간다
+                    int pressed = -1;
+                    if (kb != null)
+                    {
+                        if (kb.wKey.wasPressedThisFrame || kb.upArrowKey.wasPressedThisFrame) pressed = ObstacleCourse.Up;
+                        else if (kb.dKey.wasPressedThisFrame || kb.rightArrowKey.wasPressedThisFrame) pressed = ObstacleCourse.Right;
+                        else if (kb.sKey.wasPressedThisFrame || kb.downArrowKey.wasPressedThisFrame) pressed = ObstacleCourse.Down;
+                        else if (kb.aKey.wasPressedThisFrame || kb.leftArrowKey.wasPressedThisFrame) pressed = ObstacleCourse.Left;
+                    }
+                    string miss;
+                    pos = course.TickWeave(weaveArrows, pressed, dt, hero.transform.position, out miss);
+                    if (miss != null) Flash(miss, new Color(1f, 0.45f, 0.4f));
+                    dir = Flat(pos - hero.transform.position);
+                    dir = dir.sqrMagnitude > 1e-6f ? dir.normalized * Mathf.Min(1f, dir.magnitude / Mathf.Max(1e-4f, runSpeed * dt)) : Vector3.zero;
+                }
+                else
+                {
+                    // 화면 기준으로 움직인다 — W 는 화면 위쪽
+                    Vector3 camF = Flat(showCamera.transform.forward).normalized;
+                    Vector3 camR = Flat(showCamera.transform.right).normalized;
+                    dir = camF * input.y + camR * input.x;
+                    if (dir.sqrMagnitude > 1f) dir.Normalize();
+
+                    // 테이블 위에선 걸음을 늦추고 기울기로 미끄러지는 몫을 더한다 — 반대쪽으로 버텨야 한다
+                    float speed = course.Balancing ? runSpeed * ObstacleCourse.TableWalk : runSpeed;
+                    pos = hero.transform.position + dir * speed * dt + stage.TransformVector(course.TableSlide(dt));
+                    Vector3 ls = stage.InverseTransformPoint(pos);
+                    ls.x = Mathf.Clamp(ls.x, ObstacleCourse.Area.xMin, ObstacleCourse.Area.xMax);
+                    ls.z = Mathf.Clamp(ls.z, ObstacleCourse.Area.yMin, ObstacleCourse.Area.yMax);
+                    // 장애물에 닿아 시작했으면 지나온 쪽으로는 못 돌아간다(옆으로는 자유)
+                    Vector3 from = stage.InverseTransformPoint(hero.transform.position);
+                    ls = course.ConstrainForward(new Vector3(from.x, 0f, from.z), new Vector3(ls.x, 0f, ls.z));
+                    pos = stage.TransformPoint(new Vector3(ls.x, 0f, ls.z));
+                }
+                bool still = dir.sqrMagnitude < 0.01f;
 
                 Vector3 normal;
                 float surf = course.SurfaceY(pos, floorY, out normal);
@@ -763,6 +1046,9 @@ namespace DogShop.Show
                 hero.transform.position = pos;
 
                 if (!still) courseFacing = dir.normalized;
+                // 터널 안에선 몸을 터널 방향으로 — 뒤로 못 가니 앞쪽(지나가는 쪽)을 본다
+                Vector3 tunnelFwd;
+                if (course.InTunnel(pos, out tunnelFwd)) courseFacing = Flat(tunnelFwd).normalized;
                 Quaternion want = Quaternion.LookRotation(Vector3.ProjectOnPlane(courseFacing, normal), normal);
                 hero.transform.rotation = Quaternion.Slerp(hero.transform.rotation, want, 1f - Mathf.Exp(-12f * dt));
 
@@ -789,7 +1075,7 @@ namespace DogShop.Show
 
             // 점수 = 도착 시간 점수(빠를수록 100 에 가깝다) - 감점.
             // 기준 시간: 코스 약 50m 를 제 속도로 뛰고, 시소에서 기다리고, 테이블에서 버틴 시간 + 방향 바꾸는 몫
-            float par = 50f / Mathf.Max(0.5f, runSpeed) + ObstacleCourse.SeesawWait + ObstacleCourse.TableHold + 6f;
+            float par = 50f / Mathf.Max(0.5f, runSpeed) + ObstacleCourse.SeesawWait + ObstacleCourse.TableHold + ObstacleCourse.WeaveLimit * 0.5f + 6f;
             float timePoints = course.Finished
                 ? Mathf.Lerp(100f, 40f, Mathf.InverseLerp(par, CourseLimit, courseTime))
                 : 40f * course.Next / Mathf.Max(1, course.Obstacles.Count);   // 못 끝냈으면 지난 장애물 몫만
@@ -1271,7 +1557,7 @@ namespace DogShop.Show
                       "닿으면 시작! 시작한 장애물은 뒤로 못 가고, 떨어지거나 벗어나면 감점", line);
             GUI.Label(new Rect(panel.x + 24f, y + 26f, panel.width - 48f, 26f),
                       "감점: 떨어지면 -" + ObstacleCourse.FallPenalty + ", 건너뛰면 -" + ObstacleCourse.SkipPenalty
-                      + ", 봉에 닿으면 -" + ObstacleCourse.TouchPenalty + ", 지그재그 빼먹은 칸 -" + ObstacleCourse.WeaveMissPenalty, line);
+                      + ", 위브 화살표를 놓치면 -" + ObstacleCourse.WeaveMissPenalty, line);
             GUI.Label(new Rect(panel.x + 24f, y + 52f, panel.width - 48f, 26f),
                       "빨리 도착할수록 점수가 높다. 제한 시간 " + CourseLimit.ToString("0") + "초", line);
 
@@ -1315,9 +1601,131 @@ namespace DogShop.Show
             else if (next.kind == ObstacleCourse.Kind.Seesaw && next.endWait > 0f && !next.tipped)
                 GUI.Label(new Rect(0f, Screen.height * 0.70f, Screen.width, 40f),
                           "기다리기 " + Mathf.RoundToInt(course.SeesawProgress(next) * 100f) + "%", midStyle);
-            else if (next.kind == ObstacleCourse.Kind.Weave && next.entered)
-                GUI.Label(new Rect(0f, Screen.height * 0.70f, Screen.width, 40f),
-                          "지그재그 " + next.alternations + " / " + (ObstacleCourse.PoleCount - 1), midStyle);
+            if (next.kind == ObstacleCourse.Kind.Weave && next.rhythm) DrawWeaveArrows(next);
+
+            // 구간 한 줄 안내 — 들어설 때 잠깐 떴다가 사라진다
+            float since = Time.time - introAt;
+            if (introFor == course.Next && since < IntroShow)
+            {
+                float a = Mathf.Clamp01(since / 0.2f) * Mathf.Clamp01((IntroShow - since) / 0.4f);
+                string text = ObstacleCourse.IntroOf(next.kind);
+                var style = new GUIStyle(midStyle) { fontSize = 30 };
+                float bw = style.CalcSize(new GUIContent(text)).x + 80f;
+                // 화면 아래쪽 — 위쪽은 감점 알림(Flash)과 위브 화살표 줄이 쓴다
+                var box = new Rect((Screen.width - bw) * 0.5f, Screen.height * 0.80f, bw, 60f);
+                Color keep = GUI.color;
+                GUI.color = new Color(1f, 1f, 1f, a);
+                GUI.Box(box, GUIContent.none, UiSkin.Panel_);
+                GUI.Label(box, text, style);
+                GUI.color = keep;
+            }
+        }
+
+        static Texture2D arrowTex;
+
+        /// <summary>
+        /// 오른쪽을 보는 굵은 화살표(흰 속, 갈색 테두리). 글꼴에 → 글리프가 없어 그림으로 굽는다.
+        /// 왼쪽은 좌우를 뒤집어 그린다. 색은 GUI.color 로 입힌다.
+        /// </summary>
+        static Texture2D ArrowTexture()
+        {
+            if (arrowTex != null) return arrowTex;
+            const int W = 128, H = 104, Edge = 7;
+            bool Inside(float x, float y)
+            {
+                if (x >= 10f && x <= 70f && y >= 34f && y <= 70f) return true;             // 몸통
+                if (x < 60f || x > 118f) return false;                                      // 머리(삼각형)
+                float half = 44f * (118f - x) / 58f;
+                return Mathf.Abs(y - 52f) <= half;
+            }
+            var fill = new bool[W, H];
+            for (int y = 0; y < H; y++) for (int x = 0; x < W; x++) fill[x, y] = Inside(x + 0.5f, y + 0.5f);
+            arrowTex = new Texture2D(W, H, TextureFormat.RGBA32, false) { filterMode = FilterMode.Bilinear, wrapMode = TextureWrapMode.Clamp, hideFlags = HideFlags.HideAndDontSave };
+            var ink = new Color(0.36f, 0.22f, 0.12f, 1f);
+            for (int y = 0; y < H; y++)
+            for (int x = 0; x < W; x++)
+            {
+                Color c = Color.clear;
+                if (fill[x, y])
+                {
+                    // 테두리: 안쪽에서 Edge 픽셀 안에 바깥이 있으면
+                    bool edge = false;
+                    for (int d = 1; d <= Edge && !edge; d++)
+                        edge = x - d < 0 || x + d >= W || y - d < 0 || y + d >= H
+                               || !fill[x - d, y] || !fill[x + d, y] || !fill[x, y - d] || !fill[x, y + d];
+                    c = edge ? ink : Color.white;
+                }
+                arrowTex.SetPixel(x, y, c);
+            }
+            arrowTex.Apply();
+            return arrowTex;
+        }
+
+        /// <summary>화살표 하나. dir 0 위, 1 오른쪽, 2 아래, 3 왼쪽 — 오른쪽 그림을 가운데 기준으로 돌려 그린다.</summary>
+        static void DrawArrow(Rect r, int dir, Color tint)
+        {
+            Matrix4x4 m = GUI.matrix;
+            Color keep = GUI.color;
+            GUI.color = tint;
+            GUIUtility.RotateAroundPivot((dir - 1) * 90f, r.center);   // 오른쪽(1)이 0도, 시계 방향이 +
+            GUI.DrawTexture(r, ArrowTexture(), ScaleMode.ScaleToFit);
+            GUI.matrix = m;
+            GUI.color = keep;
+        }
+
+        /// <summary>
+        /// 위브 리듬 화살표 줄(화면 위쪽). 맨 앞(지금 맞출 것)이 크게 노랗게 깜빡이고, 뒤로 다음 것들이 흐리게 줄 선다.
+        /// 맞추면 줄이 한 칸 당겨지고, 틀리면 맨 앞이 빨갛게 흔들린다. 아래 막대는 남은 시간(10초).
+        /// </summary>
+        void DrawWeaveArrows(ObstacleCourse.Obstacle o)
+        {
+            if (o.rSeq == null) return;
+            const int Show = 7;
+            const float S = 64f, Big = 96f, Gap = 16f;
+            float total = Big + (Show - 1) * (S + Gap);
+            float x0 = (Screen.width - total) * 0.5f;
+            const float top = 150f;
+
+            var back = new Rect(x0 - 28f, top - 16f, total + 56f, Big + 70f);
+            GUI.Box(back, GUIContent.none, UiSkin.Panel_);
+
+            bool over = o.rIndex >= o.rSeq.Length || o.rTimeUp;
+            float x = x0;
+            for (int k = 0; k < Show; k++)
+            {
+                int i = o.rIndex + k;
+                if (i >= o.rSeq.Length) break;
+                bool now = k == 0 && !over;
+                float size = now ? Big * (1f + Mathf.Sin(Time.time * 10f) * 0.03f) : S;
+                float slot = k == 0 ? Big : S;
+                float shake = now && Time.time - o.rWrongAt < 0.25f ? Mathf.Sin(Time.time * 70f) * 6f : 0f;
+                var r = new Rect(x + (slot - size) * 0.5f + shake, top + (Big - size) * 0.5f, size, size);
+                Color tint = !now ? new Color(1f, 0.97f, 0.88f, 0.75f - k * 0.07f)
+                           : Time.time - o.rWrongAt < 0.25f ? new Color(1f, 0.45f, 0.4f)
+                           : new Color(1f, 0.88f, 0.35f);
+                DrawArrow(r, o.rSeq[i], tint);
+                x += slot + Gap;
+            }
+
+            // 방금 맞춘 화살표가 초록으로 번쩍 사라지는 자리
+            float sinceHit = Time.time - o.rHitAt;
+            if (sinceHit < 0.2f && o.rIndex > 0)
+            {
+                float g = 1f + sinceHit * 2f;
+                var r = new Rect(x0 + (Big - Big * g) * 0.5f, top + (Big - Big * g) * 0.5f, Big * g, Big * g);
+                DrawArrow(r, o.rSeq[o.rIndex - 1], new Color(0.55f, 0.95f, 0.6f, 1f - sinceHit / 0.2f));
+            }
+
+            // 남은 시간 막대와 맞춘 개수
+            float left = Mathf.Clamp01(1f - o.rTimer / ObstacleCourse.WeaveLimit);
+            var bar = new Rect(x0, top + Big + 14f, total, 14f);
+            GUI.DrawTexture(bar, Texture2D.whiteTexture, ScaleMode.StretchToFill, false, 0f, new Color(0f, 0f, 0f, 0.35f), 0f, 7f);
+            Color fill = left > 0.3f ? new Color(0.55f, 0.85f, 0.6f) : new Color(1f, 0.5f, 0.4f);
+            if (left > 0f)
+                GUI.DrawTexture(new Rect(bar.x, bar.y, bar.width * left, bar.height), Texture2D.whiteTexture, ScaleMode.StretchToFill, false, 0f, fill, 0f, 7f);
+            GUI.Label(new Rect(bar.x, bar.yMax + 2f, total, 24f),
+                      o.rIndex + " / " + o.rSeq.Length + "     남은 시간 " + Mathf.Max(0f, ObstacleCourse.WeaveLimit - o.rTimer).ToString("0.0") + "초",
+                      UiSkin.Caption);
         }
 
         void DrawFetch()

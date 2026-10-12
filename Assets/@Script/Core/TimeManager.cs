@@ -4,8 +4,8 @@ using UnityEngine;
 namespace DogShop.Core
 {
     /// <summary>
-    /// 하루 09:00~18:00을 실시간 5분에 흘린다. 시간은 <b>자원이다</b> —
-    /// 일찍 열고 늦게까지 버틸수록 손님을 더 받는다(<see cref="Shop.ShopHours"/>).
+    /// 하루: 09:00 일어나 준비 → 10:00 문 열기 → 19:00 저절로 영업 종료 → 21:00 까지 정산·발주 → 잠.
+    /// 영업 구간(10~19시)을 실시간 5분에 흘린다(<see cref="Shop.ShopHours"/>).
     /// </summary>
     public class TimeManager : MonoBehaviour, ISaveParticipant
     {
@@ -16,34 +16,31 @@ namespace DogShop.Core
         /// 저건 손님이 제값으로 들어오기 시작하는 시각이다. 둘을 하나로 묶으면
         /// 하루치 손님이 열 시간에 퍼져 시간당 유입이 조용히 10% 줄어든다.
         /// </summary>
-        public const float DayStartHour = 8f;
+        public const float DayStartHour = 9f;
 
-        /// <summary>손님 유입이 온전해지는 시각. 손님 배분의 기준이기도 하다.</summary>
-        public const float OpenHour = 9f;
+        /// <summary>문이 열리는 시각. 손님 배분의 기준이기도 하다.</summary>
+        public const float OpenHour = 10f;
 
-        /// <summary>장사 시간의 끝. 이 시각이 지나면 손님이 줄지만 하루가 끝나지는 않는다.</summary>
-        public const float CloseHour = 18f;
-
-        /// <summary>시계가 멈추는 시각. 플레이어가 자지 않고 버틸 때를 위한 안전장치다.</summary>
-        public const float LastHour = 24f;
+        /// <summary>영업이 끝나는 시각. 가게 문이 저절로 닫히고 정산·발주 시간이 된다.</summary>
+        public const float CloseHour = 19f;
 
         /// <summary>
-        /// 손님 도착량을 나누는 기준. 09~18시 아홉 시간에 하루치가 다 온다.
-        /// 08시나 18시 바깥에서 받는 손님은 여기에 <b>얹히는</b> 몫이다.
+        /// 시계가 멈추는 시각. 하루를 저절로 끝내지는 않는다 — 화면 가운데 "잠자러 가기"가 뜨고
+        /// (<see cref="UI.SleepPrompt"/>) 눌러야 넘어간다. 그 전에 하던 발주를 마저 할 수 있게.
         /// </summary>
+        public const float LastHour = 21f;
+
+        /// <summary>손님 도착량을 나누는 기준. 10~19시 아홉 시간에 하루치가 다 온다.</summary>
         public const float HoursPerDay = CloseHour - OpenHour;
 
-        /// <summary>09~18시를 흘리는 실시간. 하루 전체가 아니라 <b>영업 구간</b>의 길이다.</summary>
+        /// <summary>10~19시를 흘리는 실시간. 하루 전체가 아니라 <b>영업 구간</b>의 길이다.</summary>
         public const float RealSecondsPerDay = 300f;
         public const float RealSecondsPerGameHour = RealSecondsPerDay / HoursPerDay;
 
         public static TimeManager Instance { get; private set; }
 
         public float CurrentHour { get; private set; } = DayStartHour;
-        /// <summary>
-        /// 지금 자면 버리는 <b>손님이 오는 시간</b>. 18시가 아니라 손님이 끊기는 시각까지다 —
-        /// 18시로 재면 18:30에 "남은 0시간"이라고 하면서 실제로는 세 시간을 버리게 된다.
-        /// </summary>
+        /// <summary>손님이 더 오는 시간(영업 종료까지). 영업이 끝났으면 0.</summary>
         public float RemainingHours =>
             Mathf.Max(0f, Shop.ShopHours.LastCustomerHour - CurrentHour);
         public bool IsDayOver { get; private set; }
@@ -79,15 +76,9 @@ namespace DogShop.Core
                 OnWholeHourChanged?.Invoke(whole);
             }
 
-            // 18시가 지나도 하루는 끝나지 않는다. 문을 닫고 발주·정리를 한 뒤
-            // <b>침대에서 자야</b> 넘어간다(ShopHours / Bed). 여기서는 시계가 영원히
-            // 도는 것만 막는다 — 자정이면 강제로 재운다.
-            if (CurrentHour >= LastHour)
-            {
-                CurrentHour = LastHour;
-                IsDayOver = true;
-                OnDayEnded?.Invoke();
-            }
+            // 19시에 영업이 끝나도 하루는 끝나지 않는다. 발주·정리를 한 뒤 <b>자야</b> 넘어간다
+            // (Bed / SleepPrompt). 21시에는 시계만 멈춘다 — 하던 발주를 끊지 않고 "잠자러 가기"를 띄운다
+            if (CurrentHour >= LastHour) CurrentHour = LastHour;
         }
 
         /// <summary>
@@ -99,7 +90,7 @@ namespace DogShop.Core
         {
             if (IsDayOver) return;
 
-            // 시계는 건드리지 않는다. 18시로 맞추면 21시에 잔 사람의 시간이 거꾸로 간다.
+            // 시계는 건드리지 않는다. 19시로 맞추면 20시에 잔 사람의 시간이 거꾸로 간다.
             IsDayOver = true;
             OnDayEnded?.Invoke();
         }
@@ -123,8 +114,8 @@ namespace DogShop.Core
         /// <summary>시각을 되돌린다. 배속은 저장하지 않는다 — 로드 후엔 1x가 안전하다.</summary>
         public void RestoreFrom(SaveData data)
         {
-            // 상한은 <b>CloseHour 가 아니라 LastHour</b> 다. 18시는 장사의 끝이지 하루의 끝이
-            // 아니므로, 마감 단계(18~24시)에 저장한 사람이 불러오면 시계가 18시로 되감겼다.
+            // 상한은 <b>CloseHour 가 아니라 LastHour</b> 다. 19시는 장사의 끝이지 하루의 끝이
+            // 아니므로, 마감 단계(19~21시)에 저장한 사람이 불러오면 시계가 19시로 되감겼다.
             CurrentHour = Mathf.Clamp(data.currentHour, DayStartHour, LastHour);
             lastWholeHour = Mathf.FloorToInt(CurrentHour);
             IsDayOver = data.dayOver;

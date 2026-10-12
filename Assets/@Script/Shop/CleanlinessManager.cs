@@ -30,8 +30,9 @@ namespace DogShop.Shop
         /// 오염원을 손님 수로 옮겨 "가게가 커질수록 더러워진다"는 압박을 유지한다.
         ///   시간당 오염  예전(강아지) → 지금(손님)
         ///   L1   4.0 → 3.2      L5   6.0 → 5.0      L10  8.0 → 8.0
+        /// 2026-10 손님 수를 1.5배로 늘리면서 손님 한 명 몫을 0.2 → 0.133 으로 같이 줄였다 — 위 표의 오염량은 그대로다.
         /// </summary>
-        public const float DirtPerCustomerPerHour = 0.2f;
+        public const float DirtPerCustomerPerHour = 0.2f / 1.5f;
 
         /// <summary>청결도 0일 때 남는 손님 비율. 1.0을 넘겨서는 안 된다.</summary>
         public const float MinCustomerFactor = 0.6f;

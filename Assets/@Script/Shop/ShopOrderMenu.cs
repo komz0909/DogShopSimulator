@@ -24,22 +24,54 @@ namespace DogShop.Shop
     {
         const float RefreshInterval = 0.25f;
 
-        const float Pad = 16f;
+        // 창 안 좌표는 1920x1080 기준 설계값이다. 화면이 작으면 GUI.matrix 로 통째로 줄인다
         const float Gap = 10f;
         const int Columns = 4;
         const float CardWidth = 132f;
-        const float CardHeight = 230f;
+        const float CardHeight = 240f;
 
-        // 카드 안에서 줄이 시작하는 높이. 잠긴 상품은 창고·버튼 자리에 해금 레벨이 대신 들어간다
-        const float PhotoHeight = 98f;
-        const float NameY = 110f;
-        const float PriceY = 132f;
-        const float RetailY = 158f;
-        const float StockY = 177f;
-        const float ActionY = 196f;
-        const float HeaderHeight = 30f;
-        const float TabHeight = 34f;
-        const float FooterHeight = 24f;
+        // 카드 안에서 줄이 시작하는 높이. 잠긴 상품은 창고·버튼 자리에 해금 레벨이 대신 들어간다.
+        // 카드 그림 아래 띠(발바닥)가 21 이라 버튼은 214 에서 끝난다
+        const float PhotoY = 12f;
+        const float PhotoHeight = 86f;
+        const float NameY = 100f;
+        const float PriceY = 122f;
+        const float RetailY = 148f;
+        const float StockY = 166f;
+        const float ActionY = 188f;
+        const float HeaderHeight = 56f;   // <상점 닫기> 버튼(70)이 차양 그림자에 살짝 걸치는 높이
+        const float TabHeight = 40f;
+        const float FooterHeight = 30f;
+
+        // 차양 틀 그림(1200x896)의 9-slice 경계(텍셀)와 배율.
+        // 위 215 는 나무 테두리+차양 끝까지, 아래 125 는 아래 모서리 발바닥 혹까지다
+        const float FrameScale = 0.68f;
+        const float FrameLeft = 130f, FrameTop = 215f, FrameRight = 130f, FrameBottom = 125f;
+
+        /// <summary>틀 안쪽 크림색 판이 시작하는 여백. 위는 차양 아래, 아래는 모서리 혹 위다.</summary>
+        const float SideInset = 54f;
+        const float TopInset = 150f;
+        const float BottomInset = 90f;
+
+        // 장바구니 메모장(766x1358): 위는 집게, 아래는 발바닥 도장까지 늘리지 않는다
+        const float CartLeft = 50f, CartTop = 150f, CartRight = 50f, CartBottom = 230f;
+
+        // 상품 카드(816x1088): 아래 띠에 발바닥이 있다
+        const float CardBorderSide = 48f, CardBorderTop = 50f, CardBorderBottom = 130f;
+
+        /// <summary>탭 그림(536x240) 양 끝 둥근 부분.</summary>
+        const float TabEnd = 120f;
+
+        [Header("그림 (바르코)")]
+        [SerializeField] Texture2D frameTex;
+        [SerializeField] Texture2D cartTex;
+        [SerializeField] Texture2D cardTex;
+        [SerializeField] Texture2D tabTex;
+        [SerializeField] Texture2D tabOnTex;
+        [Tooltip("<상점 닫기> 버튼 판(T_UI_ShopClose)")]
+        [SerializeField] Texture2D closeTex;
+        [Tooltip("오른쪽 위 귀퉁이 닫기 발바닥(T_UI_ShopClosePaw). 틀 그림에서 지운 그 발바닥이다")]
+        [SerializeField] Texture2D closePawTex;
 
         static readonly int[] Quantities = { 1, 5, 10 };
 
@@ -164,14 +196,7 @@ namespace DogShop.Shop
                 footer = "내일 09:00 가게 앞 배달 " + incomingCost.ToString("N0") + "원     리드타임 1일";
         }
 
-        /// <summary>지금 탭에 놓일 줄 수.</summary>
-        int RowsNow()
-        {
-            int count = IsFurnitureTab ? (furniture != null ? furniture.Count : 0) : visible.Count;
-            return Mathf.Max(1, Mathf.CeilToInt(count / (float)Columns));
-        }
-
-        /// <summary>가장 물건이 많은 탭의 줄 수. 창의 <b>윗변</b>을 붙박아 두는 데 쓴다.</summary>
+        /// <summary>가장 물건이 많은 탭의 줄 수. 창 크기를 이것으로 붙박는다.</summary>
         int RowsMost()
         {
             InventoryManager inv = InventoryManager.Instance;
@@ -193,25 +218,27 @@ namespace DogShop.Shop
         }
 
         static float HeightFor(int rows) =>
-            Pad * 2f + HeaderHeight + 8f + TabHeight + 12f
-            + rows * (CardHeight + Gap) - Gap + 12f + FooterHeight;
+            TopInset + HeaderHeight + 6f + TabHeight + 12f
+            + rows * (CardHeight + Gap) - Gap + 12f + FooterHeight + BottomInset;
+
+        const float ProductsWidth = Columns * CardWidth + (Columns - 1) * Gap;
+
+        /// <summary>설계 좌표 한 칸이 화면 몇 픽셀인지. 1080p 에서 1.</summary>
+        static float UiScale => Mathf.Min(Screen.width / 1920f, Screen.height / 1080f);
 
         /// <summary>
-        /// 높이는 지금 탭에 맞추되 <b>윗변은 가장 큰 탭 기준으로 붙박는다.</b>
+        /// 창은 <b>가장 큰 탭 기준으로 크기를 붙박는다</b>(설계 좌표).
         ///
-        /// 창을 통째로 화면 가운데에 두면 5개짜리 동물사료에서 2개짜리 애견용품으로 넘길 때
-        /// 창이 줄면서 위로 올라가, 방금 누른 탭 단추가 커서 밑에서 달아난다.
-        /// 그렇다고 높이까지 최대로 고정하면 물건 둘인 탭에 검은 여백이 한 화면 남는다.
+        /// 예전엔 높이를 지금 탭에 맞춰 줄였지만, 차양 틀 그림은 높이가 바뀌면 나무 테두리가
+        /// 늘었다 줄었다 해서 탭을 넘길 때마다 창이 꿈틀거린다. 지금 탭은 모두 두 줄 안에 든다.
         /// </summary>
         Rect WindowRect()
         {
-            float width = Pad * 2f + Columns * CardWidth + (Columns - 1) * Gap + CartWidth + Gap;
+            float s = UiScale;
+            float width = SideInset * 2f + ProductsWidth + Gap + CartWidth;
+            float height = HeightFor(RowsMost());
 
-            return new Rect(
-                (Screen.width - width) * 0.5f,
-                (Screen.height - HeightFor(RowsMost())) * 0.5f,
-                width,
-                HeightFor(RowsNow()));
+            return new Rect((Screen.width / s - width) * 0.5f, (Screen.height / s - height) * 0.5f, width, height);
         }
 
         // ---- 장바구니 ----
@@ -264,8 +291,9 @@ namespace DogShop.Shop
         {
             if (!open) return false;
 
+            float s = UiScale;
             Rect window = WindowRect();
-            return window.Contains(new Vector2(screenPos.x, Screen.height - screenPos.y));
+            return window.Contains(new Vector2(screenPos.x / s, (Screen.height - screenPos.y) / s));
         }
 
         // ---- 화면 ----
@@ -279,27 +307,42 @@ namespace DogShop.Shop
 
             EnsureCart(inv);
 
+            Styles.Ensure();
+
+            Matrix4x4 keep = GUI.matrix;
+            float s = UiScale;
+            GUI.matrix = Matrix4x4.Scale(new Vector3(s, s, 1f));
+
             Rect window = WindowRect();
-            GUI.Box(window, GUIContent.none, UiSkin.Panel_);
+            if (frameTex != null)
+                UiSkin.Draw9(window, frameTex, FrameLeft, FrameTop, FrameRight, FrameBottom, FrameScale);
+            else
+                GUI.Box(window, GUIContent.none, UiSkin.Panel_);
 
-            float x = window.x + Pad;
-            float y = window.y + Pad;
-            float inner = window.width - Pad * 2f;
+            float x = window.x + SideInset;
+            float y = window.y + TopInset;
 
-            // 머리 — 제목과 보유 금액
-            GUI.Label(new Rect(x, y + 2f, 60f, HeaderHeight), "상점", UiSkin.Title);
-            GUI.Label(new Rect(x + 58f, y + 2f, inner * 0.6f, HeaderHeight), "오늘 주문하면 내일 아침에 온다", LeftCaption);
-            GUI.Label(new Rect(x + inner * 0.6f, y + 2f, inner * 0.4f - 34f, HeaderHeight), money, RightCaption);
-            if (GUI.Button(new Rect(window.xMax - Pad - 30f, y - 2f, 30f, 28f), "✕", UiSkin.Button(UiSkin.Coral))) open = false;
-            y += HeaderHeight + 8f;
+            // 간판 — 틀 윗변 나무 위에 얹는다. 차양 아래 크림 판은 상품 자리로 아낀다
+            GUI.Label(new Rect(window.x, window.y + 1f, window.width, 34f), "상점", Styles.sign);
 
-            // 칸 고르기
-            float tabWidth = (inner - Gap * (ProductCategories.Tabs.Length - 1)) / ProductCategories.Tabs.Length;
+            // 머리 — 안내와 보유 금액은 상품 쪽, 장바구니 위에는 큰 <상점 닫기> 버튼.
+            // 예전 30px 발바닥은 장식처럼 보여 닫기인 줄 몰랐다
+            GUI.Label(new Rect(x, y, ProductsWidth * 0.6f, HeaderHeight), "오늘 주문하면 내일 아침에 온다", Styles.soft);
+            GUI.Label(new Rect(x + ProductsWidth * 0.6f, y, ProductsWidth * 0.4f, HeaderHeight), money, Styles.money);
+            if (CloseButton(new Rect(window.xMax - SideInset - CloseW, y + (HeaderHeight - CloseH) * 0.5f, CloseW, CloseH)))
+                open = false;
+            y += HeaderHeight + 6f;
+
+            // 장바구니는 가구 칸에서도 그린다 — 담아 둔 채로 칸을 넘길 수 있어야 한다.
+            // 탭 줄부터 하단 안내 줄 끝까지 오른쪽 한 칸을 통째로 쓴다
+            DrawCart(inv, x + ProductsWidth + Gap, y, window.yMax - BottomInset);
+
+            // 칸 고르기 — 상품 쪽 너비만
+            float tabWidth = (ProductsWidth - Gap * (ProductCategories.Tabs.Length - 1)) / ProductCategories.Tabs.Length;
             for (int i = 0; i < ProductCategories.Tabs.Length; i++)
             {
-                Color tint = i == tab ? UiSkin.Sky : UiSkin.Cream;
                 Rect rect = new Rect(x + i * (tabWidth + Gap), y, tabWidth, TabHeight);
-                if (GUI.Button(rect, ProductCategories.NameOf(ProductCategories.Tabs[i]), UiSkin.Button(tint)) && i != tab)
+                if (DrawTab(rect, ProductCategories.NameOf(ProductCategories.Tabs[i]), i == tab) && i != tab)
                 {
                     tab = i;
                     Rebuild();
@@ -311,12 +354,50 @@ namespace DogShop.Shop
             if (IsFurnitureTab) DrawFurniture(x, y);
             else DrawProducts(inv, x, y);
 
-            // 장바구니는 가구 칸에서도 그린다 — 담아 둔 채로 칸을 넘길 수 있어야 한다
-            DrawCart(inv, window.xMax - Pad - CartWidth, y, window.yMax - Pad - FooterHeight - 8f);
+            float footerY = window.yMax - BottomInset - FooterHeight;
+            DrawBoxButton(x, footerY, ProductsWidth);
+            GUI.Label(new Rect(x + 4f, footerY, ProductsWidth * 0.62f, FooterHeight), footer, Styles.footer);
 
-            float footerY = window.yMax - Pad - FooterHeight;
-            DrawBoxButton(x, footerY, inner);
-            GUI.Label(new Rect(x, footerY, inner * 0.62f, FooterHeight), footer, UiSkin.Caption);
+
+            // 오른쪽 위 귀퉁이 발바닥도 닫기다(텍셀 1103,27 67x61). 틀 그림에서는 그 발바닥을 지워 두었고,
+            // 9-slice 오른쪽 위 조각은 FrameScale 로 오른쪽·위 변에 붙어 그려진다
+            if (frameTex != null)
+            {
+                var spot = new Rect(window.xMax - (1200f - 1103f) * FrameScale, window.y + 27f * FrameScale,
+                                    67f * FrameScale, 61f * FrameScale);
+                if (UiSkin.PawClose(spot, closePawTex)) open = false;
+            }
+            GUI.matrix = keep;
+        }
+
+        // <상점 닫기> 버튼 그림(1262x523). 왼쪽 X 배지를 빼고 남은 빨간 판에 글씨를 얹는다
+        const float CloseW = 170f, CloseH = 70f;
+
+        bool CloseButton(Rect rect)
+        {
+            if (closeTex == null) return GUI.Button(rect, "상점 닫기", UiSkin.Button(UiSkin.Coral));
+
+            bool hover = rect.Contains(Event.current.mousePosition);
+            GUI.color = hover ? new Color(1.1f, 1.05f, 1f) : Color.white;
+            GUI.DrawTexture(rect, closeTex, ScaleMode.StretchToFill);
+            GUI.color = Color.white;
+            GUI.Label(new Rect(rect.x + rect.width * 0.31f, rect.y, rect.width * 0.6f, rect.height - 3f), "상점 닫기", Styles.closeText);
+            return GUI.Button(rect, GUIContent.none, GUIStyle.none);
+        }
+
+        /// <summary>탭 하나. 고른 탭은 꿀색, 나머지는 크림색 알약. 그림이 없으면 예전 색 버튼.</summary>
+        bool DrawTab(Rect rect, string label, bool on)
+        {
+            Texture2D tex = on ? tabOnTex : tabTex;
+            if (tex == null)
+                return GUI.Button(rect, label, UiSkin.Button(on ? UiSkin.Sky : UiSkin.Cream));
+
+            bool hover = !on && rect.Contains(Event.current.mousePosition);
+            GUI.color = hover ? new Color(1f, 0.97f, 0.88f) : Color.white;
+            UiSkin.Draw9(rect, tex, TabEnd, 0f, TabEnd, 0f, rect.height / tex.height);
+            GUI.color = Color.white;
+            GUI.Label(new Rect(rect.x, rect.y - 1f, rect.width, rect.height), label, on ? Styles.tabOn : Styles.tab);
+            return GUI.Button(rect, GUIContent.none, GUIStyle.none);
         }
 
         /// <summary>
@@ -327,37 +408,47 @@ namespace DogShop.Shop
         /// </summary>
         void DrawCart(InventoryManager inv, float left, float top, float bottom)
         {
-            const float RowHeight = 20f;
+            const float RowHeight = 21f;
             const float ButtonHeight = 34f;
+            // 합계 줄(32) + 주문(34+5) + 취소(34+8) + 긴급(34) + 한 줄 설명(1+18)
+            const float CartFooter = 32f + ButtonHeight * 3f + 13f + 19f;
+
+            // 메모장 아래 발바닥 도장(아래에서 20~62)은 가리지 않는다 — 비어 있을 때 메모장다워 보이는 자리다
+            float stamp = cartTex != null ? 66f : 10f;
 
             Rect panel = new Rect(left, top, CartWidth, bottom - top);
-            GUI.Box(panel, GUIContent.none, UiSkin.Panel_);
+            if (cartTex != null)
+                UiSkin.Draw9(panel, cartTex, CartLeft, CartTop, CartRight, CartBottom, CartWidth / cartTex.width);
+            else
+                GUI.Box(panel, GUIContent.none, UiSkin.Panel_);
 
-            float x = panel.x + 10f;
-            float w = panel.width - 20f;
-            float y = panel.y + 10f;
+            float x = panel.x + 22f;
+            float w = panel.width - 44f;
+            float y = panel.y + (cartTex != null ? 46f : 10f);   // 집게 아래부터
 
             int items = CartCount();
-            GUI.Label(new Rect(x, y, w, 22f), "장바구니" + (items > 0 ? "   " + items + "개" : ""), UiSkin.Title);
+            GUI.Label(new Rect(x, y, w, 24f), "장바구니" + (items > 0 ? "   " + items + "개" : ""), Styles.heading);
             y += 26f;
+            Line(new Rect(x, y, w, 2f));
+            y += 8f;
 
             if (items == 0)
             {
-                GUI.Label(new Rect(x, y, w, 40f), "+1 / +5 / +10 으로 담는다.\n담은 뒤 한 번에 결제한다.", UiSkin.Caption);
+                GUI.Label(new Rect(x, y, w, 44f), "+1 / +5 / +10 으로 담는다.\n담은 뒤 한 번에 결제한다.", Styles.softWrap);
                 return;
             }
 
             ProductCatalog catalog = inv.Catalog;
-            float listBottom = panel.yMax - ButtonHeight * 3f - 18f - 26f;
+            float listBottom = panel.yMax - stamp - CartFooter - RowHeight;
 
             for (int i = 0; i < cart.Length && y < listBottom; i++)
             {
                 if (cart[i] <= 0) continue;
 
                 ProductDef p = catalog.Get(i);
-                GUI.Label(new Rect(x, y, w - 72f, RowHeight), p.nameKo + " x" + cart[i], UiSkin.Caption);
+                GUI.Label(new Rect(x, y, w - 72f, RowHeight), p.nameKo + " x" + cart[i], Styles.item);
                 GUI.Label(new Rect(x + w - 72f, y, 72f, RowHeight),
-                          (p.wholesale * cart[i]).ToString("N0") + "원", RightCaption);
+                          (p.wholesale * cart[i]).ToString("N0") + "원", Styles.itemRight);
                 y += RowHeight;
             }
 
@@ -366,9 +457,9 @@ namespace DogShop.Shop
                 if (furnitureCart[i] <= 0) continue;
 
                 FurnitureDef f = furniture.Get(i);
-                GUI.Label(new Rect(x, y, w - 72f, RowHeight), f.nameKo + " x" + furnitureCart[i], UiSkin.Caption);
+                GUI.Label(new Rect(x, y, w - 72f, RowHeight), f.nameKo + " x" + furnitureCart[i], Styles.item);
                 GUI.Label(new Rect(x + w - 72f, y, 72f, RowHeight),
-                          (f.price * furnitureCart[i]).ToString("N0") + "원", RightCaption);
+                          (f.price * furnitureCart[i]).ToString("N0") + "원", Styles.itemRight);
                 y += RowHeight;
             }
 
@@ -380,9 +471,10 @@ namespace DogShop.Shop
             int express = inv.CostOf(cart, true) + furnitureCost;
             int wallet = GameManager.Instance.Money;
 
-            y = panel.yMax - ButtonHeight * 3f - 18f - 22f;
-            GUI.Label(new Rect(x, y, w, 22f), "합계 " + plain.ToString("N0") + "원", UiSkin.Title);
-            y += 26f;
+            y = panel.yMax - stamp - CartFooter;
+            Line(new Rect(x, y, w, 2f));
+            GUI.Label(new Rect(x, y + 4f, w, 24f), "합계 " + plain.ToString("N0") + "원", Styles.heading);
+            y += 32f;
 
             bool canOrder = TimeManager.Instance == null || !TimeManager.Instance.IsDayOver;
 
@@ -402,10 +494,12 @@ namespace DogShop.Shop
             // 긴급 주문 — 할증을 물고 한 시간 뒤. 하루 한 번뿐이고 가구는 안 된다
             bool usedUp = inv.ExpressUsedToday;
             bool hasFurniture = FurnitureCount() > 0;
+            bool inHours = InventoryManager.ExpressOpenNow;   // 10:00~17:00 만
 
-            GUI.enabled = canOrder && !usedUp && !hasFurniture && wallet >= express;
+            GUI.enabled = canOrder && inHours && !usedUp && !hasFurniture && wallet >= express;
             if (GUI.Button(new Rect(x, y, w, ButtonHeight),
                            usedUp ? "긴급주문 (오늘 완료)"
+                           : !inHours ? "긴급주문 (10:00 ~ 17:00)"
                            : hasFurniture ? "긴급주문 (가구는 불가)"
                            : "긴급주문   " + express.ToString("N0") + "원",
                            UiSkin.Button(UiSkin.Sky)))
@@ -414,9 +508,18 @@ namespace DogShop.Shop
 
             GUI.Label(new Rect(x, y + ButtonHeight + 1f, w, 18f),
                       usedUp ? "내일 다시 쓸 수 있다"
+                      : !inHours ? "긴급주문은 10:00 ~ 17:00 에만 받는다"
                       : hasFurniture ? "가구를 빼면 긴급으로 보낼 수 있다"
                       : "1.5배 / " + InventoryManager.ExpressHours + "시간 뒤 / 하루 한 번",
-                      UiSkin.Caption);
+                      Styles.softCenter);
+        }
+
+        /// <summary>메모장 위 구분선. 연한 갈색 한 줄.</summary>
+        static void Line(Rect r)
+        {
+            GUI.color = new Color(0.55f, 0.38f, 0.22f, 0.25f);
+            GUI.DrawTexture(r, Texture2D.whiteTexture);
+            GUI.color = Color.white;
         }
 
         /// <summary>
@@ -464,7 +567,7 @@ namespace DogShop.Shop
             string reason;
             bool can = box.CanOpen(out reason);
 
-            var rect = new Rect(left + inner - 210f, top - 10f, 210f, FooterHeight + 20f);
+            var rect = new Rect(left + inner - 210f, top - 5f, 210f, FooterHeight + 10f);
             if (GUI.Button(rect, GUIContent.none, UiSkin.Button(can ? UiSkin.Coral : UiSkin.Cream)) && can)
                 box.Open();
 
@@ -486,7 +589,7 @@ namespace DogShop.Shop
             // 결과 창이 떠 있을 때는 사유를 적지 않는다 — 그 창이 이미 같은 말을 하고 있고,
             // 하단 안내와 글자가 겹친다
             if (!can && !box.HasResult && !string.IsNullOrEmpty(reason))
-                GUI.Label(new Rect(rect.x - 156f, top, 152f, FooterHeight), reason, RightCaption);
+                GUI.Label(new Rect(rect.x - 156f, top, 152f, FooterHeight), reason, Styles.warnRight);
         }
 
         void DrawProducts(InventoryManager inv, float left, float top)
@@ -504,13 +607,13 @@ namespace DogShop.Shop
                 bool unlocked = inv.IsUnlocked(index);
 
                 Rect card = CardAt(left, top, i);
-                GUI.Box(card, GUIContent.none, UiSkin.Panel_);
+                DrawCard(card);
 
                 DrawPhoto(card, product.icon, unlocked);
-                GUI.Label(new Rect(card.x + 4f, card.y + NameY, card.width - 8f, 20f), product.nameKo, UiSkin.Caption);
+                GUI.Label(new Rect(card.x + 4f, card.y + NameY, card.width - 8f, 20f), product.nameKo, Styles.name);
                 DrawTag(card, PriceY, "도매 " + product.wholesale + "원", UiSkin.Cream);
                 GUI.Label(new Rect(card.x + 4f, card.y + RetailY, card.width - 8f, 18f),
-                          "판매 " + product.retail + "원", UiSkin.Caption);
+                          "판매 " + product.retail + "원", Styles.small);
 
                 if (!unlocked)
                 {
@@ -527,13 +630,13 @@ namespace DogShop.Shop
                 // 담아 둔 것은 창고 줄 끝에 붙인다. 카드마다 몇 개 담았는지가 안 보이면
                 // 오른쪽 장바구니와 눈을 왕복해야 한다
                 if (cart[index] > 0) stock += "   담음 " + cart[index];
-                GUI.Label(new Rect(card.x + 4f, card.y + StockY, card.width - 8f, 18f), stock, UiSkin.Caption);
+                GUI.Label(new Rect(card.x + 4f, card.y + StockY, card.width - 8f, 18f), stock, Styles.small);
 
-                float buttonWidth = (card.width - 16f - 8f) / Quantities.Length;
+                float buttonWidth = (card.width - 20f - 6f) / Quantities.Length;
                 for (int q = 0; q < Quantities.Length; q++)
                 {
                     GUI.enabled = canOrder;
-                    Rect rect = new Rect(card.x + 8f + q * (buttonWidth + 4f), card.y + ActionY, buttonWidth, 26f);
+                    Rect rect = new Rect(card.x + 10f + q * (buttonWidth + 3f), card.y + ActionY, buttonWidth, 26f);
 
                     // 담기만 한다. 돈은 <주문한다>를 누를 때 한 번에 빠진다
                     if (GUI.Button(rect, "+" + Quantities[q], UiSkin.Button(UiSkin.Green)))
@@ -545,8 +648,8 @@ namespace DogShop.Shop
                 // 담은 카드에는 그 품목만 비우는 길을 준다. 장바구니를 통째로 비우지 않고
                 // 하나만 무르고 싶은 쪽이 훨씬 흔하다
                 if (cart[index] > 0
-                    && GUI.Button(new Rect(card.x + card.width - 26f, card.y + 4f, 22f, 22f),
-                                  "✕", UiSkin.Button(UiSkin.Coral)))
+                    && GUI.Button(new Rect(card.xMax - 38f, card.y + 10f, 28f, 28f),
+                                  "X", Styles.Remove))
                     cart[index] = 0;
             }
         }
@@ -556,7 +659,7 @@ namespace DogShop.Shop
             if (furniture == null || furniture.Count == 0)
             {
                 GUI.Label(new Rect(left, top + 40f, Columns * CardWidth + (Columns - 1) * Gap, 22f),
-                          "가구는 아직 들여놓을 수 없다", UiSkin.Caption);
+                          "가구는 아직 들여놓을 수 없다", Styles.small);
                 return;
             }
 
@@ -571,13 +674,13 @@ namespace DogShop.Shop
                 bool unlocked = shop == null || shop.IsUnlocked(index);
 
                 Rect card = CardAt(left, top, i);
-                GUI.Box(card, GUIContent.none, UiSkin.Panel_);
+                DrawCard(card);
 
                 DrawPhoto(card, item.icon, unlocked);
-                GUI.Label(new Rect(card.x + 4f, card.y + NameY, card.width - 8f, 20f), item.nameKo, UiSkin.Caption);
+                GUI.Label(new Rect(card.x + 4f, card.y + NameY, card.width - 8f, 20f), item.nameKo, Styles.name);
                 DrawTag(card, PriceY, item.price.ToString("N0") + "원", UiSkin.Cream);
                 // 장식 가구는 쓰임새 대신 효과를 적는다 — 고르는 기준이 그것뿐이다
-                GUI.Label(new Rect(card.x + 4f, card.y + RetailY, card.width - 8f, 18f), item.IsDecor ? item.DecorText : item.note, UiSkin.Caption);
+                GUI.Label(new Rect(card.x + 4f, card.y + RetailY, card.width - 8f, 18f), item.IsDecor ? item.DecorText : item.note, Styles.small);
 
                 if (!unlocked)
                 {
@@ -588,7 +691,7 @@ namespace DogShop.Shop
                 // 담긴 수를 적는다. 상품 카드의 "담음 N" 과 같은 자리다
                 if (furnitureCart[index] > 0)
                     GUI.Label(new Rect(card.x + 4f, card.y + StockY, card.width - 8f, 18f),
-                              "담음 " + furnitureCart[index], UiSkin.Caption);
+                              "담음 " + furnitureCart[index], Styles.small);
 
                 // 명성 장식은 종류마다 하나만 — 이미 가졌으면 담을 수 없고, 담기도 한 번만
                 bool oneOnly = shop != null && shop.OneOnly(index);
@@ -602,14 +705,14 @@ namespace DogShop.Shop
                 // 돈은 장바구니에서 한 번에 빠지므로 여기서는 잔고를 보지 않는다
                 bool full = oneOnly && furnitureCart[index] >= 1;
                 GUI.enabled = (canBuy || unlocked) && !full;
-                if (GUI.Button(new Rect(card.x + 8f, card.y + ActionY, card.width - 16f, 26f),
+                if (GUI.Button(new Rect(card.x + 10f, card.y + ActionY, card.width - 20f, 26f),
                                full ? "1개만" : "담기", UiSkin.Button(UiSkin.Green)))
                     furnitureCart[index]++;
                 GUI.enabled = true;
 
                 if (furnitureCart[index] > 0
-                    && GUI.Button(new Rect(card.x + card.width - 26f, card.y + 4f, 22f, 22f),
-                                  "✕", UiSkin.Button(UiSkin.Coral)))
+                    && GUI.Button(new Rect(card.xMax - 38f, card.y + 10f, 28f, 28f),
+                                  "X", Styles.Remove))
                     furnitureCart[index] = 0;
             }
         }
@@ -622,10 +725,10 @@ namespace DogShop.Shop
         /// <summary>사진은 칸 폭에 맞춰 비율을 지킨다. 늘려 채우면 병이 납작해진다.</summary>
         static void DrawPhoto(Rect card, Texture2D icon, bool lit)
         {
-            Rect frame = new Rect(card.x + 8f, card.y + 8f, card.width - 16f, PhotoHeight);
+            Rect frame = new Rect(card.x + 12f, card.y + PhotoY, card.width - 24f, PhotoHeight);
             if (icon == null)
             {
-                GUI.Label(frame, "사진 없음", UiSkin.Caption);
+                GUI.Label(frame, "사진 없음", Styles.small);
                 return;
             }
 
@@ -641,27 +744,74 @@ namespace DogShop.Shop
             GUI.Label(new Rect(card.x + (card.width - width) * 0.5f, card.y + offsetY, width, 24f), text, UiSkin.Tag(tint));
         }
 
-        static GUIStyle rightCaption;
-        static GUIStyle leftCaption;
-
-        static GUIStyle RightCaption
+        /// <summary>상품 카드 한 장. 강아지 창 훈련 카드와 같은 나무 테 그림이다.</summary>
+        void DrawCard(Rect card)
         {
-            get
-            {
-                if (rightCaption != null && rightCaption.font == UiSkin.Font) return rightCaption;
-                rightCaption = new GUIStyle(UiSkin.Caption) { alignment = TextAnchor.MiddleRight };
-                return rightCaption;
-            }
+            if (cardTex == null) { GUI.Box(card, GUIContent.none, UiSkin.Panel_); return; }
+            UiSkin.Draw9(card, cardTex, CardBorderSide, CardBorderTop, CardBorderSide, CardBorderBottom,
+                         card.width / cardTex.width);
         }
 
-        static GUIStyle LeftCaption
+        /// <summary>
+        /// 크림색 종이 위 글씨. 예전 판이 검은 반투명이라 글씨가 밝은 회색이었는데,
+        /// 바탕이 밝아지면서 전부 진한 갈색으로 바꿨다(강아지 창과 같은 잉크색).
+        /// </summary>
+        static class Styles
         {
-            get
+            static readonly Color Ink = new Color(0.33f, 0.2f, 0.1f);
+            static readonly Color Soft = new Color(0.47f, 0.36f, 0.26f);
+            static readonly Color Warn = new Color(0.8f, 0.3f, 0.25f);
+
+            public static GUIStyle sign, soft, softWrap, softCenter, money, heading, item, itemRight,
+                                   name, small, footer, warnRight, tab, tabOn, closeText;
+
+            static Font built;
+            static GUIStyle remove;
+
+            /// <summary>카드 귀퉁이 X. 기본 버튼은 안쪽 여백(14)이 커서 작은 칸에 X 가 안 들어간다. 판 모서리(14x2)보다 작으면 찌그러지므로 28 칸에 쓴다.</summary>
+            public static GUIStyle Remove
             {
-                if (leftCaption != null && leftCaption.font == UiSkin.Font) return leftCaption;
-                leftCaption = new GUIStyle(UiSkin.Caption) { alignment = TextAnchor.MiddleLeft };
-                leftCaption.normal.textColor = new Color(0.66f, 0.70f, 0.74f);
-                return leftCaption;
+                get
+                {
+                    GUIStyle baseStyle = UiSkin.Button(UiSkin.Coral);
+                    if (remove != null && remove.normal.background == baseStyle.normal.background) return remove;
+                    remove = new GUIStyle(baseStyle) { padding = new RectOffset(0, 0, 0, 1), fontSize = 13 };
+                    return remove;
+                }
+            }
+
+            public static void Ensure()
+            {
+                if (sign != null && built == UiSkin.Font) return;
+                built = UiSkin.Font;
+
+                sign = Make(22, new Color(1f, 0.96f, 0.86f), TextAnchor.MiddleCenter, true);
+                soft = Make(15, Soft, TextAnchor.MiddleLeft, false);
+                softWrap = Make(14, Soft, TextAnchor.UpperLeft, false);
+                softWrap.wordWrap = true;
+                softCenter = Make(13, Soft, TextAnchor.MiddleCenter, false);
+                money = Make(18, Ink, TextAnchor.MiddleRight, true);
+                heading = Make(17, Ink, TextAnchor.MiddleLeft, true);
+                item = Make(14, Ink, TextAnchor.MiddleLeft, false);
+                itemRight = Make(14, Ink, TextAnchor.MiddleRight, false);
+                name = Make(15, Ink, TextAnchor.MiddleCenter, true);
+                small = Make(13, Soft, TextAnchor.MiddleCenter, false);
+                footer = Make(14, Soft, TextAnchor.MiddleLeft, false);
+                warnRight = Make(13, Warn, TextAnchor.MiddleRight, false);
+                tab = Make(16, Soft, TextAnchor.MiddleCenter, true);
+                tabOn = Make(16, Ink, TextAnchor.MiddleCenter, true);
+                closeText = Make(19, new Color(1f, 0.97f, 0.9f), TextAnchor.MiddleCenter, true);
+            }
+
+            static GUIStyle Make(int size, Color color, TextAnchor anchor, bool bold)
+            {
+                var s = new GUIStyle
+                {
+                    font = UiSkin.Font, fontSize = size, alignment = anchor, wordWrap = false,
+                    fontStyle = bold ? FontStyle.Bold : FontStyle.Normal
+                };
+                s.normal.textColor = color;
+                return s;
             }
         }
     }

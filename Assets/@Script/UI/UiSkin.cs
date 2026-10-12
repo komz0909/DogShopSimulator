@@ -139,6 +139,67 @@ namespace DogShop.UI
             return style;
         }
 
+        /// <summary>
+        /// 그림 한 장을 9-slice 로 그린다. 경계는 <b>텍셀</b> 단위, scale 은 텍셀 하나가 화면에서 몇 픽셀인지.
+        /// GUIStyle.border 로 하면 경계가 원본 픽셀 크기로 박혀서, 큰 원화를 작은 창에 쓰면 테두리가 창을 덮는다.
+        /// </summary>
+        public static void Draw9(Rect r, Texture2D tex, float left, float top, float right, float bottom, float scale)
+        {
+            if (tex == null) return;
+            float tw = tex.width, th = tex.height;
+
+            // 창이 경계 합보다 작으면 경계를 같이 줄인다
+            scale = Mathf.Min(scale, r.width / (left + right), r.height / (top + bottom));
+
+            // 조각 경계를 정수로 맞추고, 앞 조각을 다음 조각 쪽으로 1 만큼 겹쳐 그린다 —
+            // 소수 경계 그대로면 조각 사이에 뒤 배경이 실선처럼 비친다
+            float[] xs = { r.x, Mathf.Round(r.x + left * scale), Mathf.Round(r.xMax - right * scale), r.xMax };
+            float[] ys = { r.y, Mathf.Round(r.y + top * scale), Mathf.Round(r.yMax - bottom * scale), r.yMax };
+            float[] us = { 0f, left / tw, 1f - right / tw, 1f };
+            float[] vs = { 1f, 1f - top / th, bottom / th, 0f };   // 텍스처 v 는 아래가 0
+
+            for (int j = 0; j < 3; j++)
+            for (int i = 0; i < 3; i++)
+            {
+                var dst = new Rect(xs[i], ys[j], xs[i + 1] - xs[i], ys[j + 1] - ys[j]);
+                if (dst.width <= 0f || dst.height <= 0f) continue;
+                Rect uv = new Rect(us[i], vs[j + 1], us[i + 1] - us[i], vs[j] - vs[j + 1]);
+                if (i < 2) { dst.width += 1f; uv.width += 1f / tw; }
+                if (j < 2) { dst.height += 1f; uv.y -= 1f / th; uv.height += 1f / th; }
+                GUI.DrawTextureWithTexCoords(dst, tex, uv);
+            }
+        }
+
+        /// <summary>
+        /// 원본 그림(srcW x srcH) 안의 픽셀 사각형(위가 0)을, 그 그림을 늘려 그린 화면 사각형 위로 옮긴다.
+        /// 원본 크기를 따로 받는 이유: 임포트 최대 크기에 걸리면 tex.width 가 원본보다 작아져 자리가 어긋난다.
+        /// </summary>
+        public static Rect TexelRect(Rect drawn, float srcW, float srcH, float x, float y, float w, float h)
+        {
+            float sx = drawn.width / srcW, sy = drawn.height / srcH;
+            return new Rect(drawn.x + x * sx, drawn.y + y * sy, w * sx, h * sy);
+        }
+
+        /// <summary>
+        /// 창 오른쪽 위 귀퉁이의 발바닥 닫기. 창 그림에서 그 자리 발바닥 무늬를 지우고, 같은 자리에
+        /// 빨간 발바닥(UI_Paw 를 빨갛게 칠한 T_UI_ClosePaw)을 버튼으로 얹는다. spot 은 지운 발바닥의 경계다.
+        /// 지운 발바닥을 떠서 칠해 봤더니 속이 비고 마디 사이가 번졌다.
+        /// 장식과 구분되도록 조금 크게 그리고, 마우스를 올리면 더 커진다. 누르면 true.
+        /// 버튼 발바닥은 빨간색이다 — 장식과 같은 금색이면 닫기인 줄 몰랐다. "닫기" 글자 팁은 뺐다(사용자 요청).
+        /// </summary>
+        public static bool PawClose(Rect spot, Texture2D paw)
+        {
+            if (paw == null) return GUI.Button(spot, "X", Button(Coral));
+
+            bool hover = spot.Contains(Event.current.mousePosition);
+            float k = hover ? 1.25f : 1.1f;
+            var d = new Rect(spot.center.x - spot.width * k * 0.5f, spot.center.y - spot.height * k * 0.5f,
+                             spot.width * k, spot.height * k);
+            GUI.DrawTexture(d, paw, ScaleMode.ScaleToFit);
+
+            return GUI.Button(spot, GUIContent.none, GUIStyle.none);
+        }
+
         public static GUIStyle Panel_
         {
             get

@@ -25,7 +25,8 @@ namespace DogShop.UI
         [SerializeField] Texture2D background;  // 인게임 화면을 모자이크한 것
         [SerializeField] Texture2D titleImage;
         [SerializeField] Texture2D boneImage;   // 버튼 바탕
-        [SerializeField] Texture2D pawImage;    // 설정 창 닫기
+        [SerializeField] Texture2D closeImage;    // 설정 창 닫기 귀퉁이 발바닥 (T_UI_SettingsClosePaw)
+        [SerializeField] Texture2D frameImage;    // 설정 창 틀 (T_UI_SettingsFrame)
 
         /// <summary>
         /// 고를 수 있는 견종. <see cref="Dogs.DogManager"/>의 breedPrefabs 순서와 <b>같아야 한다</b> —
@@ -61,6 +62,8 @@ namespace DogShop.UI
         [SerializeField] Texture2D confirmButton;    // 노란 알약 버튼(글자 없음)
         [SerializeField] Texture2D otherButton;      // 같은 알약을 빨간색으로 돌린 것 — [다른 강아지]
         [SerializeField] Texture2D iconStar, iconPaw;
+        [Tooltip("첫 화면 타이틀 — 타이틀 그림에서 아래 작은 가게를 뺀 로고만")]
+        [SerializeField] Texture2D titleLogo;
         [Tooltip("건강·청결·미모·훈련도·어질리티 순서(가게 훈련장 창과 같은 아이콘)")]
         [SerializeField] Texture2D[] statIcons = new Texture2D[0];
 
@@ -71,10 +74,9 @@ namespace DogShop.UI
         const float Gap = 16f;
 
         /// <summary>
-        /// 뼈다귀 버튼 크기. 그림의 실제 가로세로비(690x328 = 2.10)에 맞춘다 —
+        /// 뼈다귀 버튼 가로세로비. 그림의 실제 비(690x328 = 2.10)에 맞춘다 —
         /// 안 맞추면 ScaleToFit 이 남는 쪽을 여백으로 만들어 뼈가 글자보다 작아진다.
         /// </summary>
-        const float BoneWidth = 320f;
         const float BoneAspect = 2.10f;
 
         /// <summary>타이틀을 가로로만 늘리는 배수. 1 이면 원래 비율.</summary>
@@ -118,7 +120,7 @@ namespace DogShop.UI
 
             // 설정은 <b>덮개</b>다. 뒤 화면을 어둡게 깔고 그 위에 띄운다 —
             // 별도 페이지로 만들면 어디서 왔는지 기억해 두었다 돌아가야 한다
-            if (settingsOpen && SettingsPanel.Draw(pawImage)) settingsOpen = false;
+            if (settingsOpen && SettingsPanel.Draw(closeImage, frameImage)) settingsOpen = false;
         }
 
         void DrawBackground()
@@ -138,7 +140,7 @@ namespace DogShop.UI
         /// 뼈다귀 모양 버튼. 그림을 깔고 그 위에 글자를 얹는다 —
         /// IMGUI 버튼 스타일에 알파가 있는 그림을 넣으면 9조각으로 늘어나 뼈 모양이 뭉개진다.
         /// </summary>
-        bool BoneButton(Rect rect, string label, bool enabled = true)
+        bool BoneButton(Rect rect, string label, bool enabled = true, bool fill = false)
         {
             bool hover = rect.Contains(Event.current.mousePosition);
 
@@ -146,7 +148,7 @@ namespace DogShop.UI
             if (!enabled) GUI.color = new Color(1f, 1f, 1f, 0.45f);
             else if (hover) GUI.color = new Color(1.12f, 1.12f, 1.12f, 1f);
 
-            if (boneImage != null) GUI.DrawTexture(rect, boneImage, ScaleMode.ScaleToFit);
+            if (boneImage != null) GUI.DrawTexture(rect, boneImage, fill ? ScaleMode.StretchToFill : ScaleMode.ScaleToFit);
             GUI.color = prev;
 
             var style = new GUIStyle(UiSkin.Caption)
@@ -179,36 +181,48 @@ namespace DogShop.UI
 
         // ---- 첫 화면 ----
 
+        // 첫 화면 배치 — 사용자가 준 시안(16:9)을 잰 값. 위치는 화면 비율, 크기는 1920x1080 기준 px 에
+        // 화면 배율(가로·세로 중 작은 쪽)을 곱한다. 화면비가 달라도 타이틀은 왼쪽 위, 버튼은 오른쪽 아래에
+        // 붙어 있고 크기가 같은 비율로 줄어 화면 밖으로 나가지 않는다.
+
+        /// <summary>타이틀(로고만): 왼쪽 위 모서리 위치(화면 비율)와 너비(1920 기준 px). 높이는 그림 비율대로.</summary>
+        const float HomeTitleLeft = 0.057f, HomeTitleTop = 0.107f, HomeTitleWidth = 989f;
+
+        /// <summary>버튼 넷: 오른쪽 여백·아래 여백(화면 비율), 한 개 크기와 줄 간격(1920x1080 기준 px).</summary>
+        const float HomeButtonsRight = 0.068f, HomeButtonsBottom = 0.104f;
+        const float HomeButtonW = 309f, HomeButtonH = 121f, HomeButtonStep = 133f;
+
         void DrawHome()
         {
-            // 세로 크기를 준다. 가로는 비율 x 늘림배수로 정해지므로 화면보다 넓어지지 않게 묶는다
-            float titleHeight = Mathf.Min(380f, Screen.height * 0.36f,
-                Screen.width * 0.60f / (titleImage != null ? titleImage.width / (float)titleImage.height : 1.5f) / TitleStretch);
-            float titleBottom = DrawTitleImage(Screen.height * 0.24f, titleHeight);
+            // 타이틀은 왼쪽 위 가게 위로 크게, 버튼은 오른쪽 아래 — 가운데 거리·하늘은 비워 둔다
+            float s = Mathf.Min(Screen.width / 1920f, Screen.height / 1080f);
 
-            // 버튼 넷을 <b>타이틀 아래 남는 공간에</b> 맞춘다. 화면 비율이 달라져도
-            // 마지막 버튼이 아래로 잘리지 않는다
+            // 타이틀: 아래 작은 가게 그림을 뺀 로고만(UI_TitleLogo). 없으면 원래 타이틀을 쓴다
+            Texture2D logo = titleLogo != null ? titleLogo : titleImage;
+            if (logo != null)
+            {
+                float tw = HomeTitleWidth * s, th = tw * logo.height / logo.width;
+                GUI.DrawTexture(new Rect(Screen.width * HomeTitleLeft, Screen.height * HomeTitleTop, tw, th), logo, ScaleMode.StretchToFill);
+            }
+
             const int count = 4;
-            float room = Mathf.Max(200f, Screen.height - 40f - titleBottom);
-            float step = Mathf.Min(BoneWidth / BoneAspect + 6f, room / count);
-            float height = Mathf.Min(BoneWidth / BoneAspect, step - 4f);
-            float width = height * BoneAspect;
+            float width = HomeButtonW * s, height = HomeButtonH * s, step = HomeButtonStep * s;
+            float x = Screen.width * (1f - HomeButtonsRight) - width;
+            float y = Screen.height * (1f - HomeButtonsBottom) - (step * (count - 1) + height);   // 맨 위 버튼
 
-            float x = (Screen.width - width) * 0.5f;
-            float y = titleBottom + (room - step * count) * 0.5f;
-
-            if (BoneButton(new Rect(x, y, width, height), "게임 시작")) page = Page.Breeds;
+            // 시안처럼 뼈를 칸에 꽉 채워(조금 납작하게) 그린다
+            if (BoneButton(new Rect(x, y, width, height), "게임 시작", true, true)) page = Page.Breeds;
 
             bool hasSave = SaveManager.HasSaveFile;
-            if (BoneButton(new Rect(x, y + step, width, height), "이어하기", hasSave))
+            if (BoneButton(new Rect(x, y + step, width, height), "이어하기", hasSave, true))
             {
                 GameStart.Resume();
                 SceneManager.LoadScene(shopScene);
             }
 
-            if (BoneButton(new Rect(x, y + step * 2f, width, height), "게임 설정")) settingsOpen = true;
+            if (BoneButton(new Rect(x, y + step * 2f, width, height), "게임 설정", true, true)) settingsOpen = true;
 
-            if (BoneButton(new Rect(x, y + step * 3f, width, height), "게임 종료")) Quit();
+            if (BoneButton(new Rect(x, y + step * 3f, width, height), "게임 종료", true, true)) Quit();
         }
 
         // ---- 견종 고르기 ----
@@ -244,6 +258,19 @@ namespace DogShop.UI
         /// <summary>이름 글자 수 상한(6자). 머리 위 이름표가 이 길이에 맞춰 글자 크기를 줄인다.</summary>
         const int MaxNameLength = Dogs.Dog.MaxNameLength;
         string dogName = "";
+        float nameRejectedAt = -10f;
+
+        /// <summary>
+        /// 이름에는 글자(한글·영어)와 띄어쓰기만 남긴다. 숫자·기호는 버린다.
+        /// 비워 두고 시작하면 견종 이름으로 부른다(<see cref="Dogs.Dog.DisplayName"/>).
+        /// </summary>
+        static string CleanName(string s)
+        {
+            var sb = new System.Text.StringBuilder(s.Length);
+            foreach (char c in s)
+                if (char.IsLetter(c) || c == ' ') sb.Append(c);
+            return sb.ToString();
+        }
 
         void DrawBreeds(float x, float y)
         {
@@ -257,7 +284,7 @@ namespace DogShop.UI
 
                 // 고른 카드는 테두리 대신 색판을 깔아 표시한다 — IMGUI 에 테두리만 그리는 수단이 마땅치 않다
                 if (picked == i)
-                    GUI.Box(new Rect(card.x + 6f, card.y + 6f, card.width - 12f, 26f), "고름", UiSkin.Tag(UiSkin.Green));
+                    GUI.Box(new Rect(card.x + 6f, card.y + 6f, card.width - 12f, 26f), "선택중", UiSkin.Tag(UiSkin.Green));
 
                 // 그림 카드는 받침이 높이 50~59% 에 있다 — 발이 받침 위에 오게 사진을 내리고, 글자는 아래 흰 칸(70%~)에 둔다
                 float side = art ? 140f : card.width - 56f;
@@ -279,9 +306,10 @@ namespace DogShop.UI
                 GUI.Box(new Rect(card.x + 18f + tagW, tagY, tagW, 24f),
                     "달리기 " + breeds[i].runSpeed.ToString("0.0"), UiSkin.Tag(UiSkin.Sky));
 
-                var blurb = new GUIStyle(UiSkin.Label) { alignment = TextAnchor.UpperCenter, fontSize = 13 };
+                // 소개 글은 두세 줄이라 카드 아래 끝까지 쓴다(예전 한 줄 반짜리 칸에서는 셋째 줄이 잘렸다)
+                var blurb = new GUIStyle(UiSkin.Label) { alignment = TextAnchor.UpperCenter, fontSize = 12 };
                 if (art) blurb.normal.textColor = UiSkin.Ink;
-                GUI.Label(new Rect(card.x + 10f, tagY + 30f, card.width - 20f, art ? 44f : 52f), breeds[i].blurb, blurb);
+                GUI.Label(new Rect(card.x + 12f, tagY + 29f, card.width - 24f, card.yMax - tagY - 36f), breeds[i].blurb, blurb);
 
                 if (GUI.Button(new Rect(card.x, card.y, card.width, card.height), GUIContent.none, GUIStyle.none))
                     OpenCard(i);
@@ -315,6 +343,7 @@ namespace DogShop.UI
         void CloseCard()
         {
             cardOpen = false;
+            Input.imeCompositionMode = IMECompositionMode.Auto;
             ClearPreview();
         }
 
@@ -465,9 +494,17 @@ namespace DogShop.UI
             GUI.Label(new Rect(px, y, pw * 0.25f, line * 0.8f), "이름", cardText);
             var field = new Rect(px + pw * 0.24f, y - S * 0.004f, pw * 0.76f, line * 0.85f);
             GUI.SetNextControlName("DogName");
-            dogName = GUI.TextField(field, dogName, MaxNameLength, CardFieldStyle());
-            if (string.IsNullOrEmpty(dogName) && GUI.GetNameOfFocusedControl() != "DogName")
-                GUI.Label(field, "이름을 지어 주자", cardHint);
+            bool typing = GUI.GetNameOfFocusedControl() == "DogName";
+            // 한글을 치려면 IME 가 켜져 있어야 한다. Auto 는 창에 따라 안 켜질 때가 있어 입력칸에 있는 동안만 강제로 켠다
+            Input.imeCompositionMode = typing ? IMECompositionMode.On : IMECompositionMode.Auto;
+            string typed = GUI.TextField(field, dogName, MaxNameLength, CardFieldStyle());
+            dogName = CleanName(typed);
+            if (dogName != typed) nameRejectedAt = Time.unscaledTime;
+            if (string.IsNullOrEmpty(dogName) && !typing)
+                GUI.Label(field, "비워 두면 " + breed.nameKo, cardHint);
+            // 숫자·기호를 쳤을 때 아무 반응이 없으면 키보드가 고장 난 줄 안다
+            if (Time.unscaledTime - nameRejectedAt < 2f)
+                GUI.Label(new Rect(field.x, field.yMax, field.width, line * 0.6f), "한글과 영어만 쓸 수 있다", cardSmallNote);
 
             // 확인 — 바로 가게로
             Rect ok = R(0.33f, 0.835f, 0.67f, 0.945f);
