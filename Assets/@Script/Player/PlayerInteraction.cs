@@ -79,7 +79,13 @@ namespace DogShop.Player
             {
                 Dog hero = DogManager.Instance != null ? DogManager.Instance.Hero : null;
                 DogRoamer roamer = hero != null ? hero.GetComponent<DogRoamer>() : null;
-                if (roamer != null) roamer.Call();
+                if (roamer != null)
+                {
+                    roamer.Call();
+                    // 부르면서 손을 흔든다 — 강아지가 뛰어오는 이유가 화면에 보이게
+                    CharacterAnimatorDriver body = player.GetComponentInChildren<CharacterAnimatorDriver>();
+                    if (body != null) body.Wave();
+                }
             }
         }
 

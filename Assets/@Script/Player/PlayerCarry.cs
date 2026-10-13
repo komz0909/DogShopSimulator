@@ -16,7 +16,11 @@ namespace DogShop.Player
         /// <summary>상자를 들면 이 비율로 느려진다.</summary>
         const float LoadedSpeedFactor = 0.82f;
 
-        [SerializeField] Vector3 holdOffset = new Vector3(0f, 0.74f, 0.46f);
+        /// <summary>
+        /// 상자 자리(몸 기준). 손으로 잡게 하지는 않는다(IK 로 해 봤더니 손이 뒤집혀 두 번 뺐다).
+        /// 대신 걷는 동안 흔들리는 손보다 위, 몸 앞쪽으로 띄워 팔이 상자를 뚫고 지나가지 않게 한다.
+        /// </summary>
+        [SerializeField] Vector3 holdOffset = new Vector3(0f, 0.80f, 0.55f);
 
         Transform holdAnchor;
         CharacterController controller;
@@ -37,6 +41,7 @@ namespace DogShop.Player
             anchor.transform.localPosition = holdOffset;
             holdAnchor = anchor.transform;
         }
+
 
         public string Describe() => IsHolding ? Held.Describe() : "빈손";
 

@@ -13,6 +13,17 @@ namespace DogShop.Player
     public class CharacterAnimatorDriver : MonoBehaviour
     {
         static readonly int SpeedHash = Animator.StringToHash("Speed");
+        static readonly int WaveHash = Animator.StringToHash("Wave");
+
+        /// <summary>
+        /// 손을 흔든다(주인이 T 로 강아지를 부를 때). 컨트롤러에 Wave 상태가 있는 캐릭터만 — 지금은 주인뿐이다.
+        /// 끝나면 대기로 돌아가고, 도중에 걸으면 걷기로 넘어간다(AC_Owner 의 전이).
+        /// </summary>
+        public void Wave()
+        {
+            if (animator != null && animator.HasState(0, WaveHash))
+                animator.CrossFadeInFixedTime(WaveHash, 0.15f);
+        }
 
         /// <summary>한 프레임 변위는 튀기 쉬워서 부드럽게 만든다.</summary>
         const float Smoothing = 10f;

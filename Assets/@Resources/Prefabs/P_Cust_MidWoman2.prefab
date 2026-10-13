@@ -75,5 +75,29 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 166648fcd6b790c46ad24d40d0b971c0, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 3543620895503349114}
   m_SourcePrefab: {fileID: 100100000, guid: 166648fcd6b790c46ad24d40d0b971c0, type: 3}
+--- !u!1 &9096386211122346650 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 919132149155446097, guid: 166648fcd6b790c46ad24d40d0b971c0, type: 3}
+  m_PrefabInstance: {fileID: 8285975433874786251}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &3543620895503349114
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9096386211122346650}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 45f7f3b4ef5b44a4c896cabb9df04c5c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DogShop.Shop.OutfitSet
+  outfits:
+  - {fileID: 2100000, guid: 6c49c853a836ae64fb98f23cb1f3a888, type: 2}
+  - {fileID: 2100000, guid: ea180fb2e6fd77041b54401868f07605, type: 2}
+  - {fileID: 2100000, guid: 4947b1b3cd0015346b87cbeca8f2318f, type: 2}

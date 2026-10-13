@@ -105,6 +105,10 @@ namespace DogShop.Shop
             model.transform.localPosition = Vector3.zero;
             model.transform.localRotation = Quaternion.identity;
 
+            // 같은 모델이라도 옷 색은 들어올 때마다 다르게
+            OutfitSet outfit = model.GetComponent<OutfitSet>();
+            if (outfit != null) outfit.Dress();
+
             float height = MeasureHeight(model);
             LabelHeight = height + LabelClearance;
 
