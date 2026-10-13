@@ -364,7 +364,10 @@ namespace DogShop.Show
                 "훈련도가 높을수록 정확하다  (지금 훈련도 " + hero.Stats.Training + ")",
                 "맞게 물어 온 횟수가 점수, 총점의 25%");
 
-            float success = Mathf.Lerp(0.35f, 0.95f, trainingN);
+            // 카드를 맞게 골랐을 때 제대로 물어 올 확률. 예전 Lerp(0.35, 0.95) 는 훈련도 중간(0.5)에서 65% —
+            // 3번 다 맞힐 확률이 27% 라 평균으로 키운 강아지도 거의 늘 틀렸다. 제곱근 곡선으로 중간을 끌어올린다.
+            //   훈련도   0.25 → 79%   0.5 → 87%   0.8 → 94%   1.0 → 98%
+            float success = Mathf.Lerp(0.6f, 0.98f, Mathf.Sqrt(trainingN));
             int got = 0;
 
             for (int round = 0; round < FetchRounds; round++)
@@ -396,7 +399,9 @@ namespace DogShop.Show
                 yield return RunTo(rowFront, false);   // 멈추지 않고 걸음으로 이어진다
 
                 // 훈련이 덜 됐으면 엉뚱한 받침대에서 한 번 멈칫한다 — 헤매는 게 보여야 한다
-                if (Random.value > trainingN * 0.9f)
+                // 틀린 걸 물어 올 땐 늘 헤매고, 맞게 물어 와도 가끔(실패 확률의 절반) 멈칫한다.
+                // 예전엔 정답이어도 훈련도 중간이면 절반 넘게 헤매서 실패처럼 보였다
+                if (!right || Random.value < (1f - success) * 0.5f)
                 {
                     int decoy = RandomOther(broughtItem);
                     if (propHome.ContainsKey(decoy))
