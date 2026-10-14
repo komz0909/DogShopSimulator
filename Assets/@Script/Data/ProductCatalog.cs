@@ -12,7 +12,7 @@ namespace DogShop.Data
     /// </summary>
     public enum ProductCategory
     {
-        Food = 0,        // 동물사료 — 사료와 간식
+        Food = 0,        // 동물먹이 — 사료와 간식
         Supply = 1,      // 애견용품 — 목줄, 장난감 같은 물건
         Care = 2,        // 약품/미용 — 약, 샴푸, 미용키트
         Furniture = 3    // 가구 — 진열대와 침대. 상품이 아니라 가게에 놓는 것
@@ -37,7 +37,7 @@ namespace DogShop.Data
                 // 가운뎃점(·)과 줄표(—)는 HUD 글꼴(BMJUA)에 글리프가 없어 빈칸으로 찍힌다
                 case ProductCategory.Care: return "약품/미용";
                 case ProductCategory.Furniture: return "가구";
-                default: return "동물사료";
+                default: return "동물먹이";
             }
         }
     }

@@ -232,7 +232,7 @@ namespace DogShop.Player
             if (cam == null) return false;
 
             Vector2 screenPos = PointerMenus.PickPosition();
-            return Physics.Raycast(cam.ScreenPointToRay(screenPos), out hit, RayRange, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Collide);
+            return WallCutaway.Raycast(cam.ScreenPointToRay(screenPos), out hit, RayRange, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Collide);   // 숨긴 벽은 통과
         }
 
         Vector2 ScreenPointOf(Vector3 worldPoint)

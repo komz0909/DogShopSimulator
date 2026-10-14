@@ -275,7 +275,7 @@ namespace DogShop.Player
             if (cam == null) return false;
 
             Ray ray = cam.ScreenPointToRay(DogShop.Core.PointerMenus.PickPosition());
-            return Physics.Raycast(ray, out hit, RayRange, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
+            return WallCutaway.Raycast(ray, out hit, RayRange, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);   // 숨긴 벽은 통과
         }
 
         static bool IsGround(RaycastHit hit) => hit.normal.y > 0.7f && hit.point.y <= GroundLevel;

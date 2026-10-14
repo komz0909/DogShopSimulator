@@ -96,6 +96,7 @@ namespace DogShop.Dogs
             {
                 Transform t = hits[i].transform;
                 if (t.IsChildOf(dog.transform)) continue;
+                if (Player.WallCutaway.Ignores(hits[i].collider)) continue;   // 숨긴 벽 너머 이름표는 보인다
                 if (t.GetComponentInParent<Player.PlayerCarry>() != null) continue;
                 return true;
             }

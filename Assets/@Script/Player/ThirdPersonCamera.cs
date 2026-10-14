@@ -69,6 +69,7 @@ namespace DogShop.Player
 
         void Awake()
         {
+            if (GetComponent<WallCutaway>() == null) gameObject.AddComponent<WallCutaway>();
             cam = GetComponentInChildren<Camera>();
             if (cam != null)
             {
@@ -115,9 +116,13 @@ namespace DogShop.Player
             Vector3 dir = look * Vector3.back;
 
             // 거리 끝의 투명 경계벽(Ignore Raycast)에는 카메라가 걸리지 않는다
+            // 건물 안에서 숨긴 벽(WallCutaway)에도 걸리지 않는다 — 벽 너머에서 안쪽을 내려다본다
             float applied = distance;
-            if (Physics.SphereCast(pivot, 0.25f, dir, out RaycastHit hit, distance, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
-                applied = Mathf.Max(minDistance, hit.distance - 0.1f);
+            foreach (RaycastHit hit in Physics.SphereCastAll(pivot, 0.25f, dir, distance, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
+            {
+                if (hit.distance <= 0f || WallCutaway.Ignores(hit.collider)) continue;   // 0 = 시작부터 겹친 것(SphereCast 는 원래 안 잡았다)
+                applied = Mathf.Min(applied, Mathf.Max(minDistance, hit.distance - 0.1f));
+            }
 
             camT.position = pivot + dir * applied;
         }

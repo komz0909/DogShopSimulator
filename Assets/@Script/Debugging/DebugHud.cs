@@ -71,9 +71,15 @@ namespace DogShop.Debugging
 
             if (kb.f1Key.wasPressedThisFrame) visible = !visible;
 
+            // 게임 속도 1 / 2 / 3 = x1 / x2 / x4. 예전 x4 / x16 은 손님·강아지가 순간이동하듯 보여 줄였다.
+            // 무인 측정(MeasurementMode) 중에만 3 이 예전처럼 x16 — 30일을 돌리는 데 필요하다
             if (kb.digit1Key.wasPressedThisFrame) TimeManager.Instance.SetSpeed(1);
-            if (kb.digit2Key.wasPressedThisFrame) TimeManager.Instance.SetSpeed(4);
-            if (kb.digit3Key.wasPressedThisFrame) TimeManager.Instance.SetSpeed(16);
+            if (kb.digit2Key.wasPressedThisFrame) TimeManager.Instance.SetSpeed(2);
+            if (kb.digit3Key.wasPressedThisFrame)
+            {
+                MeasurementMode measure = MeasurementMode.Instance;
+                TimeManager.Instance.SetSpeed(measure != null && measure.Active ? 16 : 4);
+            }
 
             // 아래는 테스트 전용 — 에디터·개발 빌드에서만. 일반 빌드에서 0 을 누르면 능력치·날짜가 바뀌고 도그쇼가 시작돼 되돌릴 수 없었다
             if (Debug.isDebugBuild)

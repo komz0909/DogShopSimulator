@@ -328,6 +328,26 @@ namespace DogShop.UI
         RenderTexture previewTexture;
         float cardOpenedAt;
 
+        /// <summary>미리보기 강아지(돌리는 대상)와 지금 돌린 각도.</summary>
+        Transform previewDog;
+        float previewYaw = 200f;
+        bool spinning;
+
+        /// <summary>왼쪽 마우스를 누른 채 좌우로 끌면 강아지가 돈다. 한 화면 너비만큼 끌면 한 바퀴 반쯤.</summary>
+        void SpinPreview(Rect area)
+        {
+            if (previewDog == null) return;
+            Event e = Event.current;
+            if (e.type == EventType.MouseDown && e.button == 0 && area.Contains(e.mousePosition)) { spinning = true; e.Use(); }
+            else if (e.type == EventType.MouseUp && e.button == 0) spinning = false;
+            else if (e.type == EventType.MouseDrag && spinning)
+            {
+                previewYaw -= e.delta.x * 540f / Mathf.Max(1f, Screen.width);
+                previewDog.localRotation = Quaternion.Euler(0f, previewYaw, 0f);
+                e.Use();
+            }
+        }
+
         /// <summary>미리보기 강아지를 세울 곳. 메뉴 씬의 카메라에 안 잡히게 멀리 둔다.</summary>
         static readonly Vector3 PreviewSpot = new Vector3(0f, -500f, 0f);
 
@@ -370,6 +390,8 @@ namespace DogShop.UI
             foreach (Collider col in dog.GetComponentsInChildren<Collider>(true)) DestroyImmediate(col);
             holder.SetActive(true);
             previewRoot = holder;
+            previewDog = dog.transform;
+            previewYaw = 200f;
 
             // 몸 크기에 맞춰 카메라를 둔다 — 셰퍼드와 치와와가 받침 위에서 비슷한 크기로 보이게
             Bounds b = new Bounds(holder.transform.position, Vector3.zero);
@@ -440,7 +462,10 @@ namespace DogShop.UI
             Rect pedestal = R(0.06f, 0.62f, 0.68f, 0.92f);
             if (pedestalImage != null) GUI.DrawTexture(pedestal, pedestalImage, ScaleMode.ScaleToFit);
             else GUI.DrawTexture(R(0.12f, 0.74f, 0.62f, 0.86f), Solid(new Color(0.85f, 0.7f, 0.5f, 0.9f)));
-            if (previewTexture != null) GUI.DrawTexture(R(0.02f, 0.24f, 0.72f, 0.94f), previewTexture, ScaleMode.ScaleToFit, true);
+            Rect previewRect = R(0.02f, 0.24f, 0.72f, 0.94f);
+            if (previewTexture != null) GUI.DrawTexture(previewRect, previewTexture, ScaleMode.ScaleToFit, true);
+            // 돌리기 칸은 [확인] 버튼(아래 0.835~) 위까지만 — 겹치면 누르는 순간 돌리기가 클릭을 가져가 버튼이 안 눌렸다
+            SpinPreview(R(0.02f, 0.24f, 0.72f, 0.82f));
 
             // NEW 딱지 — 살짝 두근거린다
             if (newBadge != null)

@@ -39,7 +39,7 @@ namespace DogShop.Shop
         const float RetailY = 148f;
         const float StockY = 166f;
         const float ActionY = 188f;
-        const float HeaderHeight = 56f;   // <상점 닫기> 버튼(70)이 차양 그림자에 살짝 걸치는 높이
+        const float HeaderHeight = 56f;   // 안내·보유 금액 줄. 오른쪽은 장바구니 메모장 윗부분(집게)이 차지한다
         const float TabHeight = 40f;
         const float FooterHeight = 30f;
 
@@ -68,8 +68,6 @@ namespace DogShop.Shop
         [SerializeField] Texture2D cardTex;
         [SerializeField] Texture2D tabTex;
         [SerializeField] Texture2D tabOnTex;
-        [Tooltip("<상점 닫기> 버튼 판(T_UI_ShopClose)")]
-        [SerializeField] Texture2D closeTex;
         [Tooltip("오른쪽 위 귀퉁이 닫기 발바닥(T_UI_ShopClosePaw). 틀 그림에서 지운 그 발바닥이다")]
         [SerializeField] Texture2D closePawTex;
 
@@ -325,17 +323,16 @@ namespace DogShop.Shop
             // 간판 — 틀 윗변 나무 위에 얹는다. 차양 아래 크림 판은 상품 자리로 아낀다
             GUI.Label(new Rect(window.x, window.y + 1f, window.width, 34f), "상점", Styles.sign);
 
-            // 머리 — 안내와 보유 금액은 상품 쪽, 장바구니 위에는 큰 <상점 닫기> 버튼.
-            // 예전 30px 발바닥은 장식처럼 보여 닫기인 줄 몰랐다
+            // 머리 — 안내와 보유 금액은 상품 쪽. 닫기는 틀 오른쪽 위 빨간 발바닥 하나뿐이다
+            // (<상점 닫기> 버튼도 있었는데 닫기가 두 개라 뺐고, 그 자리는 장바구니가 쓴다)
+            float headerTop = y;
             GUI.Label(new Rect(x, y, ProductsWidth * 0.6f, HeaderHeight), "오늘 주문하면 내일 아침에 온다", Styles.soft);
             GUI.Label(new Rect(x + ProductsWidth * 0.6f, y, ProductsWidth * 0.4f, HeaderHeight), money, Styles.money);
-            if (CloseButton(new Rect(window.xMax - SideInset - CloseW, y + (HeaderHeight - CloseH) * 0.5f, CloseW, CloseH)))
-                open = false;
             y += HeaderHeight + 6f;
 
             // 장바구니는 가구 칸에서도 그린다 — 담아 둔 채로 칸을 넘길 수 있어야 한다.
-            // 탭 줄부터 하단 안내 줄 끝까지 오른쪽 한 칸을 통째로 쓴다
-            DrawCart(inv, x + ProductsWidth + Gap, y, window.yMax - BottomInset);
+            // 머리 줄부터 하단 안내 줄 끝까지 오른쪽 한 칸을 통째로 쓴다
+            DrawCart(inv, x + ProductsWidth + Gap, headerTop, window.yMax - BottomInset);
 
             // 칸 고르기 — 상품 쪽 너비만
             float tabWidth = (ProductsWidth - Gap * (ProductCategories.Tabs.Length - 1)) / ProductCategories.Tabs.Length;
@@ -368,21 +365,6 @@ namespace DogShop.Shop
                 if (UiSkin.PawClose(spot, closePawTex)) open = false;
             }
             GUI.matrix = keep;
-        }
-
-        // <상점 닫기> 버튼 그림(1262x523). 왼쪽 X 배지를 빼고 남은 빨간 판에 글씨를 얹는다
-        const float CloseW = 170f, CloseH = 70f;
-
-        bool CloseButton(Rect rect)
-        {
-            if (closeTex == null) return GUI.Button(rect, "상점 닫기", UiSkin.Button(UiSkin.Coral));
-
-            bool hover = rect.Contains(Event.current.mousePosition);
-            GUI.color = hover ? new Color(1.1f, 1.05f, 1f) : Color.white;
-            GUI.DrawTexture(rect, closeTex, ScaleMode.StretchToFill);
-            GUI.color = Color.white;
-            GUI.Label(new Rect(rect.x + rect.width * 0.31f, rect.y, rect.width * 0.6f, rect.height - 3f), "상점 닫기", Styles.closeText);
-            return GUI.Button(rect, GUIContent.none, GUIStyle.none);
         }
 
         /// <summary>탭 하나. 고른 탭은 꿀색, 나머지는 크림색 알약. 그림이 없으면 예전 색 버튼.</summary>
@@ -763,7 +745,7 @@ namespace DogShop.Shop
             static readonly Color Warn = new Color(0.8f, 0.3f, 0.25f);
 
             public static GUIStyle sign, soft, softWrap, softCenter, money, heading, item, itemRight,
-                                   name, small, footer, warnRight, tab, tabOn, closeText;
+                                   name, small, footer, warnRight, tab, tabOn;
 
             static Font built;
             static GUIStyle remove;
@@ -800,7 +782,6 @@ namespace DogShop.Shop
                 warnRight = Make(13, Warn, TextAnchor.MiddleRight, false);
                 tab = Make(16, Soft, TextAnchor.MiddleCenter, true);
                 tabOn = Make(16, Ink, TextAnchor.MiddleCenter, true);
-                closeText = Make(19, new Color(1f, 0.97f, 0.9f), TextAnchor.MiddleCenter, true);
             }
 
             static GUIStyle Make(int size, Color color, TextAnchor anchor, bool bold)
