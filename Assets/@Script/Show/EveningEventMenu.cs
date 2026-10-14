@@ -2,6 +2,7 @@ using DogShop.Core;
 using DogShop.Data;
 using DogShop.Dogs;
 using DogShop.Shop;
+using DogShop.UI;
 using UnityEngine;
 
 namespace DogShop.Show
@@ -16,15 +17,11 @@ namespace DogShop.Show
     /// </summary>
     public class EveningEventMenu : MonoBehaviour
     {
-        const float Width = 620f;
-        const float RowHeight = 26f;
-        const float Pad = 12f;
 
         bool open;
         bool isFinal;
         bool finished;
 
-        string settlementLine = "";
         string mockLine = "";
         string resultLine = "";
         string gradeLine = "";
@@ -33,10 +30,16 @@ namespace DogShop.Show
         readonly System.Collections.Generic.Dictionary<string, string> endingValues =
             new System.Collections.Generic.Dictionary<string, string>();
 
-        GUIStyle headerStyle;
-        GUIStyle rowStyle;
-        GUIStyle dimStyle;
-        GUIStyle bigStyle;
+        // ---- 정산서 그림(바르코) ----
+        [Header("정산서")]
+        [SerializeField] Texture2D board;        // 클립보드 종이(UI_SettlementBoard)
+        [SerializeField] Texture2D iconIncome;   // 돈 주머니
+        [SerializeField] Texture2D iconSpend;    // 지갑과 영수증
+        [SerializeField] Texture2D iconDelivery; // 배송 트럭
+        [SerializeField] Texture2D iconReputation; // 별
+        [SerializeField] Texture2D iconCustomers;  // 손님 얼굴
+
+        GUIStyle titleStyle, labelStyle, valueStyle, subStyle, noteStyle, netStyle;
 
         void Start()
         {
@@ -73,9 +76,8 @@ namespace DogShop.Show
             GameManager g = GameManager.Instance;
             ChampionshipManager champ = ChampionshipManager.Instance;
 
-            settlementLine = "Day " + g.Day + " 마감    매출 " + g.DailyRevenue
-                           + "    판매 " + c.SoldToday + "건    놓침 " + c.LostToday + "건"
-                           + "    방문 " + c.VisitorsToday + "명 / 명성 +" + reputationGained + " (누적 " + g.Reputation + ")";
+            // 정산서 숫자는 그릴 때마다 각 매니저에서 바로 읽는다(OnGUI) — 하루 끝 취소 벌점처럼
+            // 이 이벤트 뒤에 붙는 변화까지 맞게 보이도록
 
             Dog hero = DogManager.Instance.Hero;
             isFinal = champ.IsFinalDay(g.Day);
@@ -170,46 +172,106 @@ namespace DogShop.Show
         {
             if (!open) return;
 
-            if (headerStyle == null)
-            {
-                headerStyle = new GUIStyle(GUI.skin.label) { fontSize = 17, fontStyle = FontStyle.Bold };
-                headerStyle.normal.textColor = new Color(1f, 0.9f, 0.55f);
-                rowStyle = new GUIStyle(GUI.skin.button) { fontSize = 14, alignment = TextAnchor.MiddleLeft };
-                dimStyle = new GUIStyle(GUI.skin.label) { fontSize = 14 };
-                dimStyle.normal.textColor = new Color(0.8f, 0.83f, 0.79f);
-                bigStyle = new GUIStyle(GUI.skin.label) { fontSize = 20, fontStyle = FontStyle.Bold };
-                bigStyle.normal.textColor = new Color(0.6f, 1f, 0.8f);
-            }
+            // 진열대 이름표 같은 다른 OnGUI 보다 위에 — 정산서 위로 월드 라벨이 비쳐 보였다
+            GUI.depth = -100;
+            Styles();
 
-            // 정산 한 줄 + (모의 심사) + 버튼. 최종일은 결과 두 줄이 더 붙는다
-            int rows = 2 + (mockLine.Length > 0 ? 1 : 0) + (isFinal ? 2 : 0);
-            float height = Pad * 3f + RowHeight * rows + (isFinal ? Pad : 0f);
-            float x = (Screen.width - Width) * 0.5f;
-            float y = Mathf.Max(140f, (Screen.height - height) * 0.4f);
+            Matrix4x4 keep = GUI.matrix;
+            float s = Mathf.Min(Screen.width / 1920f, Screen.height / 1080f);
+            GUI.matrix = Matrix4x4.Scale(new Vector3(s, s, 1f));
+            float sw = Screen.width / s, sh = Screen.height / s;
 
-            GUI.Box(new Rect(x, y, Width, height), GUIContent.none);
+            // 뒤를 살짝 어둡게 — 하루가 끝났다는 느낌, 정산서에 눈이 가게
+            GUI.color = new Color(0f, 0f, 0f, 0.45f);
+            GUI.DrawTexture(new Rect(0f, 0f, sw, sh), Texture2D.whiteTexture);
+            GUI.color = Color.white;
 
-            float ix = x + Pad;
-            float iw = Width - Pad * 2f;
-            float iy = y + Pad;
+            // 클립보드 — 화면 높이의 92%. 그림 비율(720:1029)을 지킨다
+            float bh = Mathf.Min(sh * 0.92f, 1000f);
+            float bw = board != null ? bh * board.width / board.height : bh * 0.7f;
+            var b = new Rect((sw - bw) * 0.5f, (sh - bh) * 0.5f, bw, bh);
+            if (board != null) GUI.DrawTexture(b, board, ScaleMode.StretchToFill, true);
+            else GUI.Box(b, GUIContent.none, UiSkin.Tag(new Color(0.98f, 0.95f, 0.87f)));
 
-            GUI.Label(new Rect(ix, iy, iw, RowHeight), settlementLine, headerStyle);
-            iy += RowHeight;
+            // 종이 안쪽(그림 기준 비율): 좌우 9%, 위 14%(클립 아래), 아래 7%
+            float x = b.x + bw * 0.10f, w = bw * 0.80f, y = b.y + bh * 0.135f, bottom = b.yMax - bh * 0.075f;
+
+            GameManager g = GameManager.Instance;
+            CustomerManager c = CustomerManager.Instance;
+            InventoryManager inv = InventoryManager.Instance;
+
+            GUI.Label(new Rect(x, y, w, 50f), "Day " + g.Day + " 마감 정산", titleStyle);
+            y += 64f;
+
+            // ---- 번 돈 ----
+            int online = 0, shipped = 0, cancelled = 0;
+            if (OnlineOrderManager.Instance != null) OnlineOrderManager.Instance.TodaySummary(out shipped, out online, out cancelled);
+            int store = Mathf.Max(0, g.DailyRevenue - online);
+            int earned = g.DailyRevenue + g.BonusToday;
+            string earnedSub = "매장 판매 " + store.ToString("N0") + "원";
+            if (online > 0) earnedSub += "  /  온라인 " + online.ToString("N0") + "원";
+            if (g.BonusToday > 0) earnedSub += "  /  보상 " + g.BonusToday.ToString("N0") + "원";
+            Row(ref y, x, w, iconIncome, "오늘 번 돈", "+" + earned.ToString("N0") + "원", Good, earnedSub);
+
+            // ---- 쓴 돈 ----
+            int spent = g.SpentTodayTotal;
+            string spentSub = SpendPart("발주", GameManager.SpendKind.Stock) + SpendPart("가구", GameManager.SpendKind.Furniture)
+                            + SpendPart("강아지", GameManager.SpendKind.Dog) + SpendPart("기타", GameManager.SpendKind.Other);
+            Row(ref y, x, w, iconSpend, "오늘 쓴 돈", "-" + spent.ToString("N0") + "원", Bad,
+                spentSub.Length > 0 ? spentSub.Substring(0, spentSub.Length - 5) : "쓴 돈 없음");
+
+            // ---- 순이익 ----
+            int net = earned - spent;
+            Line(new Rect(x, y, w, 2f));
+            netStyle.normal.textColor = net >= 0 ? Good : Bad;
+            GUI.Label(new Rect(x, y + 8f, w * 0.5f, 36f), "오늘 남긴 돈", labelStyle);
+            GUI.Label(new Rect(x + w * 0.4f, y + 6f, w * 0.6f, 40f), (net >= 0 ? "+" : "") + net.ToString("N0") + "원", netStyle);
+            GUI.Label(new Rect(x, y + 46f, w, 26f), "가진 돈 " + g.Money.ToString("N0") + "원", subStyle);
+            y += 86f;
+
+            // ---- 배송 ----
+            var arriving = new System.Text.StringBuilder();
+            int kinds = 0;
+            if (inv != null)
+                for (int i = 0; i < inv.Catalog.Count; i++)
+                {
+                    int q = inv.IncomingOf(i);
+                    if (q <= 0) continue;
+                    if (kinds < 3) arriving.Append(kinds > 0 ? ", " : "").Append(inv.Catalog.Get(i).nameKo).Append(" x").Append(q);
+                    kinds++;
+                }
+            if (kinds > 3) arriving.Append(" 외 ").Append(kinds - 3).Append("종");
+            string deliveryValue = kinds > 0 ? "내일 아침 도착" : "발주 없음";
+            string deliverySub = kinds > 0 ? arriving.ToString() : "오늘 시킨 물건이 없다. 내일 팔 재고를 확인하자";
+            int unopened = inv != null ? inv.ParcelCount : 0;
+            if (unopened > 0) deliverySub += "\n가게 앞에 안 뜯은 상자 " + unopened + "개";
+            else if (kinds == 0) deliverySub += "";
+            if (shipped + cancelled > 0) deliverySub += "\n온라인 주문 배송 " + shipped + "건" + (cancelled > 0 ? " / 취소 " + cancelled + "건" : "");
+            Row(ref y, x, w, iconDelivery, "발주와 배송", deliveryValue, Ink, deliverySub);
+
+            // ---- 명성 ----
+            int repGain = g.Reputation - g.ReputationAtDayStart;
+            ShopLevelDef next = ShopLevelManager.Instance != null ? ShopLevelManager.Instance.Next : null;
+            string repSub = "누적 " + g.Reputation + (next != null ? "  /  다음 레벨까지 " + Mathf.Max(0, next.requiredReputation - g.Reputation) : "  /  최대 레벨");
+            Row(ref y, x, w, iconReputation, "오늘 오른 명성", (repGain >= 0 ? "+" : "") + repGain, repGain >= 0 ? Gold : Bad, repSub);
+
+            // ---- 손님 ----
+            string custSub = c != null ? "판매 " + c.SoldToday + "건  /  놓친 손님 " + c.LostToday + "명" : "";
+            Row(ref y, x, w, iconCustomers, "다녀간 손님", (c != null ? c.VisitorsToday : 0) + "명", Ink, custSub);
 
             if (mockLine.Length > 0)
             {
-                GUI.Label(new Rect(ix, iy, iw, RowHeight), mockLine, dimStyle);
-                iy += RowHeight;
+                GUI.Label(new Rect(x, y, w, 40f), mockLine, noteStyle);
+                y += 44f;
             }
 
             if (isFinal)
             {
-                GUI.Label(new Rect(ix, iy, iw, RowHeight), resultLine, dimStyle);
-                iy += RowHeight;
-                GUI.Label(new Rect(ix, iy, iw, RowHeight + 4f), gradeLine, bigStyle);
-                iy += RowHeight + Pad;
+                GUI.Label(new Rect(x, y, w, 24f), resultLine, noteStyle);
+                y += 26f;
+                GUI.Label(new Rect(x, y, w, 46f), gradeLine, noteStyle);
 
-                if (!finished && GUI.Button(new Rect(ix, iy, iw, RowHeight), "게임 종료: 30일 완주", rowStyle))
+                if (!finished && GUI.Button(new Rect(x, bottom - 56f, w, 50f), "게임 종료: 30일 완주", Big(UiSkin.Coral)))
                 {
                     finished = true;
                     open = false;
@@ -218,11 +280,62 @@ namespace DogShop.Show
                     // 엔딩 3장을 보고 타이틀로 돌아간다
                     if (Cutscene.Instance != null) Cutscene.Instance.PlayEnding(endingValues);
                 }
+                GUI.matrix = keep;
                 return;
             }
 
-            iy += Pad;
-            if (GUI.Button(new Rect(ix, iy, iw, RowHeight), "다음 날 아침으로: Day " + (GameManager.Instance.Day + 1), rowStyle)) Continue();
+            if (GUI.Button(new Rect(x, bottom - 56f, w, 50f), "다음 날 아침으로  Day " + (g.Day + 1), Big(UiSkin.Green))) Continue();
+            GUI.matrix = keep;
+        }
+
+        static readonly Color Ink = new Color(0.33f, 0.2f, 0.1f);
+        static readonly Color Good = new Color(0.2f, 0.55f, 0.3f);
+        static readonly Color Bad = new Color(0.8f, 0.32f, 0.28f);
+        static readonly Color Gold = new Color(0.82f, 0.55f, 0.08f);
+        const float IconSize = 74f;
+
+        void Styles()
+        {
+            if (titleStyle != null && titleStyle.font == UiSkin.Font) return;
+            titleStyle = new GUIStyle { font = UiSkin.Font, fontSize = 40, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
+            titleStyle.normal.textColor = Ink;
+            labelStyle = new GUIStyle { font = UiSkin.Font, fontSize = 27, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleLeft };
+            labelStyle.normal.textColor = Ink;
+            valueStyle = new GUIStyle { font = UiSkin.Font, fontSize = 31, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleRight };
+            netStyle = new GUIStyle(valueStyle) { fontSize = 36 };
+            subStyle = new GUIStyle { font = UiSkin.Font, fontSize = 19, alignment = TextAnchor.UpperLeft, wordWrap = true };
+            subStyle.normal.textColor = new Color(0.5f, 0.38f, 0.28f);
+            noteStyle = new GUIStyle(subStyle) { fontSize = 19, alignment = TextAnchor.UpperCenter };
+            noteStyle.normal.textColor = Ink;
+        }
+
+        static GUIStyle Big(Color tint) => new GUIStyle(UiSkin.Button(tint)) { fontSize = 26 };
+
+        string SpendPart(string name, GameManager.SpendKind kind)
+        {
+            int v = GameManager.Instance.SpentToday(kind);
+            return v > 0 ? name + " " + v.ToString("N0") + "원  /  " : "";
+        }
+
+        /// <summary>정산서 한 칸: 아이콘 · 항목 이름 · 오른쪽 큰 숫자 · 아래 작은 설명(여러 줄 가능).</summary>
+        void Row(ref float y, float x, float w, Texture2D icon, string label, string value, Color valueColor, string sub)
+        {
+            if (icon != null) GUI.DrawTexture(new Rect(x, y, IconSize, IconSize), icon, ScaleMode.ScaleToFit, true);
+            float tx = x + IconSize + 12f, tw = w - IconSize - 12f;
+            GUI.Label(new Rect(tx, y + 2f, tw * 0.6f, 36f), label, labelStyle);
+            valueStyle.normal.textColor = valueColor;
+            GUI.Label(new Rect(tx + tw * 0.4f, y, tw * 0.6f, 40f), value, valueStyle);
+            float subH = subStyle.CalcHeight(new GUIContent(sub), tw);
+            GUI.Label(new Rect(tx, y + 40f, tw, subH), sub, subStyle);
+            y += Mathf.Max(IconSize, 40f + subH) + 14f;
+        }
+
+        /// <summary>종이 위 구분선. 연한 갈색 한 줄.</summary>
+        static void Line(Rect r)
+        {
+            GUI.color = new Color(0.55f, 0.38f, 0.22f, 0.3f);
+            GUI.DrawTexture(r, Texture2D.whiteTexture);
+            GUI.color = Color.white;
         }
     }
 }

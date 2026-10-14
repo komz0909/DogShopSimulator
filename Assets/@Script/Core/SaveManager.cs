@@ -85,7 +85,26 @@ namespace DogShop.Core
         public int visitorsToday;
         public int reputationToday;
 
+        /// <summary>오늘 쓴 돈(발주·가구·강아지·기타)과 판매 외 수입, 오늘 아침 명성 — 마감 정산서용. -1 은 없던 시절 세이브.</summary>
+        public int[] spentToday = new int[0];
+        public int bonusToday;
+        public int reputationDayStart = -1;
+
         public int[] storage = new int[0];
+
+        /// <summary>온라인 주문(OnlineOrderManager). 주문마다 [id, 도착 시각, 명성, 상태, 종류 수, (상품, 개수)…] 를 이어 붙였다.</summary>
+        public int[] onlineOrders = new int[0];
+        public int onlineOrderNextId = 1;
+        /// <summary>튜토리얼이 보장해 넣은 온라인 주문 번호(0 = 없음). 이 주문이 처리 중이면 확률 주문을 굴리지 않는다.</summary>
+        public int onlineTutorialOrderId;
+
+        /// <summary>
+        /// 튜토리얼 퀘스트(TutorialQuestManager). 지금 퀘스트 번호(0~4, 5 = 끝), 그 퀘스트 진행도,
+        /// 12시 보장 온라인 주문을 이미 넣었는가.
+        /// </summary>
+        public int tutorialStep;
+        public int tutorialProgress;
+        public bool tutorialOrderIssued;
         public int[] shelf = new int[0];
         public int[] incoming = new int[0];
 
@@ -132,7 +151,7 @@ namespace DogShop.Core
         /// <summary>영업 단계(0 준비중 / 1 영업중 / 2 마감). 없던 시절 세이브는 준비중으로 복원된다.</summary>
         public int shopPhase;
 
-        /// <summary>10시 전에 [가게 열기]를 눌러 둔 상태(10시에 연다). 없으면 예약 안 한 것으로 본다.</summary>
+        /// <summary>옛 [가게 열기] 예약. 문이 저절로 열리게 된 뒤로는 쓰지 않는다(옛 세이브 호환용 칸).</summary>
         public bool shopReserved;
 
         /// <summary>
@@ -168,8 +187,11 @@ namespace DogShop.Core
         ///     v3 이하 세이브의 판매장 가구는 불러올 때 왼쪽으로 옮긴다(<see cref="Shop.FurnitureShop.RestoreFrom"/>).
         /// 5 = 어질리티·견종 배율의 소수 몫·오늘 운동 여부 추가 (2026-10-08). v4 이하는 셋 다 0/false 로 시작하면 된다.
         /// 6 = 영업시간 09~21시(10시 오픈 예약) — 오픈 예약 여부 추가 (2026-10-12). 옛 세이브의 08시대 시각은 09시로 당겨진다.
+        /// 7 = 온라인 주문(수락·포장·출고) 추가 (2026-10-14).
+        /// 8 = 튜토리얼 퀘스트 진행·튜토리얼 온라인 주문 추가 (2026-10-14). v7 이하이면서 2일차 이상인 세이브는
+        ///     이미 가게를 돌려 본 것으로 보고 튜토리얼을 끝난 상태로 불러온다.
         /// </summary>
-        public const int SchemaVersion = 6;
+        public const int SchemaVersion = 8;
 
         public static SaveManager Instance { get; private set; }
 
@@ -251,7 +273,14 @@ namespace DogShop.Core
                 money = game.Money,
                 reputation = game.Reputation,
                 day = game.Day,
-                dailyRevenue = game.DailyRevenue
+                dailyRevenue = game.DailyRevenue,
+                bonusToday = game.BonusToday,
+                reputationDayStart = game.ReputationAtDayStart,
+                spentToday = new[]
+                {
+                    game.SpentToday(GameManager.SpendKind.Stock), game.SpentToday(GameManager.SpendKind.Furniture),
+                    game.SpentToday(GameManager.SpendKind.Dog), game.SpentToday(GameManager.SpendKind.Other)
+                }
             };
 
             ISaveParticipant[] participants = FindParticipants();

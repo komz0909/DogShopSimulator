@@ -6,25 +6,24 @@ using UnityEngine;
 namespace DogShop.Shop
 {
     /// <summary>
-    /// 가게 문을 언제 열고 닫을지. 하루는 <b>준비중 → 영업중 → 영업 종료</b> 셋으로 나뉜다.
+    /// 가게 문을 언제 열고 닫을지. 하루는 <b>준비중 → 영업중 → 영업 종료</b> 셋으로 나뉜다. 전부 <b>저절로</b> 넘어간다.
     ///
-    /// - <b>준비중</b> 09시에 일어나 진열·정리를 한다. [가게 열기]를 누르면 <b>10시에 문을 연다</b>(예약).
-    ///   10시가 지나서 누르면 바로 연다. 누르지 않으면 열리지 않는다 — 늦게 열면 그만큼 손님을 잃는다
-    /// - <b>영업중</b> 10~19시 손님이 고르게 온다. <b>19시에 저절로 문을 닫는다</b>
-    /// - <b>영업 종료</b> 손님이 더 오지 않는다. 21시까지 정산·발주를 하고, 19시부터 잘 수 있다(<see cref="Bed"/>)
+    /// - <b>준비중</b> 09시에 일어나 진열·정리를 한다. <b>09:30 에 문이 저절로 열린다</b>
+    /// - <b>영업중</b> 09:30~19:30 손님이 고르게 온다. <b>19:30 에 저절로 문을 닫는다</b>
+    /// - <b>영업 종료</b> 손님이 더 오지 않는다. 21시까지 정리·발주를 하고 [잠자러 가기](<see cref="UI.SleepPrompt"/>)로 넘어간다.
+    ///   그 전에도 19:30 부터는 침대에서 잘 수 있다(<see cref="Bed"/>)
     ///
-    /// 예전엔 08시부터 열 수 있고 18~21시에 손님이 잦아들며 닫기 버튼을 직접 눌렀다.
-    /// 하루를 길게 끄는 것보다 <b>정해진 영업시간 안에 잘 파는 것</b>이 남도록 바꿨다.
+    /// 예전엔 [가게 열기]를 눌러야 10시에 열었다 — 잊으면 손님을 통째로 잃는 함정이라 없앴다.
     /// </summary>
     public class ShopHours : MonoBehaviour, ISaveParticipant
     {
-        /// <summary>이 시각부터 [가게 열기]를 누를 수 있다(하루 시작과 같다).</summary>
+        /// <summary>하루가 시작하는 시각.</summary>
         public const float OpeningHour = TimeManager.DayStartHour;
 
-        /// <summary>문이 실제로 열리는 시각. 그 전에 누르면 이때까지 기다린다.</summary>
+        /// <summary>문이 저절로 열리는 시각(09:30).</summary>
         public const float OpenHour = TimeManager.OpenHour;
 
-        /// <summary>이 시각에 저절로 문을 닫는다. 손님도 이때 끊긴다.</summary>
+        /// <summary>이 시각에 저절로 문을 닫는다(19:30). 손님도 이때 끊긴다.</summary>
         public const float CloseHour = TimeManager.CloseHour;
 
         /// <summary>이 시각이면 손님이 끊긴다(영업 종료와 같다).</summary>
@@ -36,9 +35,6 @@ namespace DogShop.Shop
 
         public Phase Current { get; private set; } = Phase.Preparing;
         public bool IsOpen => Current == Phase.Open;
-
-        /// <summary>10시 전에 [가게 열기]를 눌러 둔 상태. 10시가 되면 연다.</summary>
-        public bool Reserved { get; private set; }
 
         public event Action OnPhaseChanged;
 
@@ -62,47 +58,36 @@ namespace DogShop.Shop
         void HandleDayStarted()
         {
             Current = Phase.Preparing;
-            Reserved = false;
-            remindedLate = false;
             OnPhaseChanged?.Invoke();
         }
 
+        /// <summary>지금 바로 열 수 있나(무인 측정용). 문은 09:30 에 저절로 열리므로 그 전엔 못 연다.</summary>
         public bool CanOpen(out string reason)
         {
             if (Current == Phase.Open) { reason = "이미 영업 중이다"; return false; }
             if (Current == Phase.Closed) { reason = "오늘 장사는 끝났다"; return false; }
-            if (Reserved) { reason = "10:00 에 문을 연다"; return false; }
-            if (TimeManager.Instance.CurrentHour >= CloseHour) { reason = "영업시간이 지났다"; return false; }
+            float hour = TimeManager.Instance.CurrentHour;
+            if (hour < OpenHour) { reason = "09:30 에 문이 열린다"; return false; }
+            if (hour >= CloseHour) { reason = "영업시간이 지났다"; return false; }
             reason = null;
             return true;
         }
 
-        /// <summary>[가게 열기]. 10시 전이면 예약만 하고, 10시가 지났으면 바로 연다.</summary>
         public bool Open()
         {
             string reason;
             if (!CanOpen(out reason)) return false;
-
-            if (TimeManager.Instance.CurrentHour < OpenHour)
-            {
-                Reserved = true;
-                Notice("오픈 준비 끝, 10:00 에 문을 연다");
-                OnPhaseChanged?.Invoke();
-                return true;
-            }
-
             OpenNow();
             return true;
         }
 
         void OpenNow()
         {
-            Reserved = false;
             Current = Phase.Open;
             OnPhaseChanged?.Invoke();
         }
 
-        /// <summary>영업 종료. 19시에 저절로 부른다(무인 측정도 같은 길).</summary>
+        /// <summary>영업 종료. 19:30 에 저절로 부른다(무인 측정도 같은 길).</summary>
         public bool Close()
         {
             if (Current != Phase.Open) return false;
@@ -113,7 +98,6 @@ namespace DogShop.Shop
 
         string notice = "";
         float noticeUntil;
-        bool remindedLate;
 
         void Notice(string text)
         {
@@ -127,28 +111,21 @@ namespace DogShop.Shop
             if (time == null || time.IsDayOver) return;
             float hour = time.CurrentHour;
 
-            if (Current == Phase.Preparing && Reserved && hour >= OpenHour)
+            if (Current == Phase.Preparing && hour >= OpenHour && hour < CloseHour)
             {
                 OpenNow();
-                Notice("10:00, 가게 문을 열었다");
-            }
-            else if (Current == Phase.Preparing && !Reserved && hour >= OpenHour && hour < CloseHour && !remindedLate)
-            {
-                // 깜빡했을 때 한 번 알린다 — 열기 전엔 손님이 오지 않는다
-                remindedLate = true;
-                Notice("10:00 이 지났다. [가게 열기]를 눌러야 손님이 온다");
+                Notice("09:30, 가게 문을 열었다");
             }
 
             if (hour >= CloseHour && Current != Phase.Closed)
             {
-                Reserved = false;
                 Current = Phase.Closed;
                 OnPhaseChanged?.Invoke();
-                Notice("19:00, 영업 종료. 21시까지 정산과 발주를 하자");
+                Notice("19:30, 영업 종료. 21시까지 정리하고 발주하자");
             }
         }
 
-        /// <summary>지금 손님이 오는 비율. 영업 중(10~19시)이면 1, 아니면 0.</summary>
+        /// <summary>지금 손님이 오는 비율. 영업 중(09:30~19:30)이면 1, 아니면 0.</summary>
         public float ArrivalFactor => IsOpen && TimeManager.Instance.CurrentHour < CloseHour ? 1f : 0f;
 
         public string StatusText
@@ -157,13 +134,9 @@ namespace DogShop.Shop
             {
                 switch (Current)
                 {
-                    case Phase.Open: return "영업중 (19:00 에 문을 닫는다)";
-                    case Phase.Closed: return "영업 종료  정산하고 발주한 뒤 잠자리로 (21:00 까지)";
-                    default:
-                        if (Reserved) return "오픈 준비 끝 (10:00 에 문을 연다)";
-                        return TimeManager.Instance.CurrentHour < OpenHour
-                            ? "준비중 (가게 열기를 누르면 10:00 에 연다)"
-                            : "준비중 (가게 열기를 눌러야 손님이 온다)";
+                    case Phase.Open: return "영업중 (19:30 에 문을 닫는다)";
+                    case Phase.Closed: return "영업 종료  정리하고 발주한 뒤 잠자리로 (21:00 까지)";
+                    default: return "준비중 (09:30 에 문이 열린다)";
                 }
             }
         }
@@ -173,37 +146,26 @@ namespace DogShop.Shop
         public void CaptureInto(SaveData data)
         {
             data.shopPhase = (int)Current;
-            data.shopReserved = Reserved;
+            data.shopReserved = false;   // 예약은 없어졌다(옛 세이브 호환용 칸)
         }
 
         public void RestoreFrom(SaveData data)
         {
             Current = (Phase)Mathf.Clamp(data.shopPhase, 0, 2);
-            Reserved = Current == Phase.Preparing && data.shopReserved;
             OnPhaseChanged?.Invoke();
         }
 
         // ---- 화면 ----
 
-        const float Width = 210f;
-        const float Height = 40f;
-
         void OnGUI()
         {
             if (TimeManager.Instance == null || TimeManager.Instance.IsDayOver) return;
+            // 상점 같은 창이 떠 있으면 숨긴다 — 창 윗변(간판) 위에 글자가 겹쳐 보였다
+            if (PointerMenus.AnyOpen) return;
 
-            float x = (Screen.width - Width) * 0.5f;
-            float y = 14f;
-
-            // 버튼은 준비중(예약 전)에만. 영업 중·종료 뒤엔 상태 글만 둔다
-            string reason;
-            bool button = Current == Phase.Preparing && CanOpen(out reason);
-            if (button && GUI.Button(new Rect(x, y, Width, Height), "가게 열기", UiSkin.Button(UiSkin.Green))) Open();
-
-            // 넉넉한 칸에 가운데로 찍는다. 글자 폭에 칸을 맞추면 줄바꿈으로 뭉갠다.
-            float ty = button ? y + Height + 5f : y + 8f;
+            // 버튼은 없다 — 상태 한 줄만. 넉넉한 칸에 가운데로 찍는다(글자 폭에 칸을 맞추면 줄바꿈으로 뭉갠다)
             string text = Time.unscaledTime < noticeUntil ? notice : StatusText;
-            GUI.Label(new Rect((Screen.width - 520f) * 0.5f, ty, 520f, 22f), text, UiSkin.Caption);
+            GUI.Label(new Rect((Screen.width - 520f) * 0.5f, 22f, 520f, 22f), text, UiSkin.Caption);
         }
     }
 }

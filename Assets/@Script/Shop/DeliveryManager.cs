@@ -143,6 +143,30 @@ namespace DogShop.Shop
         }
 
         /// <summary>
+        /// 상자를 뜯어 내용물을 <b>곧장 창고 선반</b>에 정리한다(플레이어 E). 거절 사유가 있으면 돌려준다.
+        /// 그 상품이 놓일 창고 선반 단이 없으면 <b>뜯지 않는다</b> — 상자는 그대로 문 앞에 남고, 선반을 사거나 비우면 된다.
+        /// </summary>
+        public string OpenIntoStorage(DeliveryParcel parcel)
+        {
+            InventoryManager inv = InventoryManager.Instance;
+            if (parcel == null || inv == null) return "상자가 없다";
+
+            int product = parcel.ProductIndex;
+            StorageManager storage = StorageManager.Instance;
+            // 단을 먼저 잡고 뜯는다(확인만 하고 뜯으면 다른 상품이 그 단을 가져갈 수 있다)
+            if (storage != null && !storage.Reserve(product))
+                return "창고 선반에 " + inv.Catalog.Get(product).nameKo + " 놓을 칸이 없다. 가구에서 창고 선반을 사자";
+
+            int quantity = inv.ParcelQuantityOf(parcel.Id);
+            if (!inv.OpenParcelToStorage(parcel.Id)) return "상자를 뜯지 못했다";
+
+            var hud = FindAnyObjectByType<UI.GameHud>();
+            if (hud != null) hud.Toast(inv.Catalog.Get(product).nameKo + " " + quantity + "개 창고에 정리했다", new Color(1f, 0.9f, 0.55f));
+            MarkDirty();
+            return null;
+        }
+
+        /// <summary>
         /// 쏟을 자리. 상자 기둥 <b>옆</b>에 팔레트 간격으로 줄을 선다.
         ///
         /// 뜯은 상자 자리를 그대로 쓰면 두 가지가 어긋난다 — 위에 남은 상자가 더미를 뚫고 서고,

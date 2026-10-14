@@ -50,6 +50,12 @@ namespace DogShop.UI
         [SerializeField] Sprite iconCustomer;
         [SerializeField] Sprite iconClock;
 
+        /// <summary>온라인 주문 알림 뼈다귀(UI_Bone). 스프라이트로 임포트돼 있지 않아 RawImage 로 그린다.</summary>
+        [SerializeField] Texture2D boneTexture;
+
+        /// <summary>튜토리얼 퀘스트 별(Ico_QuestStar). 뼈다귀처럼 RawImage 로 그린다.</summary>
+        [SerializeField] Texture2D questStarTexture;
+
         Text clockText;
         Text speedText;
         Text moneyText;
@@ -61,6 +67,19 @@ namespace DogShop.UI
         Text deliveryText;
         Text queueText;
         Text toastText;
+        RectTransform orderAlert;
+        CanvasGroup orderAlertGroup;
+
+        RectTransform questPanel;      // 바깥 판(테두리) — 높이를 여기서 바꾼다
+        Text questHeader;
+        Text questObjective;
+        Text questDetail;
+        Text questToggleLabel;
+        RectTransform questToggle;
+        RectTransform questClaim;      // 목표를 채우면 뜨는 [퀘스트 완료] 버튼
+        Image questClaimImage;
+        bool questExpanded = true;
+        int questVersion = -1;
 
         float refreshTimer;
         float toastTimer;
@@ -93,6 +112,9 @@ namespace DogShop.UI
                 toastTimer -= Time.unscaledDeltaTime;
                 if (toastTimer <= 0f) toastText.text = "";
             }
+
+            UpdateQuest();
+            UpdateOrderAlert();
 
             refreshTimer += Time.unscaledDeltaTime;
             if (refreshTimer < RefreshInterval) return;
@@ -198,6 +220,200 @@ namespace DogShop.UI
             BuildWallet(root, font);
             BuildToday(root, font);
             BuildToast(root, font);
+            BuildQuest(root, font);
+            BuildOrderAlert(root, font);
+        }
+
+        // ---- 튜토리얼 퀘스트 ----
+
+        const float WalletBottom = 24f + 120f;   // 우상단 상태창 아래 끝
+        const float QuestWidth = 344f;
+        const float QuestRowHeight = 64f;
+        const float QuestGap = 8f;
+        const float QuestClaimHeight = 40f;
+        static readonly Color ClaimColor = new Color(0.553f, 0.753f, 0.635f);   // UiSkin.Green — 다른 창의 확인 버튼과 같은 초록
+
+        /// <summary>
+        /// 우상단 상태창 바로 아래 — 별 · 지금 퀘스트 목표(진행도) · [자세히/접기]. 펼치면 할 일 설명이 붙는다.
+        /// 다른 HUD 처럼 보여 주기만 하는 판이라 레이캐스트는 꺼 두고, 판을 누른 것은 Update 에서 직접 본다.
+        /// </summary>
+        void BuildQuest(RectTransform root, Font font)
+        {
+            RectTransform inner = Panel(root, "Quest", new Vector2(1f, 1f), new Vector2(-24f, -WalletBottom - QuestGap), new Vector2(QuestWidth, QuestRowHeight));
+            questPanel = (RectTransform)inner.parent;
+
+            var star = new GameObject("Star", typeof(RectTransform), typeof(CanvasRenderer), typeof(RawImage));
+            star.transform.SetParent(inner, false);
+            RawImage starImage = star.GetComponent<RawImage>();
+            starImage.texture = questStarTexture;
+            starImage.raycastTarget = false;
+            if (questStarTexture == null) starImage.color = MoneyColor;
+            Anchor(starImage.rectTransform, new Vector2(0f, 1f), new Vector2(10f, -10f), new Vector2(44f, 44f));
+
+            questHeader = Label(inner, "Header", font, 15, TextAnchor.MiddleLeft, CalmColor);
+            Anchor(questHeader.rectTransform, new Vector2(0f, 1f), new Vector2(62f, -8f), new Vector2(180f, 20f));
+
+            questObjective = Label(inner, "Objective", font, 21, TextAnchor.MiddleLeft, TextColor);
+            Anchor(questObjective.rectTransform, new Vector2(0f, 1f), new Vector2(62f, -30f), new Vector2(QuestWidth - 74f, 26f));
+
+            questToggle = Block(inner, "Toggle", new Color(1f, 1f, 1f, 0.14f));
+            Anchor(questToggle, new Vector2(1f, 1f), new Vector2(-10f, -8f), new Vector2(58f, 22f));
+            questToggleLabel = Label(questToggle, "Label", font, 14, TextAnchor.MiddleCenter, TextColor);
+            Stretch(questToggleLabel.rectTransform, Vector2.zero, Vector2.zero);
+
+            questDetail = Label(inner, "Detail", font, 17, TextAnchor.UpperLeft, new Color(0.85f, 0.87f, 0.9f));
+            questDetail.horizontalOverflow = HorizontalWrapMode.Wrap;
+            questDetail.lineSpacing = 1.1f;
+            Anchor(questDetail.rectTransform, new Vector2(0f, 1f), new Vector2(14f, -QuestRowHeight), new Vector2(QuestWidth - 28f, 20f));
+
+            questClaim = Block(inner, "Claim", ClaimColor);
+            Anchor(questClaim, new Vector2(0f, 1f), new Vector2(12f, -QuestRowHeight + 2f), new Vector2(QuestWidth - 24f, QuestClaimHeight));
+            questClaimImage = questClaim.GetComponent<Image>();
+            Text claimLabel = Label(questClaim, "Label", font, 20, TextAnchor.MiddleCenter, new Color(0.16f, 0.19f, 0.22f));
+            Stretch(claimLabel.rectTransform, Vector2.zero, Vector2.zero);
+            claimLabel.text = "퀘스트 완료   +" + TutorialQuestManager.Reward + "원 받기";
+            questClaim.gameObject.SetActive(false);
+
+            questPanel.gameObject.SetActive(false);
+        }
+
+        /// <summary>튜토리얼 완료 문구를 띄워 두는 시간(초).</summary>
+        const float QuestFinishedSeconds = 6f;
+
+        void UpdateQuest()
+        {
+            if (questPanel == null) return;
+            TutorialQuestManager quests = TutorialQuestManager.Instance;
+
+            bool finishedBanner = quests != null && quests.IsComplete && quests.FinishedAt >= 0f
+                                  && Time.unscaledTime - quests.FinishedAt < QuestFinishedSeconds;
+            bool show = quests != null && (!quests.IsComplete || finishedBanner);
+            if (questPanel.gameObject.activeSelf != show) questPanel.gameObject.SetActive(show);
+            if (!show) return;
+
+            // 달성했으면 [퀘스트 완료]로 보상을 받고, 아니면 판을 눌러 설명을 접고 편다.
+            // 1인칭에서 커서가 잠겨 있으면(화면 가운데 조준) 누른 게 아니다
+            UnityEngine.InputSystem.Mouse mouse = UnityEngine.InputSystem.Mouse.current;
+            // 다른 창(발주·강아지·설정)이 떠 있으면 그 창을 누른 것이다 — 창 밑으로 퀘스트 판이 눌려 보상이 새지 않게
+            if (!quests.IsComplete && mouse != null && mouse.leftButton.wasPressedThisFrame
+                && Cursor.lockState != CursorLockMode.Locked && !PointerMenus.AnyOpen)
+            {
+                Vector2 point = mouse.position.ReadValue();
+                if (quests.ReadyToClaim)
+                {
+                    if (RectTransformUtility.RectangleContainsScreenPoint(questClaim, point, null)) quests.Claim();
+                }
+                else if (RectTransformUtility.RectangleContainsScreenPoint(questPanel, point, null))
+                {
+                    questExpanded = !questExpanded;
+                    questVersion = -1;
+                }
+            }
+
+            // 받을 보상이 있으면 버튼이 은은하게 숨 쉰다 — 눈에 띄게
+            if (quests.ReadyToClaim)
+            {
+                float k = 0.5f + 0.5f * Mathf.Sin(Time.unscaledTime * 4f);
+                questClaimImage.color = Color.Lerp(ClaimColor, new Color(0.75f, 0.92f, 0.8f), k);
+            }
+
+            if (questVersion == quests.Version) return;
+            // 새 퀘스트가 켜지면 설명을 펼쳐 보여 준다
+            if (questVersion >= 0 && quests.Version != questVersion && questStepShown != quests.Step) questExpanded = true;
+            questStepShown = quests.Step;
+            questVersion = quests.Version;
+
+            float height = QuestRowHeight;
+            if (quests.IsComplete)
+            {
+                questHeader.text = "튜토리얼";
+                questObjective.text = "튜토리얼 완료!";
+                questObjective.color = MoneyColor;
+                questToggle.gameObject.SetActive(false);
+                questDetail.gameObject.SetActive(false);
+                questClaim.gameObject.SetActive(false);
+            }
+            else if (quests.ReadyToClaim)
+            {
+                TutorialQuestManager.Quest q = quests.Current;
+                questHeader.text = "튜토리얼 " + (quests.Step + 1) + "/" + quests.QuestCount + "   달성!";
+                questObjective.text = q.objective + " (" + quests.Progress + "/" + q.target + ")";
+                questObjective.color = MoneyColor;
+                questToggle.gameObject.SetActive(false);
+                questDetail.gameObject.SetActive(false);
+                questClaim.gameObject.SetActive(true);
+                height += QuestClaimHeight + 10f;
+            }
+            else
+            {
+                TutorialQuestManager.Quest q = quests.Current;
+                questHeader.text = "튜토리얼 " + (quests.Step + 1) + "/" + quests.QuestCount + "   +" + TutorialQuestManager.Reward + "원";
+                questObjective.text = q.objective + " (" + quests.Progress + "/" + q.target + ")";
+                questObjective.color = TextColor;
+                questClaim.gameObject.SetActive(false);
+                questToggle.gameObject.SetActive(true);
+                questToggleLabel.text = questExpanded ? "접기" : "자세히";
+
+                questDetail.gameObject.SetActive(questExpanded);
+                if (questExpanded)
+                {
+                    questDetail.text = q.detail;
+                    float textHeight = Mathf.Ceil(questDetail.preferredHeight);
+                    questDetail.rectTransform.sizeDelta = new Vector2(QuestWidth - 28f, textHeight);
+                    height += textHeight + 12f;
+                }
+            }
+            questPanel.sizeDelta = new Vector2(QuestWidth, height);
+        }
+
+        int questStepShown = -1;
+
+        /// <summary>퀘스트 판이 차지하는 아래 끝(우상단 기준, 양수). 그 아래에 다른 알림을 붙인다.</summary>
+        float QuestBottom => questPanel != null && questPanel.gameObject.activeSelf
+            ? WalletBottom + QuestGap + questPanel.sizeDelta.y
+            : WalletBottom;
+
+        /// <summary>
+        /// 우상단 상태창 바로 아래 — 수락 안 한 온라인 주문이 있으면 뼈다귀가 깜빡이며 "주문접수중".
+        /// 주문은 토스트로 한 번 알리고 끝나서, 놓치면 모니터에 갈 이유를 모른다.
+        /// </summary>
+        void BuildOrderAlert(RectTransform root, Font font)
+        {
+            var go = new GameObject("OrderAlert", typeof(RectTransform), typeof(CanvasGroup));
+            go.transform.SetParent(root, false);
+            orderAlert = go.GetComponent<RectTransform>();
+            orderAlertGroup = go.GetComponent<CanvasGroup>();
+            orderAlertGroup.blocksRaycasts = false;
+            orderAlertGroup.interactable = false;
+            // 상태창(폭 344, 높이 120, 위 여백 24)의 가운데 아래
+            Anchor(orderAlert, new Vector2(1f, 1f), new Vector2(-24f - (344f - 220f) * 0.5f, -24f - 120f - 8f), new Vector2(220f, 105f));
+
+            var bone = new GameObject("Bone", typeof(RectTransform), typeof(CanvasRenderer), typeof(RawImage));
+            bone.transform.SetParent(orderAlert, false);
+            RawImage img = bone.GetComponent<RawImage>();
+            img.texture = boneTexture;
+            img.raycastTarget = false;
+            if (boneTexture == null) img.color = new Color(0.96f, 0.62f, 0.25f);
+            Stretch(img.rectTransform, Vector2.zero, Vector2.zero);
+
+            Text label = Label(orderAlert, "Label", font, 24, TextAnchor.MiddleCenter, new Color(0.35f, 0.16f, 0.04f));
+            Stretch(label.rectTransform, Vector2.zero, Vector2.zero);
+            label.text = "주문접수중";
+
+            go.SetActive(false);
+        }
+
+        void UpdateOrderAlert()
+        {
+            if (orderAlert == null) return;
+            OnlineOrderManager orders = OnlineOrderManager.Instance;
+            bool show = orders != null && orders.NewCount > 0;
+            if (orderAlert.gameObject.activeSelf != show) orderAlert.gameObject.SetActive(show);
+            if (!show) return;
+            // 퀘스트 판이 있으면 그 아래로 내려간다(판은 펼치고 접을 때마다 높이가 바뀐다)
+            orderAlert.anchoredPosition = new Vector2(orderAlert.anchoredPosition.x, -QuestBottom - 8f);
+            // 1초에 한 번 흐려졌다 돌아온다 — 완전히 사라지면 읽기 어렵다
+            orderAlertGroup.alpha = 0.35f + 0.65f * (0.5f + 0.5f * Mathf.Cos(Time.unscaledTime * Mathf.PI * 2f));
         }
 
         /// <summary>좌상단 — 날짜·시각·배속.</summary>

@@ -23,6 +23,18 @@ namespace DogShop.Core
         public int Day { get; private set; } = 1;
         public int DailyRevenue { get; private set; }
 
+        /// <summary>돈이 어디로 나갔나 — 마감 정산서가 "오늘 쓴 돈"을 갈래별로 보여 준다.</summary>
+        public enum SpendKind { Stock, Furniture, Dog, Other }
+        readonly int[] spentToday = new int[4];
+        public int SpentToday(SpendKind kind) => spentToday[(int)kind];
+        public int SpentTodayTotal { get { int s = 0; foreach (int v in spentToday) s += v; return s; } }
+
+        /// <summary>판매가 아닌 수입(퀘스트 보상 등). 오늘 번 돈 = 매출 + 이것.</summary>
+        public int BonusToday { get; private set; }
+
+        /// <summary>오늘 아침의 명성. 마감 때 "오늘 오른 명성" = 지금 − 이것(손님·온라인 주문·취소 벌점까지 다 들어간다).</summary>
+        public int ReputationAtDayStart { get; private set; }
+
         public event Action<int> OnMoneyChanged;
         public event Action<int> OnReputationChanged;
         public event Action<int> OnDayChanged;
@@ -33,6 +45,7 @@ namespace DogShop.Core
             if (Instance != null && Instance != this) { Destroy(this); return; }
             Instance = this;
             Money = startingMoney;
+            ReputationAtDayStart = Reputation;
         }
 
         void Start()
@@ -70,6 +83,9 @@ namespace DogShop.Core
 
             Day++;
             DailyRevenue = 0;
+            BonusToday = 0;
+            for (int i = 0; i < spentToday.Length; i++) spentToday[i] = 0;
+            ReputationAtDayStart = Reputation;
             OnDayChanged?.Invoke(Day);
             TimeManager.Instance.StartNewDay();
         }
@@ -87,13 +103,15 @@ namespace DogShop.Core
         {
             if (amount == 0) return;
             Money += amount;
+            if (amount > 0) BonusToday += amount;
             OnMoneyChanged?.Invoke(Money);
         }
 
-        public bool TrySpend(int cost)
+        public bool TrySpend(int cost, SpendKind kind = SpendKind.Other)
         {
             if (cost < 0 || cost > Money) return false;
             Money -= cost;
+            spentToday[(int)kind] += cost;
             OnMoneyChanged?.Invoke(Money);
             return true;
         }
@@ -116,6 +134,11 @@ namespace DogShop.Core
             Reputation = data.reputation;
             Day = Mathf.Max(1, data.day);
             DailyRevenue = Mathf.Max(0, data.dailyRevenue);
+            BonusToday = Mathf.Max(0, data.bonusToday);
+            for (int i = 0; i < spentToday.Length; i++)
+                spentToday[i] = data.spentToday != null && i < data.spentToday.Length ? data.spentToday[i] : 0;
+            // 없던 시절 세이브(-1)는 오늘 손님 명성만큼 빼서 어림한다
+            ReputationAtDayStart = data.reputationDayStart >= 0 ? data.reputationDayStart : Mathf.Max(0, Reputation - data.reputationToday);
             OnMoneyChanged?.Invoke(Money);
             OnReputationChanged?.Invoke(Reputation);
             OnDayChanged?.Invoke(Day);

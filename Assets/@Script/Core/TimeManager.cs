@@ -5,7 +5,7 @@ namespace DogShop.Core
 {
     /// <summary>
     /// 하루: 09:00 일어나 준비 → 10:00 문 열기 → 19:00 저절로 영업 종료 → 21:00 까지 정산·발주 → 잠.
-    /// 영업 구간(10~19시)을 실시간 5분에 흘린다(<see cref="Shop.ShopHours"/>).
+    /// 하루(09~21시)를 실시간 5분에 흘린다. 영업은 09:30~19:30(<see cref="Shop.ShopHours"/>).
     /// </summary>
     public class TimeManager : MonoBehaviour, ISaveParticipant
     {
@@ -18,11 +18,11 @@ namespace DogShop.Core
         /// </summary>
         public const float DayStartHour = 9f;
 
-        /// <summary>문이 열리는 시각. 손님 배분의 기준이기도 하다.</summary>
-        public const float OpenHour = 10f;
+        /// <summary>문이 <b>저절로</b> 열리는 시각(09:30). 손님 배분의 기준이기도 하다. 예전엔 [가게 열기]를 눌러야 10시에 열었다.</summary>
+        public const float OpenHour = 9.5f;
 
-        /// <summary>영업이 끝나는 시각. 가게 문이 저절로 닫히고 정산·발주 시간이 된다.</summary>
-        public const float CloseHour = 19f;
+        /// <summary>영업이 끝나는 시각(19:30). 가게 문이 저절로 닫히고 정산·발주 시간이 된다.</summary>
+        public const float CloseHour = 19.5f;
 
         /// <summary>
         /// 시계가 멈추는 시각. 하루를 저절로 끝내지는 않는다 — 화면 가운데 "잠자러 가기"가 뜨고
@@ -30,12 +30,18 @@ namespace DogShop.Core
         /// </summary>
         public const float LastHour = 21f;
 
-        /// <summary>손님 도착량을 나누는 기준. 10~19시 아홉 시간에 하루치가 다 온다.</summary>
+        /// <summary>손님 도착량을 나누는 기준. 09:30~19:30 열 시간에 하루치가 다 온다.</summary>
         public const float HoursPerDay = CloseHour - OpenHour;
 
-        /// <summary>10~19시를 흘리는 실시간. 하루 전체가 아니라 <b>영업 구간</b>의 길이다.</summary>
-        public const float RealSecondsPerDay = 300f;
-        public const float RealSecondsPerGameHour = RealSecondsPerDay / HoursPerDay;
+        /// <summary>
+        /// <b>하루 전체</b>(9시 기상 ~ 21시 시계 멈춤, 12시간)를 흘리는 실시간 — 1배속 5분.
+        /// 예전엔 영업 구간(10~19시)만 5분이라 준비·마감까지 하면 하루가 7~8분이었다. 템포가 늘어져 줄였다.
+        /// </summary>
+        public const float RealSecondsPerFullDay = 300f;
+        public const float RealSecondsPerGameHour = RealSecondsPerFullDay / (LastHour - DayStartHour);
+
+        /// <summary>영업 구간(09:30~19:30)을 흘리는 실시간(약 4분 10초).</summary>
+        public const float RealSecondsPerDay = RealSecondsPerGameHour * HoursPerDay;
 
         public static TimeManager Instance { get; private set; }
 

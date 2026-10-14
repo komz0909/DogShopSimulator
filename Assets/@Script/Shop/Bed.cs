@@ -6,7 +6,7 @@ namespace DogShop.Shop
 {
     /// <summary>
     /// 잠자리. 조준하고 E를 누르면 확인창이 뜨고, 확인하면 하루를 끝내고 다음 날 아침이 된다.
-    /// 잘 수 있는 건 <b>19시(영업 종료)부터</b>다. 그 전엔 "아직 잘 시간이 아니다"만 알린다.
+    /// 잘 수 있는 건 <b>19:30(영업 종료)부터</b>다. 그 전엔 "아직 잘 시간이 아니다"만 알린다.
     ///
     /// 실수로 하루를 날리지 않게 <b>반드시 한 번 더 묻는다</b> — 되돌릴 수 없는 유일한
     /// 상호작용이다. 남은 시간과 그날 매출을 같이 보여 줘서, 지금 자면 무엇을 버리는지
@@ -44,7 +44,7 @@ namespace DogShop.Shop
             if (tooEarly)
             {
                 headline = "아직 잘 시간이 아니다";
-                detail = "지금 " + time.ClockText + ". 19:00 에 영업이 끝나면 잘 수 있다.";
+                detail = "지금 " + time.ClockText + ". 19:30 에 영업이 끝나면 잘 수 있다.";
             }
             else
             {
@@ -66,6 +66,17 @@ namespace DogShop.Shop
         void OnDestroy()
         {
             if (IsOpen) PointerMenus.SetOpen(this, false);
+        }
+
+        /// <summary>ESC 로 닫는다(같은 ESC 로 설정 창이 열리지 않게 표시).</summary>
+        void Update()
+        {
+            UnityEngine.InputSystem.Keyboard keyboard = UnityEngine.InputSystem.Keyboard.current;
+            if (IsOpen && keyboard != null && keyboard.escapeKey.wasPressedThisFrame)
+            {
+                Close();
+                PointerMenus.TakeEscape();
+            }
         }
 
         static float Height() => Pad * 3f + RowHeight * 4f;

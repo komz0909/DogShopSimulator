@@ -127,6 +127,14 @@ namespace DogShop.Shop
 
         void Update()
         {
+            // ESC 로도 닫는다(같은 ESC 로 설정 창이 열리지 않게 표시)
+            Keyboard keyboard = Keyboard.current;
+            if (open && keyboard != null && keyboard.escapeKey.wasPressedThisFrame)
+            {
+                open = false;
+                PointerMenus.TakeEscape();
+            }
+
             // 메뉴 밖을 클릭하면 닫는다
             Mouse mouse = Mouse.current;
             if (open && mouse != null && mouse.leftButton.wasPressedThisFrame
@@ -221,8 +229,21 @@ namespace DogShop.Shop
 
         const float ProductsWidth = Columns * CardWidth + (Columns - 1) * Gap;
 
-        /// <summary>설계 좌표 한 칸이 화면 몇 픽셀인지. 1080p 에서 1.</summary>
-        static float UiScale => Mathf.Min(Screen.width / 1920f, Screen.height / 1080f);
+        /// <summary>창이 화면 높이(설계 1080)에서 위아래로 이만큼은 비우고 들어가야 한다.</summary>
+        const float MaxWindowHeight = 1020f;
+
+        /// <summary>
+        /// 설계 좌표 한 칸이 화면 몇 픽셀인지. 1080p 에서 1 — 단 창이 화면보다 길면 그만큼 통째로 줄인다.
+        /// 가구 탭이 9개(창고 선반 추가)가 되며 카드가 세 줄로 늘어, 창이 화면 위아래로 잘려 나갔다.
+        /// </summary>
+        float UiScale
+        {
+            get
+            {
+                float fit = Mathf.Min(1f, MaxWindowHeight / HeightFor(RowsMost()));
+                return Mathf.Min(Screen.width / 1920f, Screen.height / 1080f) * fit;
+            }
+        }
 
         /// <summary>
         /// 창은 <b>가장 큰 탭 기준으로 크기를 붙박는다</b>(설계 좌표).
@@ -326,8 +347,9 @@ namespace DogShop.Shop
             // 머리 — 안내와 보유 금액은 상품 쪽. 닫기는 틀 오른쪽 위 빨간 발바닥 하나뿐이다
             // (<상점 닫기> 버튼도 있었는데 닫기가 두 개라 뺐고, 그 자리는 장바구니가 쓴다)
             float headerTop = y;
-            GUI.Label(new Rect(x, y, ProductsWidth * 0.6f, HeaderHeight), "오늘 주문하면 내일 아침에 온다", Styles.soft);
-            GUI.Label(new Rect(x + ProductsWidth * 0.6f, y, ProductsWidth * 0.4f, HeaderHeight), money, Styles.money);
+            GUI.Label(new Rect(x, y, ProductsWidth * 0.36f, HeaderHeight), "오늘 주문하면 내일 아침에 온다", Styles.soft);
+            DrawLevelUpButton(new Rect(x + ProductsWidth * 0.37f, y + 7f, ProductsWidth * 0.34f, HeaderHeight - 14f));
+            GUI.Label(new Rect(x + ProductsWidth * 0.72f, y, ProductsWidth * 0.28f, HeaderHeight), money, Styles.money);
             y += HeaderHeight + 6f;
 
             // 장바구니는 가구 칸에서도 그린다 — 담아 둔 채로 칸을 넘길 수 있어야 한다.
@@ -365,6 +387,45 @@ namespace DogShop.Shop
                 if (UiSkin.PawClose(spot, closePawTex)) open = false;
             }
             GUI.matrix = keep;
+        }
+
+        /// <summary>
+        /// 가게 레벨업 — <b>사야 오른다</b>. 명성이 문턱을 넘어도 저절로 오르지 않고, 여기서 비용을 내고 눌러야 한다.
+        /// 조건이 안 되면 무엇이 모자란지 버튼에 적고 눌리지 않는다. 오르면 HUD 가 해금 내용을 알린다.
+        /// </summary>
+        void DrawLevelUpButton(Rect rect)
+        {
+            ShopLevelManager levels = ShopLevelManager.Instance;
+            if (levels == null) return;
+
+            if (levels.IsMaxLevel)
+            {
+                GUI.enabled = false;
+                GUI.Button(rect, "가게 최대 레벨", UiSkin.Button(UiSkin.Cream));
+                GUI.enabled = true;
+                return;
+            }
+
+            ShopLevelDef next = levels.Next;
+            string reason;
+            bool can = levels.CanLevelUp(out reason);
+            int rep = GameManager.Instance.Reputation;
+            string label = can
+                ? "Lv" + (levels.Level + 1) + " 레벨업  " + next.upgradeCost.ToString("N0") + "원"
+                : rep < next.requiredReputation
+                    ? "Lv" + (levels.Level + 1) + " 레벨업  명성 " + rep + "/" + next.requiredReputation
+                    : "Lv" + (levels.Level + 1) + " 레벨업  " + next.upgradeCost.ToString("N0") + "원 (부족)";
+            if (!can && rep >= next.requiredReputation && next.heroStatGate > 0 && levels.HeroGrowthStat < next.heroStatGate)
+                label = "Lv" + (levels.Level + 1) + " 레벨업  강아지 성장 " + levels.HeroGrowthStat + "/" + next.heroStatGate;
+
+            // 조건이 안 돼도 글자는 또렷하게 — GUI.enabled 로 끄면 무엇이 모자란지가 흐려서 안 읽혔다.
+            // 대신 눌러도 오르지 않고 사유만 알린다(ActionRunner 가 거절 사유를 띄운다)
+            var style = new GUIStyle(UiSkin.Button(can ? UiSkin.Green : UiSkin.Cream)) { fontSize = 15 };
+            if (GUI.Button(rect, label, style))
+            {
+                ActionRunner.TryRun(new ShopLevelManager.UpgradeAction());
+                Rebuild();   // 새로 풀린 상품·가구가 바로 보이게
+            }
         }
 
         /// <summary>탭 하나. 고른 탭은 꿀색, 나머지는 크림색 알약. 그림이 없으면 예전 색 버튼.</summary>
@@ -427,8 +488,14 @@ namespace DogShop.Shop
             {
                 if (cart[i] <= 0) continue;
 
+                // 이름 옆 X — 돈이 모자라게 담았을 때 그 품목만 뺀다(상품 카드까지 찾아가지 않아도 되게)
                 ProductDef p = catalog.Get(i);
-                GUI.Label(new Rect(x, y, w - 72f, RowHeight), p.nameKo + " x" + cart[i], Styles.item);
+                if (GUI.Button(new Rect(x, y + 1f, RowHeight - 2f, RowHeight - 2f), "X", Styles.Remove))
+                {
+                    cart[i] = 0;
+                    continue;
+                }
+                GUI.Label(new Rect(x + RowHeight + 2f, y, w - 74f - RowHeight, RowHeight), p.nameKo + " x" + cart[i], Styles.item);
                 GUI.Label(new Rect(x + w - 72f, y, 72f, RowHeight),
                           (p.wholesale * cart[i]).ToString("N0") + "원", Styles.itemRight);
                 y += RowHeight;
@@ -439,7 +506,12 @@ namespace DogShop.Shop
                 if (furnitureCart[i] <= 0) continue;
 
                 FurnitureDef f = furniture.Get(i);
-                GUI.Label(new Rect(x, y, w - 72f, RowHeight), f.nameKo + " x" + furnitureCart[i], Styles.item);
+                if (GUI.Button(new Rect(x, y + 1f, RowHeight - 2f, RowHeight - 2f), "X", Styles.Remove))
+                {
+                    furnitureCart[i] = 0;
+                    continue;
+                }
+                GUI.Label(new Rect(x + RowHeight + 2f, y, w - 74f - RowHeight, RowHeight), f.nameKo + " x" + furnitureCart[i], Styles.item);
                 GUI.Label(new Rect(x + w - 72f, y, 72f, RowHeight),
                           (f.price * furnitureCart[i]).ToString("N0") + "원", Styles.itemRight);
                 y += RowHeight;
@@ -521,15 +593,23 @@ namespace DogShop.Shop
             }
 
             string reason;
-            if (CartCount() - FurnitureCount() > 0 && !inv.TryOrderCart(cart, expressed, out reason))
+            bool hasProducts = CartCount() - FurnitureCount() > 0;
+            if (hasProducts)
             {
-                ActionRunner.Reject(reason);
-                return;
+                if (!inv.TryOrderCart(cart, expressed, out reason))
+                {
+                    ActionRunner.Reject(reason);
+                    return;
+                }
+                // 상품은 결제가 끝났다 — 뒤의 가구 결제가 실패해도 다시 누를 때 상품이 두 번 주문되지 않게 상품 칸만 먼저 비운다
+                for (int i = 0; i < cart.Length; i++) cart[i] = 0;
+                GameEvents.RaiseStockOrdered();
             }
 
             if (furnitureCost > 0 && !shop.TryBuyCart(furnitureCart, out reason))
             {
                 ActionRunner.Reject(reason);
+                Rebuild();
                 return;
             }
 

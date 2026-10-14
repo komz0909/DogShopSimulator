@@ -36,6 +36,10 @@ namespace DogShop.Player
         void Awake()
         {
             if (animator == null) animator = GetComponentInChildren<Animator>();
+            // 움직임은 CharacterController·NavMeshAgent 가 낸다. 루트 모션이 켜져 있으면 걷기 클립이 자식 Model 을
+            // 바라보는 쪽으로 따로 밀어내, 몸이 캡슐에서 떨어져 나가 돌 때마다 반원을 그렸고(휙휙)
+            // 캡슐 기준으로 붙는 운반 상자가 몸 한가운데나 등 뒤에 보였다. 씬·셋업 툴이 다시 켜도 여기서 끈다
+            if (animator != null) animator.applyRootMotion = false;
             lastPosition = transform.position;
         }
 

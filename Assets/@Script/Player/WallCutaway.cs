@@ -12,6 +12,9 @@ namespace DogShop.Player
     /// 밖에 나가면 벽은 그대로 서 있고 카메라도 예전처럼 벽에 걸린다.
     ///
     /// 벽은 이름에 "Wall" 이 든 렌더러(진열 선반 WallShelf 는 빼고)다. 가게가 넓어지면 벽이 늘어나므로 가끔 다시 모은다.
+    ///
+    /// 천장 들보(Beam_*)와 거기 매달린 펜던트 조명(CeilingLights 아래)도 안에 있는 동안은 통째로 숨긴다 —
+    /// 내려다보는 시점에서 가로로 긴 들보가 화면을 가로질러 시야를 잡아먹었다. 조명 빛(Light)은 그대로 켜 둔다.
     /// </summary>
     public class WallCutaway : MonoBehaviour
     {
@@ -47,6 +50,7 @@ namespace DogShop.Player
         }
 
         readonly List<Renderer> walls = new List<Renderer>();
+        readonly List<Renderer> ceiling = new List<Renderer>();
         readonly HashSet<Renderer> hidden = new HashSet<Renderer>();
         Bounds building;
         float refreshTimer;
@@ -56,16 +60,27 @@ namespace DogShop.Player
         void Collect()
         {
             walls.Clear();
+            ceiling.Clear();
             bool any = false;
             foreach (Renderer r in FindObjectsByType<Renderer>(FindObjectsSortMode.None))
             {
                 string n = r.gameObject.name;
+                if (IsCeilingFixture(r.transform)) { ceiling.Add(r); continue; }
                 if (n.IndexOf("Wall", System.StringComparison.OrdinalIgnoreCase) < 0) continue;
                 if (n.IndexOf("Shelf", System.StringComparison.OrdinalIgnoreCase) >= 0) continue;
                 if (r.bounds.size.y < 2f) continue;   // 낮은 칸막이·장식은 그대로
                 walls.Add(r);
                 if (!any) { building = r.bounds; any = true; } else building.Encapsulate(r.bounds);
             }
+        }
+
+        /// <summary>천장 들보 또는 펜던트 조명의 일부인가.</summary>
+        static bool IsCeilingFixture(Transform t)
+        {
+            if (t.name.StartsWith("Beam_")) return true;
+            for (Transform p = t; p != null; p = p.parent)
+                if (p.name == "CeilingLights") return true;
+            return false;
         }
 
         void LateUpdate()
@@ -105,6 +120,10 @@ namespace DogShop.Player
                 }
                 Set(r, hide);
             }
+
+            // 들보·조명은 원래 그림자를 안 드리운다 — 벽처럼 ShadowsOnly 로 두면 갓이 제 불빛을 막는다. 그냥 끈다
+            foreach (Renderer r in ceiling)
+                if (r != null && r.enabled == inside) r.enabled = !inside;
         }
 
         void Set(Renderer r, bool hide)
@@ -130,6 +149,7 @@ namespace DogShop.Player
             foreach (Renderer r in hidden) if (r != null) r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
             hidden.Clear();
             hiddenColliders.Clear();
+            foreach (Renderer r in ceiling) if (r != null) r.enabled = true;
         }
     }
 }

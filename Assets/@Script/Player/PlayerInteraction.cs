@@ -10,8 +10,8 @@ namespace DogShop.Player
     /// <summary>
     /// 유일한 상호작용 버튼. <b>마우스로 조준하고 E</b>를 누른다.
     ///
-    /// 상자 → 줍기 / 들고 있으면 바닥을 보고 E로 내려놓기
-    /// 창고 선반 → 1개 담기      진열대 → 1개 진열
+    /// 상자 → 줍기(E) / 들고 있으면 바닥을 보고 R로 내려놓기
+    /// 창고 선반 → 상자 단계만큼(1·2·3개) 담기      진열대 → 단계만큼 진열
     /// 손님 → 계산               바닥 오염 → 청소
     /// 계산대 → 발주 메뉴         강아지 → 케어·훈련·판매 메뉴
     /// 문 → 열기·닫기 (정문은 영업 중엔 열린 채 고정, 가게를 닫은 뒤에만)
@@ -114,13 +114,17 @@ namespace DogShop.Player
                 return;
             }
 
-            // 안 뜯은 상자가 먼저다 — 뜯어야 그 자리에 더미가 생긴다
+            // 배달 상자 — E 로 뜯으면 곧장 창고 선반에 정리된다. 창고 선반에 자리가 없으면 뜯지 않는다
             DeliveryParcel parcel = hit.collider.GetComponentInParent<DeliveryParcel>();
             if (parcel != null)
             {
                 if (!load) { Reject("상자는 뜯기만 한다 (E)"); return; }
                 if (!inRange) { Reject("너무 멀다, 상자에 가까이 갈 것"); return; }
-                if (DeliveryManager.Instance != null) DeliveryManager.Instance.Open(parcel);
+                if (DeliveryManager.Instance != null)
+                {
+                    string why = DeliveryManager.Instance.OpenIntoStorage(parcel);
+                    if (why != null) Reject(why);
+                }
                 return;
             }
 
@@ -139,8 +143,26 @@ namespace DogShop.Player
             {
                 if (!inRange) { Reject("너무 멀다, 창고 선반에 가까이 갈 것"); return; }
 
-                if (load) ActionRunner.TryRun(new TakeOneAction(carry, rack.ProductIndex));
-                else ActionRunner.TryRun(new StoreOneAction(carry, rack.ProductIndex));
+                // 단마다 상품이 다르다 — 조준한 높이의 단
+                int tier = rack.TierAt(hit.point);
+                int product = rack.ProductOfTier(tier);
+
+                // R 로 빈 단(또는 다 떨어진 단)에 내리면, 상자 속 물건 중 아직 창고 자리가 없는 것에 그 단을 준다
+                if (!load && carry != null && carry.IsHolding && StorageManager.Instance != null
+                    && (product < 0 || carry.Held.CountOf(product) <= 0))
+                {
+                    for (int i = 0; i < InventoryManager.Instance.Catalog.Count; i++)
+                    {
+                        if (carry.Held.CountOf(i) <= 0 || StorageManager.Instance.FindFor(i) != null) continue;
+                        if (StorageManager.Instance.ClaimForStore(rack, tier, i)) product = i;
+                        break;
+                    }
+                }
+
+                if (product < 0) { Reject("빈 칸이다"); return; }
+
+                if (load) ActionRunner.TryRun(new TakeOneAction(carry, product));
+                else ActionRunner.TryRun(new StoreOneAction(carry, product));
                 return;
             }
 
@@ -173,6 +195,26 @@ namespace DogShop.Player
                 if (!load) return;
                 if (!inRange) { Reject("너무 멀다, 가까이 갈 것"); return; }
                 CleanlinessManager.Instance.Clean(dirt);
+                return;
+            }
+
+            // 온라인 주문 모니터(계산대 옆) — 계산대보다 먼저 본다
+            OnlineOrderMenu online = hit.collider.GetComponentInParent<OnlineOrderMenu>();
+            if (online != null)
+            {
+                if (!load) return;
+                if (!inRange) { Reject("너무 멀다, 모니터로 갈 것"); return; }
+                online.Open();
+                return;
+            }
+
+            PackingStation packing = hit.collider.GetComponentInParent<PackingStation>();
+            if (packing != null)
+            {
+                if (!load) return;
+                if (!inRange) { Reject("너무 멀다, 포장대로 갈 것"); return; }
+                string why = packing.Use(hit.collider);
+                if (why != null) Reject(why);
                 return;
             }
 
@@ -209,6 +251,9 @@ namespace DogShop.Player
             // 남은 것은 지형이다. 상자는 바닥을 조준했을 때만 내려놓는다 —
             // 벽을 스쳐도 놓아버리면 창고 랙에 담는 도중 상자를 계속 잃는다.
             if (carry == null || !carry.IsHolding) return;
+
+            // 내려놓기는 R 하나로 — E 는 "담기·집기" 키라, 담으려다 조준이 바닥으로 빗나가면 상자를 놓쳐 버렸다
+            if (load) return;
 
             if (!IsGround(hit)) { Reject("바닥에만 내려놓을 수 있다, 발 앞 바닥을 볼 것"); return; }
             if (!inRange) { Reject("너무 멀다, 발 앞 바닥을 볼 것"); return; }
@@ -254,23 +299,33 @@ namespace DogShop.Player
 
             InventoryManager inv = InventoryManager.Instance;
 
-            if (hit.collider.GetComponentInParent<DeliveryParcel>() != null) hint = "[E] 상자 뜯기";
+            if (hit.collider.GetComponentInParent<DeliveryParcel>() != null) hint = "[E] 상자 뜯어 창고에 정리";
             else if (hit.collider.GetComponentInParent<CarryCrate>() != null) hint = "[E] 상자 들기";
             else if (hit.collider.GetComponentInParent<DeliveryStack>() != null) hint = "[E] 상자에 1개 담기";
             // 방향이 키로 갈리므로 둘을 같이 적는다. 무엇이 일어날지 눌러 보고 알게 하면
             // 창고에서 연달아 담다가 한 번 어긋나는 순간 방금 담은 것을 도로 넣게 된다
             else if (hit.collider.GetComponentInParent<StorageRack>() != null)
-                hint = "[E] 상자에 1개 담기      [R] 창고에 1개 내리기";
+            {
+                int product = hit.collider.GetComponentInParent<StorageRack>().ProductAt(hit.point);
+                hint = product < 0 ? (carry != null && carry.IsHolding ? "빈 칸   [R] 상자 물건을 여기 내리기" : "빈 칸")
+                     : inv.Catalog.Get(product).nameKo + "   [E] 상자에 " + CarryCrate.PerMove + "개 담기      [R] 창고에 1개 내리기";
+            }
             else if (hit.collider.GetComponentInParent<ShelfTable>() != null)
-                hint = "[E] 1개 회수      [R] 1개 진열";
+                hint = "[E] 1개 회수      [R] " + CarryCrate.PerMove + "개 진열";
             else if (hit.collider.GetComponentInParent<Customer>() != null) hint = "[E] 계산";
             else if (hit.collider.GetComponentInParent<DirtSpot>() != null) hint = "[E] 청소";
+            else if (hit.collider.GetComponentInParent<OnlineOrderMenu>() != null)
+            {
+                int n = OnlineOrderManager.Instance != null ? OnlineOrderManager.Instance.NewCount : 0;
+                hint = n > 0 ? "[E] 온라인 주문 (새 주문 " + n + ")" : "[E] 온라인 주문";
+            }
+            else if (hit.collider.GetComponentInParent<PackingStation>() != null) hint = hit.collider.GetComponentInParent<PackingStation>().HintFor(hit.collider);
             else if (hit.collider.GetComponentInParent<ShopCounter>() != null) hint = "[E] 발주";
             else if (hit.collider.GetComponentInParent<Dog>() != null) hint = "[E] 강아지 관리";
             else if (hit.collider.GetComponentInParent<Bed>() != null) hint = "[E] 잠자기";
             else if (hit.collider.GetComponentInParent<SwingDoor>() != null)
                 hint = "";   // 자동문
-            else if (carry != null && carry.IsHolding && IsGround(hit)) hint = "[E/R] 여기에 상자 내려놓기";
+            else if (carry != null && carry.IsHolding && IsGround(hit)) hint = "[R] 여기에 상자 내려놓기";
         }
 
         // ---- 액션 ----
@@ -289,7 +344,7 @@ namespace DogShop.Player
             public bool CanExecute(out string reason)
             {
                 if (carry == null) { reason = "플레이어 없음"; return false; }
-                if (carry.IsHolding) { reason = "이미 상자를 들고 있다, 바닥을 보고 E로 내려놓기"; return false; }
+                if (carry.IsHolding) { reason = "이미 상자를 들고 있다, 바닥을 보고 R로 내려놓기"; return false; }
 
                 reason = null;
                 return true;
@@ -318,7 +373,7 @@ namespace DogShop.Player
                            + "칸 필요, 남은 " + carry.Held.Room + "칸";
                     return false;
                 }
-                if (InventoryManager.Instance.StorageOf(productIndex) <= 0)
+                if (InventoryManager.Instance.StorageOf(productIndex) + InventoryManager.Instance.GradedTotalOf(productIndex) <= 0)
                 {
                     reason = "창고 재고 없음, 계산대에서 발주할 것";
                     return false;
@@ -328,7 +383,17 @@ namespace DogShop.Player
                 return true;
             }
 
+            /// <summary>상자 단계만큼(1·2·3개) 담는다. 칸이 차거나 재고가 떨어지면 거기서 멈춘다.</summary>
             public void Execute()
+            {
+                for (int n = 0; n < CarryCrate.PerMove; n++)
+                {
+                    if (n > 0 && !CanExecute(out _)) break;
+                    MoveOne();
+                }
+            }
+
+            void MoveOne()
             {
                 InventoryManager inv = InventoryManager.Instance;
 
@@ -341,11 +406,13 @@ namespace DogShop.Player
                     if (!inv.TryConsumeGraded(productIndex, grade)) continue;
 
                     if (!carry.Held.AddOne(productIndex, grade)) inv.StoreGraded(productIndex, grade);
+                    else GameEvents.RaiseStorageToCrate();
                     return;
                 }
 
                 if (!inv.TryConsumeStorage(productIndex)) return;
                 if (!carry.Held.AddOne(productIndex)) inv.Grant(productIndex, 1);
+                else GameEvents.RaiseStorageToCrate();
             }
         }
 
@@ -482,7 +549,17 @@ namespace DogShop.Player
                 return table.CanPlace(slot, productIndex, out reason);
             }
 
+            /// <summary>상자 단계만큼(1·2·3개) 올린다. 칸이 차거나 상자에서 그 물건이 떨어지면 거기서 멈춘다.</summary>
             public void Execute()
+            {
+                for (int n = 0; n < CarryCrate.PerMove; n++)
+                {
+                    if (n > 0 && !CanExecute(out _)) break;
+                    PlaceOne();
+                }
+            }
+
+            void PlaceOne()
             {
                 int productIndex = Pick();
                 if (productIndex < 0) return;
@@ -493,6 +570,7 @@ namespace DogShop.Player
                 if (!carry.Held.RemoveOne(productIndex, grade)) return;
 
                 table.Place(slot, productIndex, grade);
+                GameEvents.RaiseItemDisplayed();
             }
         }
 
@@ -636,14 +714,18 @@ namespace DogShop.Player
             StorageManager storage = StorageManager.Instance;
             if (storage != null)
             {
+                // 단마다 이름표 — 무엇이 어느 칸에 있는지 한눈에
                 for (int i = 0; i < storage.Count; i++)
                 {
                     StorageRack rack = storage.Get(i);
-                    ProductDef def = inv.Catalog.Get(rack.ProductIndex);
-                    string slots = CarryCrate.SlotCostOf(rack.ProductIndex) > 1 ? " (2칸)" : "";
-                    DrawLabel(rack.transform.position + Vector3.up * 1.15f,
-                        def.nameKo + "  창고 " + inv.StorageOf(rack.ProductIndex) + slots,
-                        labelStyle, true);
+                    for (int t = 0; t < StorageRack.Tiers; t++)
+                    {
+                        int product = rack.ProductOfTier(t);
+                        if (product < 0) continue;
+                        ProductDef def = inv.Catalog.Get(product);
+                        string slots = CarryCrate.SlotCostOf(product) > 1 ? " (2칸)" : "";
+                        DrawLabel(rack.LabelPoint(t), def.nameKo + "  " + (inv.StorageOf(product) + inv.GradedTotalOf(product)) + slots, labelStyle, true);
+                    }
                 }
             }
         }

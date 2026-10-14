@@ -215,7 +215,9 @@ namespace DogShop.Shop
                 return false;
             }
 
-            if (stock[slot] >= CapacityFor(productIndex)) { reason = "이 칸이 가득 찼다"; return false; }
+            // 칸의 <b>모든 등급</b> 합으로 본다. stock 은 [칸 * Lanes + 등급레인] 배열이라 stock[slot] 은 엉뚱한 칸의
+            // 한 레인만 읽었다 — 그래서 0/6 칸에 샴푸가 12/6 까지 올라갔다
+            if (CountAt(slot) >= CapacityFor(productIndex)) { reason = "이 칸이 가득 찼다"; return false; }
 
             reason = null;
             return true;

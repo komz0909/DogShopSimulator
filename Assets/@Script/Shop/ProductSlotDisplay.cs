@@ -60,6 +60,13 @@ namespace DogShop.Shop
         public void Configure(int productIndex, Func<int> countProvider, float topY, float topWidth, float topDepth,
                               int tiers = 1, float tierSpacing = 0f, int maxVisible = 0, float propSize = DisplaySize)
         {
+            // 다른 상품으로 바뀌면(창고 선반 단은 비면 다른 상품이 들어온다) 전 상품 프롭을 치운다
+            if (this.productIndex != productIndex)
+            {
+                for (int i = 0; i < props.Count; i++) if (props[i] != null) Destroy(props[i]);
+                props.Clear();
+            }
+
             this.propTargetSize = propSize;
             this.productIndex = productIndex;
             this.countProvider = countProvider;

@@ -12,7 +12,7 @@ namespace DogShop.Player
         [SerializeField] float gravity = -18f;
 
         CharacterController controller;
-        Transform camPivot;
+        ThirdPersonCamera camPivot;
         PlayerCarry carry;
         float verticalVelocity;
 
@@ -21,14 +21,16 @@ namespace DogShop.Player
             controller = GetComponent<CharacterController>();
             carry = GetComponent<PlayerCarry>();
             ThirdPersonCamera pivot = GetComponentInChildren<ThirdPersonCamera>();
-            if (pivot != null) camPivot = pivot.transform;
+            camPivot = pivot;
         }
 
         void Update()
         {
             Vector2 input = ReadMove();
 
-            Vector3 forward = camPivot != null ? camPivot.forward : transform.forward;
+            // 카메라 yaw 로 앞을 정한다. 예전엔 피벗(플레이어 자식)의 forward 를 읽었는데, 몸이 방향을 트는 동안
+            // 피벗도 같이 돌아 앞이 흔들렸고 — 좌우로만 눌러도 몸이 도는 만큼 길이 휘어 타원을 그리며 갔다
+            Vector3 forward = camPivot != null ? Quaternion.Euler(0f, camPivot.Yaw, 0f) * Vector3.forward : transform.forward;
             forward.y = 0f;
             if (forward.sqrMagnitude < 0.0001f) forward = Vector3.forward;
             forward.Normalize();

@@ -19,8 +19,10 @@ namespace DogShop.Player
         /// <summary>
         /// 상자 자리(몸 기준). 손으로 잡게 하지는 않는다(IK 로 해 봤더니 손이 뒤집혀 두 번 뺐다).
         /// 대신 걷는 동안 흔들리는 손보다 위, 몸 앞쪽으로 띄워 팔이 상자를 뚫고 지나가지 않게 한다.
+        /// 상자 피벗은 바닥 가운데라 y 는 상자 밑면 — 0.72 면 상자(높이 0.32) 가운데가 가슴(Spine2 ≈ 0.96) 바로 아래,
+        /// z 0.45 면 상자 뒷면이 배에서 한 뼘 앞 — 0.38 은 너무 붙었고 0.55 는 30cm 떠 보였다.
         /// </summary>
-        [SerializeField] Vector3 holdOffset = new Vector3(0f, 0.80f, 0.55f);
+        [SerializeField] Vector3 holdOffset = new Vector3(0f, 0.72f, 0.45f);
 
         Transform holdAnchor;
         CharacterController controller;

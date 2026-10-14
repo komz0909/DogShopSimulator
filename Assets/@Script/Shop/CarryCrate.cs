@@ -25,6 +25,15 @@ namespace DogShop.Shop
         public static int SlotCapacity =>
             ShopLevelManager.Instance != null ? ShopLevelManager.Instance.Current.crateSlots : BaseSlots;
 
+        /// <summary>상자 단계. 기본 8칸 = 1단계, 10칸 = 2단계(Lv3), 12칸 = 3단계(Lv7).</summary>
+        public static int Stage => SlotCapacity >= 12 ? 3 : SlotCapacity >= 10 ? 2 : 1;
+
+        /// <summary>
+        /// 한 번 누를 때 옮기는 개수 = 단계. 창고에서 상자에 담을 때(E)와 상자에서 진열대에 올릴 때(R)에 쓴다.
+        /// 상자가 커져도 한 개씩 옮기면 누르는 횟수만 늘어 큰 상자가 손에 안 느껴졌다.
+        /// </summary>
+        public static int PerMove => Stage;
+
         /// <summary>상자 안에 실제로 보이는 최대 개수. 그 이상은 라벨 숫자로만 표시한다.</summary>
         const int MaxVisible = 4;
 

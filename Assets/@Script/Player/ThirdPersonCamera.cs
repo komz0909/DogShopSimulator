@@ -60,6 +60,9 @@ namespace DogShop.Player
         Renderer[] body;
         float baseFov;
         float yaw;
+
+        /// <summary>카메라가 보는 수평 방향(도). 이동 방향의 기준 — 피벗 transform 은 플레이어 자식이라 몸이 도는 동안 같이 돌아 믿을 수 없다.</summary>
+        public float Yaw => yaw;
         float pitch = 20f;
 
         /// <summary>Esc로 커서를 풀어둔 상태. 게임 화면을 다시 클릭하면 잠긴다.</summary>

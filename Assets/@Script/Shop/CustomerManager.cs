@@ -611,6 +611,15 @@ namespace DogShop.Shop
             return true;
         }
 
+        /// <summary>온라인 주문 출고(OnlineOrderManager). 매장 판매처럼 오늘 매출·판매 건수에 넣는다.</summary>
+        public void RecordOnlineSale(int paid)
+        {
+            RevenueToday += paid;
+            SoldToday++;
+            GameManager.Instance.RegisterSale(paid);
+            OnSale?.Invoke(paid);
+        }
+
         // ---- 세이브 ----
 
         /// <summary>

@@ -18,7 +18,7 @@ namespace DogShop.Shop
         public static InventoryManager Instance { get; private set; }
 
         [SerializeField] ProductCatalog catalog;
-        [SerializeField] int startingStoragePerProduct = 8;
+        [SerializeField] int startingStoragePerProduct = 12;
 
         int[] storage;
         int[] incoming;
@@ -282,7 +282,7 @@ namespace DogShop.Shop
             if (quantity <= 0 || !IsUnlocked(index)) return false;
 
             int cost = catalog.Get(index).wholesale * quantity;
-            if (!GameManager.Instance.TrySpend(cost)) return false;
+            if (!GameManager.Instance.TrySpend(cost, GameManager.SpendKind.Stock)) return false;
 
             // 특급 입고도 창고로 바로 넣지 않는다 — 트럭이 그날 안에 올 뿐이다.
             // 문 앞까지 와도 들이는 것은 사람 몫이라는 규칙은 어느 날에도 같다.
@@ -338,7 +338,7 @@ namespace DogShop.Shop
                 reason = "재화 부족: " + GameManager.Instance.Money + " / " + cost;
                 return false;
             }
-            if (!GameManager.Instance.TrySpend(cost)) { reason = "결제 실패"; return false; }
+            if (!GameManager.Instance.TrySpend(cost, GameManager.SpendKind.Stock)) { reason = "결제 실패"; return false; }
 
             float due = TimeManager.Instance != null
                 ? TimeManager.Instance.CurrentHour + ExpressHours
@@ -393,6 +393,12 @@ namespace DogShop.Shop
         public int ParcelProductAt(int i) => i >= 0 && i < parcels.Count ? parcels[i].product : -1;
         public int ParcelQuantityAt(int i) => i >= 0 && i < parcels.Count ? parcels[i].quantity : 0;
 
+        public int ParcelQuantityOf(int id)
+        {
+            for (int i = 0; i < parcels.Count; i++) if (parcels[i].id == id) return parcels[i].quantity;
+            return 0;
+        }
+
         /// <summary>안 뜯은 상자에 든 총 개수. 발주창이 "아직 안 들인 것"을 셀 때 쓴다.</summary>
         public int ParcelTotal
         {
@@ -415,6 +421,25 @@ namespace DogShop.Shop
                 if (parcels[i].id != id) continue;
 
                 delivered[parcels[i].product] += parcels[i].quantity;
+                parcels.RemoveAt(i);
+                OnStockChanged?.Invoke();
+                return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// 상자를 뜯어 내용물을 <b>곧장 창고</b>에 넣는다(창고 선반 단에 정리된다). 플레이어가 E 로 뜯을 때 쓴다.
+        /// 문 앞 상자를 창고까지 한 개씩 나르는 일이 하루 대부분을 먹어 지루했다 — 나르는 노동은 진열 쪽에 남긴다.
+        /// 창고 선반에 자리가 있는지는 부르는 쪽(<see cref="DeliveryManager.OpenIntoStorage"/>)이 먼저 본다.
+        /// </summary>
+        public bool OpenParcelToStorage(int id)
+        {
+            for (int i = 0; i < parcels.Count; i++)
+            {
+                if (parcels[i].id != id) continue;
+
+                storage[parcels[i].product] += parcels[i].quantity;
                 parcels.RemoveAt(i);
                 OnStockChanged?.Invoke();
                 return true;

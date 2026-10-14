@@ -94,7 +94,7 @@ namespace DogShop.Shop
         {
             string reason;
             if (!CanBuy(index, out reason)) return false;
-            if (!GameManager.Instance.TrySpend(catalog.Get(index).price)) return false;
+            if (!GameManager.Instance.TrySpend(catalog.Get(index).price, GameManager.SpendKind.Furniture)) return false;
 
             ordered.Add(index);
             return true;
@@ -132,7 +132,7 @@ namespace DogShop.Shop
                 if (OneOnly(i) && cart[i] > 1) { reason = catalog.Get(i).nameKo + ": 하나만 둘 수 있다"; return false; }
             }
 
-            if (!GameManager.Instance.TrySpend(cost)) { reason = "결제 실패"; return false; }
+            if (!GameManager.Instance.TrySpend(cost, GameManager.SpendKind.Furniture)) { reason = "결제 실패"; return false; }
 
             for (int i = 0; i < cart.Count && i < catalog.Count; i++)
                 for (int n = 0; n < cart[i]; n++) ordered.Add(i);
@@ -144,7 +144,13 @@ namespace DogShop.Shop
         /// <summary>아침. 주문한 가구를 앞마당에 세운다.</summary>
         void Deliver()
         {
-            for (int i = 0; i < ordered.Count; i++) Spawn(ordered[i], DropAt(i));
+            for (int i = 0; i < ordered.Count; i++)
+            {
+                GameObject placed = Spawn(ordered[i], DropAt(i));
+                // 창고 선반은 원점이 몸통 가운데라 바닥 높이에 그대로 세우면 반쯤 묻힌다
+                if (placed != null && placed.GetComponent<StorageRack>() != null)
+                    placed.transform.position += Vector3.up * StorageRack.PivotHeight;
+            }
             ordered.Clear();
         }
 

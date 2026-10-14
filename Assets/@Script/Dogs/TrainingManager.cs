@@ -229,7 +229,7 @@ namespace DogShop.Dogs
         {
             if (!CanExercise(dog, index, out _)) return false;
             ExerciseDef def = Exercises[index];
-            if (!GameManager.Instance.TrySpend(def.cost)) return false;
+            if (!GameManager.Instance.TrySpend(def.cost, GameManager.SpendKind.Dog)) return false;
 
             dog.Stats.AddGrowth(GrowthAxis.Agility, def.gain, out int gained);
             ExercisedToday = true;
@@ -378,7 +378,7 @@ namespace DogShop.Dogs
 
             TrainingDef def = catalog.Get(index);
             int cost = CostOf(index);
-            if (!GameManager.Instance.TrySpend(cost)) return false;
+            if (!GameManager.Instance.TrySpend(cost, GameManager.SpendKind.Dog)) return false;
 
             dog.Stats.AddGrowth(def.axis, GainOf(index));
             ShowTraining(dog, def);
@@ -396,6 +396,7 @@ namespace DogShop.Dogs
             else if (def.axis == GrowthAxis.Beauty) SpentTodayBeauty += cost;
             else SpentTodayTraining += cost;
             OnSlotsChanged?.Invoke();
+            GameEvents.RaiseDogTrained();
             return true;
         }
 
