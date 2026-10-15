@@ -48,7 +48,7 @@ namespace DogShop.Show
         [SerializeField] ObstacleCourse course;
 
         [Header("훈련 심사 물건(상품 이름)")]
-        [SerializeField] string[] fetchItemNames = { "장난감", "뼈다귀 장난감", "고기 인형", "목줄", "간식" };
+        [SerializeField] string[] fetchItemNames = { "장난감", "뼈다귀 장난감", "고기 인형", "목줄", "강아지껌" };
 
         /// <summary>스탯을 0~1 로 펼 때 쓰는 기준. 46차 측정에서 30일 최적 플레이가 미모·훈련도 각 220 안팎이었다.</summary>
         const float StatFull = 240f;

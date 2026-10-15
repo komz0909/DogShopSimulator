@@ -58,6 +58,17 @@ namespace DogShop.Shop
         public string DisplayName => displayName;
         public bool WallMounted => wallMounted;
 
+        /// <summary>벽걸이가 붙은 벽의 법선(매장 안쪽 방향, 수평). 놓을 때 열린 면이 이쪽을 보게 돌려 두므로 앞방향에서 거꾸로 구한다.</summary>
+        public Vector3 WallNormal
+        {
+            get
+            {
+                Vector3 f = transform.rotation * (frontFacesMinusZ ? Vector3.back : Vector3.forward);
+                f.y = 0f;
+                return f.sqrMagnitude > 0.0001f ? f.normalized : Vector3.forward;
+            }
+        }
+
         /// <summary>바닥 기준 높이. 내려놓을 때 발자국이 바닥에 닿게 맞추는 데 쓴다.</summary>
         public float BottomOffset { get; private set; }
 

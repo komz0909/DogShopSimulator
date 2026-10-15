@@ -173,7 +173,14 @@ namespace DogShop.Shop
                 for (int i = 0; i < catalog.Count; i++)
                     if (catalog.Get(i).category == Category) visible.Add(i);
 
-                visible.Sort((a, b) => catalog.Get(a).wholesale.CompareTo(catalog.Get(b).wholesale));
+                // 해금 레벨 순 — 레벨이 오를 때마다 새 물건이 맨 끝(다음 칸)에 붙는다. 같은 레벨이면 싼 것부터
+                visible.Sort((a, b) =>
+                {
+                    int byLevel = catalog.Get(a).unlockLevel.CompareTo(catalog.Get(b).unlockLevel);
+                    if (byLevel != 0) return byLevel;
+                    int byPrice = catalog.Get(a).wholesale.CompareTo(catalog.Get(b).wholesale);
+                    return byPrice != 0 ? byPrice : a.CompareTo(b);
+                });
             }
 
             furnitureOrder.Clear();

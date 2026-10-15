@@ -33,6 +33,20 @@ namespace DogShop.Shop
 
         [Header("앞마당 — 가게 폭을 따라 넓어진다")]
         [SerializeField] Transform forecourtFloor;   // Forecourt_Floor
+
+        /// <summary>
+        /// 가게 오른쪽 옆길 보도(x 8~16). 바닥보다 2cm 높아서 가게가 오른쪽으로 넓어지면
+        /// 그 띠가 매장 안에 보도블록으로 올라왔다 — 넓힐 때 왼쪽 끝을 새 오른벽 바깥까지 잘라 낸다.
+        /// </summary>
+        [SerializeField] MeshFilter sideWalk;   // Ground/Sidewalk_Side
+
+        /// <summary>
+        /// 뒷벽 오른쪽(x 4.8~8). 가게가 오른쪽으로 넓어지면 그 너머 뒷벽은 옆방 앞벽(노란 방 벽지)이라
+        /// 매장 안에서 노란 벽이 보였다 — 넓힌 만큼 이 벽과 같은 벽지를 매장 쪽에 얇게 덧댄다.
+        /// 옆방 벽을 늘리거나 바꾸면 방 안에서 매장 벽지가 보이거나 두 벽이 겹쳐 깜빡이므로 덧대는 판으로 한다.
+        /// </summary>
+        [SerializeField] Transform backRight;   // Wall_Back_R
+        Transform backRightExtra;
         [SerializeField] Transform fenceLeft;        // Forecourt_Fence_L
         [SerializeField] Transform fenceRight;       // Forecourt_Fence_R
         [SerializeField] Transform edgeWest;         // 거리 경계벽(앞마당 왼쪽 인도 경계)
@@ -157,12 +171,15 @@ namespace DogShop.Shop
             width = Mathf.Clamp(width, 8f, 12f);
             if (width <= Width + 0.01f) return false;   // 이미 그만큼 넓다
 
+            float oldLeft = LeftX, oldRight = RightX;
+
             // 문(x 4)을 가운데 두고 양쪽으로 넓힌다
             float left = CenterX - width * 0.5f;
             float right = CenterX + width * 0.5f;
 
             floor.localScale = new Vector3(width, floor.localScale.y, Depth);
             floor.position = new Vector3(CenterX, floor.position.y, Depth * 0.5f);
+            FitFloorTiles(width, left);
 
             if (rightWall != null)
                 rightWall.position = new Vector3(right + WallThickness * 0.5f, rightWall.position.y, rightWall.position.z);
@@ -193,6 +210,8 @@ namespace DogShop.Shop
 
             ToggleLights(left, right);
             FitForecourt(left, right);
+            TrimSideWalk(right + WallThickness);
+            CoverBackRight(right);
 
             // 뚜껑도 같이 늘인다. 바닥만 넓히면 늘어난 쪽이 하늘로 뚫려 보인다
             if (ceiling != null)
@@ -211,8 +230,144 @@ namespace DogShop.Shop
                 }
             }
 
+            List<PlaceableFurniture> moved = FollowSideWalls(oldLeft, left, oldRight, right);
+
             Rebake();
+
+            // 옮긴 진열대는 손님이 설 자리를 다시 잡는다(가구를 손으로 옮겼을 때와 같은 처리)
+            if (ShelfManager.Instance != null)
+                foreach (PlaceableFurniture f in moved) ShelfManager.Instance.RefreshApproach(f);
             return true;
+        }
+
+        /// <summary>
+        /// 뒷벽 오른쪽 끝(x 8)부터 새 오른벽까지 매장 벽지 판을 덧댄다. 벽 앞면(z 6)보다 1cm 앞에 얇게 세워 옆방 벽과 겹치지 않는다.
+        /// 줄무늬 간격은 뒷벽과 같게 — 뒷벽 그림의 가로 반복을 벽 폭으로 나눈 값(1m 당 줄 수)을 그대로 쓴다.
+        /// </summary>
+        void CoverBackRight(float right)
+        {
+            if (backRight == null) return;
+            Renderer src = backRight.GetComponent<Renderer>();
+            if (src == null) return;
+
+            Bounds wall = src.bounds;
+            float from = wall.max.x, width = right - from;
+            if (width <= 0.01f) return;
+
+            if (backRightExtra == null)
+            {
+                var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                go.name = "Wall_Back_R_Extra";
+                Destroy(go.GetComponent<Collider>());   // 막는 건 옆방 벽이 한다
+                go.transform.SetParent(backRight.parent, true);
+                go.GetComponent<Renderer>().sharedMaterial = src.sharedMaterial;
+                backRightExtra = go.transform;
+            }
+
+            const float Thin = 0.01f;
+            backRightExtra.position = new Vector3(from + width * 0.5f, wall.center.y, wall.min.z - Thin * 0.5f - 0.002f);
+            backRightExtra.rotation = Quaternion.identity;
+            backRightExtra.localScale = new Vector3(width, wall.size.y, Thin);
+
+            // 뒷벽과 같은 줄 간격. 원래 벽의 끝(from)에서 무늬가 이어지게 그만큼 민다
+            Material m = src.sharedMaterial;
+            Vector2 tiling = m.HasProperty("_BaseMap") ? m.GetTextureScale("_BaseMap") : m.mainTextureScale;
+            float perMeter = tiling.x / Mathf.Max(0.01f, wall.size.x);
+            var block = new MaterialPropertyBlock();
+            block.SetVector("_BaseMap_ST", new Vector4(perMeter * width, tiling.y, perMeter * wall.size.x % 1f, 0f));
+            block.SetVector("_MainTex_ST", new Vector4(perMeter * width, tiling.y, perMeter * wall.size.x % 1f, 0f));
+            backRightExtra.GetComponent<Renderer>().SetPropertyBlock(block);
+        }
+
+        Mesh sideWalkSource;
+
+        /// <summary>
+        /// 옆길 보도의 왼쪽 끝을 <paramref name="minX"/> 까지 잘라 낸다. 보도는 평면 사각형이고 UV 가 월드 좌표에 비례하므로
+        /// 왼쪽 꼭짓점만 옮기고 그 UV 를 같은 비율로 다시 주면 블록 크기가 그대로다. 원본 메시 에셋은 건드리지 않는다.
+        /// </summary>
+        void TrimSideWalk(float minX)
+        {
+            if (sideWalk == null) return;
+            if (sideWalkSource == null) sideWalkSource = sideWalk.sharedMesh;
+            Mesh src = sideWalkSource;
+            if (src == null || !src.isReadable) return;
+
+            Vector3[] v = src.vertices;
+            Vector2[] uv = src.uv;
+            float lo = float.MaxValue, hi = float.MinValue;
+            foreach (Vector3 p in v) { lo = Mathf.Min(lo, p.x); hi = Mathf.Max(hi, p.x); }
+            if (minX <= lo + 0.001f || minX >= hi) return;
+
+            // UV 가 x 에 비례하는 배율(원본 양 끝에서 잰다)
+            float uLo = 0f, uHi = 0f;
+            for (int i = 0; i < v.Length; i++)
+            {
+                if (Mathf.Abs(v[i].x - lo) < 0.001f) uLo = uv[i].x;
+                if (Mathf.Abs(v[i].x - hi) < 0.001f) uHi = uv[i].x;
+            }
+            float perMeter = (uHi - uLo) / (hi - lo);
+
+            Mesh trimmed = Instantiate(src);
+            trimmed.name = src.name + "_Trimmed";
+            for (int i = 0; i < v.Length; i++)
+                if (v[i].x < minX)
+                {
+                    uv[i].x += (minX - v[i].x) * perMeter;
+                    v[i].x = minX;
+                }
+            trimmed.vertices = v;
+            trimmed.uv = uv;
+            trimmed.RecalculateBounds();
+            sideWalk.sharedMesh = trimmed;
+        }
+
+        /// <summary>
+        /// 바닥 무늬를 폭에 맞춘다. 바닥은 크기만 늘리므로 그대로 두면 체크무늬가 옆으로 늘어나 보였다 —
+        /// 1m 에 한 칸이 되게 가로 반복을 폭만큼 주고, 원래 칸 경계(정수 x)가 그대로 이어지게 왼쪽 끝만큼 민다.
+        /// 공유 재질을 고치면 에셋이 바뀌므로 렌더러별 속성 블록으로 준다.
+        /// </summary>
+        void FitFloorTiles(float width, float left)
+        {
+            Renderer r = floor.GetComponent<Renderer>();
+            if (r == null) return;
+            var block = new MaterialPropertyBlock();
+            r.GetPropertyBlock(block);
+            var st = new Vector4(width, Depth, left, 0f);
+            block.SetVector("_BaseMap_ST", st);
+            block.SetVector("_MainTex_ST", st);
+            r.SetPropertyBlock(block);
+        }
+
+        /// <summary>
+        /// 옆벽에 붙어 있던 벽걸이 가구(벽 진열대·벽장식)를 벽이 밀려난 만큼 같이 옮긴다.
+        /// 안 옮기면 예전 벽 자리에 그대로 남아 허공에 떠 있었다.
+        ///
+        /// 세이브를 불러오는 중에는 <b>산 가구는 건드리지 않는다</b> — 세이브에 넓어진 뒤 자리가 이미 적혀 있다.
+        /// 처음부터 씬에 있던 가구(기본 벽 진열대)는 자리가 저장되지 않으므로 그때도 옮긴다.
+        /// </summary>
+        List<PlaceableFurniture> FollowSideWalls(float oldLeft, float left, float oldRight, float right)
+        {
+            var moved = new List<PlaceableFurniture>();
+            const float Near = 1.0f;   // 벽에서 이만큼 안이면 그 벽에 붙은 것으로 본다
+            bool restoring = Core.SaveManager.IsRestoring;
+
+            foreach (PlaceableFurniture f in FindObjectsByType<PlaceableFurniture>(FindObjectsSortMode.None))
+            {
+                if (!f.WallMounted) continue;
+                if (restoring && f.GetComponent<BoughtFurniture>() != null) continue;
+
+                Vector3 n = f.WallNormal;
+                Vector3 p = f.transform.position;
+                float dx = 0f;
+                if (n.x > 0.7f && Mathf.Abs(p.x - oldLeft) < Near) dx = left - oldLeft;        // 왼벽(안쪽이 +x)
+                else if (n.x < -0.7f && Mathf.Abs(p.x - oldRight) < Near) dx = right - oldRight; // 오른벽
+                if (Mathf.Abs(dx) < 0.001f) continue;
+
+                f.transform.position = p + new Vector3(dx, 0f, 0f);
+                moved.Add(f);
+            }
+            if (moved.Count > 0) Physics.SyncTransforms();
+            return moved;
         }
 
         /// <summary>

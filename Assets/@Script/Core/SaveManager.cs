@@ -289,12 +289,20 @@ namespace DogShop.Core
             return data;
         }
 
+        /// <summary>세이브를 불러오는 중인가. 불러온 값은 이미 제자리이므로 "따라 옮기는" 처리(벽 확장 등)는 건너뛴다.</summary>
+        public static bool IsRestoring { get; private set; }
+
         void Restore(SaveData data)
         {
-            GameManager.Instance.RestoreFrom(data);
+            IsRestoring = true;
+            try
+            {
+                GameManager.Instance.RestoreFrom(data);
 
-            ISaveParticipant[] participants = FindParticipants();
-            for (int i = 0; i < participants.Length; i++) participants[i].RestoreFrom(data);
+                ISaveParticipant[] participants = FindParticipants();
+                for (int i = 0; i < participants.Length; i++) participants[i].RestoreFrom(data);
+            }
+            finally { IsRestoring = false; }
         }
 
         /// <summary>

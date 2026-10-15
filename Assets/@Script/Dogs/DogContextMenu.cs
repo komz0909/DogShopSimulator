@@ -74,7 +74,8 @@ namespace DogShop.Dogs
         bool PopupVisible => Time.unscaledTime - popupAt < PopupSeconds;
 
         readonly string[] careName = { "밥 주기", "목욕", "약 먹이기" };
-        readonly int[] careProduct = { DogCare.FoodIndex, DogCare.ShampooIndex, DogCare.MedicineIndex };
+        readonly int[] careProduct = { DogCare.FoodIndex, DogCare.ShampooIndex, DogCare.MedicineIndex };   // 밥·목욕은 날짜 따라 Rebuild 에서 바뀐다
+        string careNotice = "";
         readonly bool[] careEnabled = new bool[3];
         readonly int[] careStock = new int[3];
 
@@ -183,6 +184,12 @@ namespace DogShop.Dogs
             blocked = st.GrowthBlocked;
 
             InventoryManager inv = InventoryManager.Instance;
+            // 10일차까지 기본, 11일차부터 고급 사료·샴푸 — 아이콘·재고도 지금 쓰는 쪽을 보여 준다
+            careProduct[0] = DogCare.FoodNow;
+            careProduct[1] = DogCare.ShampooNow;
+            careNotice = DogCare.PremiumCare
+                ? "밥/목욕에 고급 사료, 고급 샴푸 필요"
+                : DogCare.PremiumFromDay + "일차부터 고급 사료, 고급 샴푸 필요";
             DogCare.CareAction[] care = { DogCare.CareAction.Feed(target), DogCare.CareAction.Bath(target), DogCare.CareAction.Medicine(target) };
             for (int i = 0; i < 3; i++)
             {
@@ -383,7 +390,9 @@ namespace DogShop.Dogs
                 if (ActionButton(b, icon, careName[i], "창고 " + careStock[i] + "개", careEnabled[i], careStock[i] <= 0))
                     RunCare(i);
             }
-            y += rowH + 14f;
+            y += rowH + 2f;
+            GUI.Label(new Rect(r.x + 4f, y, r.width - 4f, 18f), careNotice, DogCare.PremiumCare ? warnSmall : smallStyle);
+            y += 20f;
 
             // 운동 — 돈, 하루 한 번(셋 중 하나)
             GUI.Label(new Rect(r.x, y, 200f, 26f), "운동", sectionStyle);

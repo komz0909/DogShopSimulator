@@ -13,6 +13,24 @@ namespace DogShop.Dogs
         public const int FoodIndex = 0;
         public const int ShampooIndex = 1;
         public const int MedicineIndex = 2;
+        public const int PremiumFoodIndex = 6;       // 고급 사료
+        public const int PremiumShampooIndex = 20;   // 고급 샴푸
+
+        /// <summary>
+        /// 이 날부터 밥·목욕에 <b>고급</b> 사료·샴푸를 쓴다. 10일차까지는 기본 사료·기본 샴푸.
+        /// 강아지가 자라면서 돌보는 데 드는 돈도 같이 커지게 — 쌓이기만 하던 돈을 쓸 곳이다.
+        /// </summary>
+        public const int PremiumFromDay = 11;
+
+        public static bool PremiumCare => GameManager.Instance != null && GameManager.Instance.Day >= PremiumFromDay;
+
+        /// <summary>지금 밥·목욕에 쓰는 상품.</summary>
+        public static int FoodNow => PremiumCare ? PremiumFoodIndex : FoodIndex;
+        public static int ShampooNow => PremiumCare ? PremiumShampooIndex : ShampooIndex;
+
+        /// <summary>돌보기 때문에 레벨과 상관없이 발주할 수 있어야 하는 상품인가(11일차부터 고급 사료·샴푸).</summary>
+        public static bool RequiredForCare(int productIndex) =>
+            PremiumCare && (productIndex == PremiumFoodIndex || productIndex == PremiumShampooIndex);
 
         public const int FeedRecovery = 20;
         public const int BathRecovery = 45;
@@ -36,8 +54,8 @@ namespace DogShop.Dogs
                 this.label = label;
             }
 
-            public static CareAction Feed(Dog dog) => new CareAction(dog, FoodIndex, FeedRecovery, true, "밥 주기");
-            public static CareAction Bath(Dog dog) => new CareAction(dog, ShampooIndex, BathRecovery, false, "목욕");
+            public static CareAction Feed(Dog dog) => new CareAction(dog, FoodNow, FeedRecovery, true, "밥 주기");
+            public static CareAction Bath(Dog dog) => new CareAction(dog, ShampooNow, BathRecovery, false, "목욕");
             public static CareAction Medicine(Dog dog) => new CareAction(dog, MedicineIndex, MedicineRecovery, true, "약 먹이기");
 
             public bool CanExecute(out string reason)

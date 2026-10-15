@@ -499,8 +499,8 @@ namespace DogShop.Debugging
             InventoryManager inv = InventoryManager.Instance;
 
             // 케어가 실제로 소모하는 두 종만 먼저 깔아둔다. 약은 수요 목표에 맡긴다
-            OrderUpTo(inv, DogCare.FoodIndex, CareStock);
-            OrderUpTo(inv, DogCare.ShampooIndex, CareStock);
+            OrderUpTo(inv, DogCare.FoodNow, CareStock);
+            OrderUpTo(inv, DogCare.ShampooNow, CareStock);
 
             // 나머지는 수요 비례로만 채운다. 다만 <b>올려놓을 자리가 없는 상품은 사지 않는다</b> —
             // 상품이 진열 칸보다 많아지면 팔 수도 없는 재고에 현금이 잠겨, 정작 진열한 물건을

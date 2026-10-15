@@ -273,7 +273,16 @@ namespace DogShop.Shop
             if (Instance == this) Instance = null;
         }
 
-        public bool IsUnlocked(int index) => catalog.Get(index).unlockLevel <= ShopLevelManager.Instance.Level;
+        /// <summary>
+        /// 발주·강아지 돌보기에 쓸 수 있는가. 레벨로 열리는 것이 원칙이고,
+        /// <b>11일차부터 돌보기에 꼭 필요한 고급 사료·고급 샴푸</b>는 레벨이 모자라도 연다 —
+        /// 안 그러면 레벨이 늦은 판에서 밥도 목욕도 못 시키는 막다른 길이 생긴다(손님 수요는 그대로 레벨을 따른다).
+        /// </summary>
+        public bool IsUnlocked(int index) =>
+            IsLevelUnlocked(index) || Dogs.DogCare.RequiredForCare(index);
+
+        /// <summary>레벨만 따진 해금 — 손님(온라인 주문 포함)이 찾는 물건은 이쪽을 따른다.</summary>
+        public bool IsLevelUnlocked(int index) => catalog.Get(index).unlockLevel <= ShopLevelManager.Instance.Level;
 
         // ---- 발주: 창고를 채운다 ----
 

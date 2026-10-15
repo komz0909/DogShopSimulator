@@ -173,7 +173,7 @@ namespace DogShop.Shop
             int best = -1;
             for (int i = 0; i < inv.Catalog.Count; i++)
             {
-                if (!inv.IsUnlocked(i)) continue;
+                if (!inv.IsLevelUnlocked(i)) continue;
                 if (best < 0 || inv.StorageOf(i) > inv.StorageOf(best)
                     || (inv.StorageOf(i) == inv.StorageOf(best) && inv.Catalog.Get(i).retail < inv.Catalog.Get(best).retail))
                     best = i;
@@ -227,7 +227,7 @@ namespace DogShop.Shop
         {
             InventoryManager inv = InventoryManager.Instance;
             var unlocked = new List<int>();
-            for (int i = 0; i < inv.Catalog.Count; i++) if (inv.IsUnlocked(i)) unlocked.Add(i);
+            for (int i = 0; i < inv.Catalog.Count; i++) if (inv.IsLevelUnlocked(i)) unlocked.Add(i);
             if (unlocked.Count == 0) return null;
 
             int kinds = Mathf.Min(unlocked.Count, UnityEngine.Random.value < 0.5f ? 1 : 2);
