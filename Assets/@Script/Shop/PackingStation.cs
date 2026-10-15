@@ -229,6 +229,7 @@ namespace DogShop.Shop
             ReturnTape();
             Show(false, true);
             step = Step.Packed;
+            Sound.Play(Sfx.Packing);
             return null;
         }
 
@@ -269,7 +270,7 @@ namespace DogShop.Shop
             GUI.Box(r, GUIContent.none, UiSkin.Tag(new Color(0.98f, 0.94f, 0.85f)));
             int price = current.Price(InventoryManager.Instance.Catalog);
             GUI.Label(new Rect(r.x, r.y + 10f, r.width, 30f), "포장 완료!  " + price + "원 / 명성 +" + current.reputation, label);
-            if (GUI.Button(new Rect(r.center.x - 110f, r.y + 56f, 220f, 52f), "배송하기", new GUIStyle(UiSkin.Button(UiSkin.Green)) { fontSize = 20 }))
+            if (UiSkin.Click(new Rect(r.center.x - 110f, r.y + 56f, 220f, 52f), "배송하기", new GUIStyle(UiSkin.Button(UiSkin.Green)) { fontSize = 20 }))
                 Ship();
             GUI.matrix = keep;
         }

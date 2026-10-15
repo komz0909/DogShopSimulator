@@ -189,7 +189,9 @@ namespace DogShop.Dogs
             careProduct[1] = DogCare.ShampooNow;
             careNotice = DogCare.PremiumCare
                 ? "밥/목욕에 고급 사료, 고급 샴푸 필요"
-                : DogCare.PremiumFromDay + "일차부터 고급 사료, 고급 샴푸 필요";
+                : GameManager.Instance.Day == DogCare.PremiumFromDay - 1
+                    ? "내일부터 고급 사료, 고급 샴푸 필요 (오늘 주문해 둘 것)"
+                    : DogCare.PremiumFromDay + "일차부터 고급 사료, 고급 샴푸 필요";
             DogCare.CareAction[] care = { DogCare.CareAction.Feed(target), DogCare.CareAction.Bath(target), DogCare.CareAction.Medicine(target) };
             for (int i = 0; i < 3; i++)
             {
@@ -406,7 +408,7 @@ namespace DogShop.Dogs
                 bool unlocked = TrainingManager.Instance.IsExerciseUnlocked(i);
                 string line = !unlocked ? "Lv " + def.unlockLevel + " 해금"
                             : exercisedToday ? "오늘 완료"
-                            : exerciseEnabled[i] ? def.cost.ToString("N0") + "원 / +" + def.gain
+                            : exerciseEnabled[i] ? def.cost.ToString("N0") + "원 / +" + TrainingManager.ExerciseGainOf(i)
                             : exerciseReason[i];
                 bool warn = unlocked && !exercisedToday && !exerciseEnabled[i];
                 Texture2D icon = i < exerciseIcons.Length ? exerciseIcons[i] : null;
@@ -444,7 +446,7 @@ namespace DogShop.Dogs
             GUI.Label(new Rect(tx, b.y + 34f, tw, 18f), line, warn ? warnSmall : btnLine);
 
             GUI.enabled = on;
-            bool pressed = GUI.Button(b, GUIContent.none, GUIStyle.none);
+            bool pressed = UI.UiSkin.Click(b, GUIContent.none, GUIStyle.none);
             GUI.enabled = true;
             return pressed;
         }
@@ -560,7 +562,7 @@ namespace DogShop.Dogs
             var trainBtn = new Rect(row.x + 388f, cy - 14f, 64f, 28f);
             GUI.enabled = d.enabled;
             string trainLabel = d.upgrading ? "강화 " + d.daysLeft + "일" : d.used ? "완료" : "훈련";
-            if (GUI.Button(trainBtn, trainLabel, d.enabled ? trainBtnStyle : trainBtnOff))
+            if (UI.UiSkin.Click(trainBtn, trainLabel, d.enabled ? trainBtnStyle : trainBtnOff))
             {
                 ActionRunner.TryRun(new TrainingManager.TrainAction(target, i));
                 Rebuild();
@@ -569,7 +571,7 @@ namespace DogShop.Dogs
             // [단계업 n/m] — 여러 번 하면 열린다
             var upBtn = new Rect(row.x + 458f, cy - 14f, row.xMax - row.x - 462f, 28f);
             GUI.enabled = d.canUpgrade;
-            if (GUI.Button(upBtn, new GUIContent(d.upgradeLabel, d.canUpgrade ? upgradeIcon : null), btnStyle))
+            if (UI.UiSkin.Click(upBtn, new GUIContent(d.upgradeLabel, d.canUpgrade ? upgradeIcon : null), btnStyle))
             {
                 tm.BeginUpgrade(i);
                 Rebuild();

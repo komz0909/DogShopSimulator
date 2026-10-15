@@ -191,6 +191,7 @@ namespace DogShop.Shop
                 state = State.New
             };
             orders.Add(o);
+            Sound.Play(Sfx.OnlineOrder);
             TutorialOrderId = o.id;
             Toast("온라인 주문이 들어왔다. 계산대 옆 모니터에서 수락하자");
             OnChanged?.Invoke();
@@ -215,6 +216,7 @@ namespace DogShop.Shop
             Order o = MakeOrder(hour, repEach);
             if (o == null) return;
             orders.Add(o);
+            Sound.Play(Sfx.OnlineOrder);
             Toast("온라인 주문이 들어왔다. 계산대 옆 모니터에서 수락하자");
             OnChanged?.Invoke();
         }

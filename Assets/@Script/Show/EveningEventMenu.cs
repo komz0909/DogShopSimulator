@@ -97,6 +97,7 @@ namespace DogShop.Show
                 return;
             }
 
+            Sound.Play(Sfx.Settlement);
             open = true;
 
 
@@ -158,7 +159,7 @@ namespace DogShop.Show
             if (rank == 1) place = "심사위원의 손끝이 우리를 가리켰다. 챔피언이다!";
             else if (rank >= 2 && rank <= 3) place = rank + "위! 우승까지 딱 한 걸음. 다음 대회에선 꼭 정상에 서자, 화이팅!";
             else if (rank > 3) place = rank + "위. 이번엔 아쉬웠지만 더 노력해서 다음 대회를 노려보자, 화이팅!";
-            else place = "무대에는 서지 못했다. 그래도 30일을 함께 버틴 우리는 이미 한 팀이다. 다음엔 같이 서자!";
+            else place = "무대에는 서지 못했다. 그래도 " + ChampionshipManager.LastDay + "일을 함께 버틴 우리는 이미 한 팀이다. 다음엔 같이 서자!";
 
             endingValues["won"] = rank == 1 ? "1" : "0";
             endingValues["place"] = place;
@@ -280,7 +281,7 @@ namespace DogShop.Show
                 y += 26f;
                 GUI.Label(new Rect(x, y, w, 46f), gradeLine, noteStyle);
 
-                if (!finished && GUI.Button(new Rect(x, bottom - 56f, w, 50f), "게임 종료: 30일 완주", Big(UiSkin.Coral)))
+                if (!finished && UiSkin.Click(new Rect(x, bottom - 56f, w, 50f), (Exhibition.Active ? "시연 종료" : "게임 종료: 30일 완주"), Big(UiSkin.Coral)))
                 {
                     finished = true;
                     open = false;
@@ -293,7 +294,7 @@ namespace DogShop.Show
                 return;
             }
 
-            if (GUI.Button(new Rect(x, bottom - 56f, w, 50f), "다음 날 아침으로  Day " + (g.Day + 1), Big(UiSkin.Green))) Continue();
+            if (UiSkin.Click(new Rect(x, bottom - 56f, w, 50f), "다음 날 아침으로  Day " + (g.Day + 1), Big(UiSkin.Green))) Continue();
             GUI.matrix = keep;
         }
 

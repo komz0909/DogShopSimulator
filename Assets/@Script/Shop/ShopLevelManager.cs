@@ -29,6 +29,9 @@ namespace DogShop.Shop
         {
             if (Instance != null && Instance != this) { Destroy(this); return; }
             Instance = this;
+
+            // 시연 모드는 Lv 3 에서 시작한다(상품·훈련이 고르게 열린 가게). Start 의 ApplyFloor 가 넓이를 맞춘다
+            if (Exhibition.Active) Level = Exhibition.StartLevel;
         }
 
         void Start()
@@ -88,6 +91,7 @@ namespace DogShop.Shop
             if (!GameManager.Instance.TrySpend(Next.upgradeCost)) return false;
 
             Level++;
+            Sound.Play(Sfx.LevelUp);
 
             // 승급 당일은 리드타임을 없앤다. 손님이 한 번에 늘고 카테고리가 열리는 날인데
             // 하루를 기다리면 그 수요를 받을 재고가 존재할 수 없다.

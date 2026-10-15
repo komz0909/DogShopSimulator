@@ -210,7 +210,7 @@ namespace DogShop.Shop
 
             ToggleLights(left, right);
             FitForecourt(left, right);
-            TrimSideWalk(right + WallThickness);
+            TrimSideWalk(right);   // 앞마당(오른끝 right)과 딱 맞물리게. 벽 두께만큼 더 자르면 울타리 밑에 잔디 띠가 보인다
             CoverBackRight(right);
 
             // 뚜껑도 같이 늘인다. 바닥만 넓히면 늘어난 쪽이 하늘로 뚫려 보인다
@@ -358,6 +358,7 @@ namespace DogShop.Shop
 
                 Vector3 n = f.WallNormal;
                 Vector3 p = f.transform.position;
+                if (p.z <= 0f || p.z >= Depth) continue;   // 창고 옆벽(z 6~10)도 x 가 같다 — 매장 안 벽에 건 것만 따라간다
                 float dx = 0f;
                 if (n.x > 0.7f && Mathf.Abs(p.x - oldLeft) < Near) dx = left - oldLeft;        // 왼벽(안쪽이 +x)
                 else if (n.x < -0.7f && Mathf.Abs(p.x - oldRight) < Near) dx = right - oldRight; // 오른벽

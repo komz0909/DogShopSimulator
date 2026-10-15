@@ -1,0 +1,151 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 21943854227ee0546a9d0e5b97c85336, type: 3}
+  m_Name: SoundLibrary
+  m_EditorClassIdentifier: Assembly-CSharp::DogShop.Core.SoundLibrary
+  sfx:
+  - id: DoorOpen
+    clip: {fileID: 8300000, guid: 81f7cd4c8fdf036408ea2746fe779da3, type: 3}
+    volume: 0.8
+  - id: DoorClose
+    clip: {fileID: 8300000, guid: dcf449e35e5ef4543a31a1e0a9459778, type: 3}
+    volume: 0.8
+  - id: DogCall
+    clip: {fileID: 8300000, guid: e31a2663ef574a64d8e819aa7902b3f2, type: 3}
+    volume: 0.8
+  - id: DogBark
+    clip: {fileID: 8300000, guid: 3d813b901d6e2784d908c46dc248406b, type: 3}
+    volume: 0.8
+  - id: ShowSpace
+    clip: {fileID: 8300000, guid: 28630d27eeb6f94439e3456770d2a24c, type: 3}
+    volume: 0.8
+  - id: ShowCard
+    clip: {fileID: 8300000, guid: d70461e469f1dd7439f3fad84e143113, type: 3}
+    volume: 0.8
+  - id: ArrowCorrect
+    clip: {fileID: 8300000, guid: 252ff182b4323a64789c392104f3577e, type: 3}
+    volume: 0.8
+  - id: ArrowWrong
+    clip: {fileID: 8300000, guid: 69bf59f7750b0e84fb94a5d4e681796d, type: 3}
+    volume: 0.8
+  - id: Ranking
+    clip: {fileID: 8300000, guid: 7ca7c7f126a1e614b80e07d563dfc662, type: 3}
+    volume: 0.8
+  - id: Sleep
+    clip: {fileID: 8300000, guid: 43ef690ea1c6b8848abac8bf78ed6871, type: 3}
+    volume: 0.8
+  - id: Delivery
+    clip: {fileID: 8300000, guid: a91b0b15bfa925d47a745d76822b4e3c, type: 3}
+    volume: 0.8
+  - id: ShopBuy
+    clip: {fileID: 8300000, guid: 0ed9239e1f759914289fd9c894705a7f, type: 3}
+    volume: 0.8
+  - id: Checkout
+    clip: {fileID: 8300000, guid: f699172b4c839a5418ae369d0ca9d6da, type: 3}
+    volume: 0.8
+  - id: Packing
+    clip: {fileID: 8300000, guid: cab931f858143644a8424cb5579abb9e, type: 3}
+    volume: 0.8
+  - id: OnlineOrder
+    clip: {fileID: 8300000, guid: d439b73ef0e4e0b40a8f439614435c1a, type: 3}
+    volume: 0.8
+  - id: CleanDone
+    clip: {fileID: 8300000, guid: 84162f47f80cdbc408beec5b80844231, type: 3}
+    volume: 0.8
+  - id: ShowJump
+    clip: {fileID: 8300000, guid: ac42a478a5646a24b8b5b443d1ad2268, type: 3}
+    volume: 0.8
+  - id: TrackSuccess
+    clip: {fileID: 8300000, guid: e2945888bf93e3f4eaff1e980c66f06d, type: 3}
+    volume: 0.8
+  - id: TrackFail
+    clip: {fileID: 8300000, guid: 95b37181173a84c4da33fc997c0a971b, type: 3}
+    volume: 0.8
+  - id: PosePerfect
+    clip: {fileID: 8300000, guid: 4850accb7a1cb2541977ff6430831960, type: 3}
+    volume: 0.8
+  - id: PoseGood
+    clip: {fileID: 8300000, guid: 76a88fb1b6034f94bba9d7b902ec1e5a, type: 3}
+    volume: 0.8
+  - id: PoseMiss
+    clip: {fileID: 8300000, guid: 6ae054c874e1e8d4994605b2f296bada, type: 3}
+    volume: 0.8
+  - id: FetchSuccess
+    clip: {fileID: 8300000, guid: 2558e37f45936ab41aa2f29b0b0048c6, type: 3}
+    volume: 0.8
+  - id: FetchFail
+    clip: {fileID: 8300000, guid: ee8977030c2905b4085c2f9c22a72daf, type: 3}
+    volume: 0.8
+  - id: HurdleClear
+    clip: {fileID: 8300000, guid: f83cbacad5bfccd4db88053871ff7a79, type: 3}
+    volume: 0.8
+  - id: HurdleFail
+    clip: {fileID: 8300000, guid: 36a9688360dce7e49ab1cce07f0140ca, type: 3}
+    volume: 0.8
+  - id: LevelUp
+    clip: {fileID: 8300000, guid: be875a21b15224446a8df2550b48a786, type: 3}
+    volume: 0.8
+  - id: Train
+    clip: {fileID: 8300000, guid: a440ef8b128ff8c44b351627cd9b11d5, type: 3}
+    volume: 0.8
+  - id: Warning
+    clip: {fileID: 8300000, guid: 44bb3984ca299a045919b929b0b0f710, type: 3}
+    volume: 0.8
+  - id: BoxOpen
+    clip: {fileID: 8300000, guid: 809c3306eb586cb428d7032fb44eced2, type: 3}
+    volume: 0.8
+  - id: Settlement
+    clip: {fileID: 8300000, guid: adb7cfe97cbd93f47a01364a97ed4ec4, type: 3}
+    volume: 0.8
+  - id: Feed
+    clip: {fileID: 8300000, guid: 82d578212e97d8b4290744ea65995b93, type: 3}
+    volume: 0.8
+  - id: Bath
+    clip: {fileID: 8300000, guid: b9786a4681ca609459de8fe57d0839f6, type: 3}
+    volume: 0.8
+  - id: Medicine
+    clip: {fileID: 8300000, guid: 92dd17ef8485e2343b80c4e9f693f0e5, type: 3}
+    volume: 0.8
+  - id: CratePut
+    clip: {fileID: 8300000, guid: 704b4d06cf97ece47a1299061b850b0d, type: 3}
+    volume: 0.8
+  - id: CrateTake
+    clip: {fileID: 8300000, guid: 8c841f6af0af20a48ae3a6fa7d7a24eb, type: 3}
+    volume: 0.8
+  - id: CustomerLost
+    clip: {fileID: 8300000, guid: e7e73061f51ed2841874802455fb18d4, type: 3}
+    volume: 0.8
+  - id: ShopOpen
+    clip: {fileID: 8300000, guid: a205033e2b44120429748922ee3f17af, type: 3}
+    volume: 0.8
+  - id: ShopClose
+    clip: {fileID: 8300000, guid: e6487651bd8f39f4cbe61d06d042d314, type: 3}
+    volume: 0.8
+  - id: Click
+    clip: {fileID: 8300000, guid: 5550268143b03c048ac2a9119335fc9e, type: 3}
+    volume: 0.8
+  bgm:
+  - id: DogShow
+    clip: {fileID: 8300000, guid: 94b27d92d7eac244aaccf03deb6babd1, type: 3}
+    volume: 0.45
+  - id: Intro
+    clip: {fileID: 8300000, guid: 727d1af5780925446aeaa643d6c11ab8, type: 3}
+    volume: 0.45
+  - id: EndingFirst
+    clip: {fileID: 8300000, guid: c679d13957a0d574ba51c36e3a963a0a, type: 3}
+    volume: 0.45
+  - id: EndingOther
+    clip: {fileID: 8300000, guid: bea27d3649f752d4fb80ede4d26257d2, type: 3}
+    volume: 0.45
+  - id: Shop
+    clip: {fileID: 8300000, guid: d541322b6863b7d458294efa16ac2dba, type: 3}
+    volume: 0.45

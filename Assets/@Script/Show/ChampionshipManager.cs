@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using DogShop.Core;
 using DogShop.Dogs;
 using UnityEngine;
 
@@ -63,7 +64,10 @@ namespace DogShop.Show
         public string WeightText => "미모 " + BeautyWeight + " / 훈련도 " + TrainingWeight;
 
         public bool IsMockDay(int day) => day % MockInterval == 0 && day < FinalDay;
-        public bool IsFinalDay(int day) => day >= FinalDay;
+        /// <summary>이번 판의 도그쇼 날. 본편 30일차, 시연 모드 3일차.</summary>
+        public static int LastDay => Exhibition.Active ? Exhibition.Days : FinalDay;
+
+        public bool IsFinalDay(int day) => day >= LastDay;
 
         public bool CanEnter(Dog dog, out string reason)
         {

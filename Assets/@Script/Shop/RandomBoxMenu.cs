@@ -74,7 +74,7 @@ namespace DogShop.Shop
             note.normal.textColor = new Color(0.72f, 0.75f, 0.78f);
             GUI.Label(new Rect(rect.x, rect.y + 248f, rect.width, 22f), "창고에 넣었다", note);
 
-            if (GUI.Button(new Rect(rect.x + rect.width * 0.5f - 60f, rect.yMax - 52f, 120f, 36f),
+            if (UiSkin.Click(new Rect(rect.x + rect.width * 0.5f - 60f, rect.yMax - 52f, 120f, 36f),
                     "확인", UiSkin.Button(UiSkin.Green)))
                 box.Acknowledge();
         }

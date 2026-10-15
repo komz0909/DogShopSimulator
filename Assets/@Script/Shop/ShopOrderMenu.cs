@@ -428,7 +428,7 @@ namespace DogShop.Shop
             // 조건이 안 돼도 글자는 또렷하게 — GUI.enabled 로 끄면 무엇이 모자란지가 흐려서 안 읽혔다.
             // 대신 눌러도 오르지 않고 사유만 알린다(ActionRunner 가 거절 사유를 띄운다)
             var style = new GUIStyle(UiSkin.Button(can ? UiSkin.Green : UiSkin.Cream)) { fontSize = 15 };
-            if (GUI.Button(rect, label, style))
+            if (UiSkin.Click(rect, label, style))
             {
                 ActionRunner.TryRun(new ShopLevelManager.UpgradeAction());
                 Rebuild();   // 새로 풀린 상품·가구가 바로 보이게
@@ -440,14 +440,14 @@ namespace DogShop.Shop
         {
             Texture2D tex = on ? tabOnTex : tabTex;
             if (tex == null)
-                return GUI.Button(rect, label, UiSkin.Button(on ? UiSkin.Sky : UiSkin.Cream));
+                return UiSkin.Click(rect, label, UiSkin.Button(on ? UiSkin.Sky : UiSkin.Cream));
 
             bool hover = !on && rect.Contains(Event.current.mousePosition);
             GUI.color = hover ? new Color(1f, 0.97f, 0.88f) : Color.white;
             UiSkin.Draw9(rect, tex, TabEnd, 0f, TabEnd, 0f, rect.height / tex.height);
             GUI.color = Color.white;
             GUI.Label(new Rect(rect.x, rect.y - 1f, rect.width, rect.height), label, on ? Styles.tabOn : Styles.tab);
-            return GUI.Button(rect, GUIContent.none, GUIStyle.none);
+            return UiSkin.Click(rect, GUIContent.none, GUIStyle.none);
         }
 
         /// <summary>
@@ -497,7 +497,7 @@ namespace DogShop.Shop
 
                 // 이름 옆 X — 돈이 모자라게 담았을 때 그 품목만 뺀다(상품 카드까지 찾아가지 않아도 되게)
                 ProductDef p = catalog.Get(i);
-                if (GUI.Button(new Rect(x, y + 1f, RowHeight - 2f, RowHeight - 2f), "X", Styles.Remove))
+                if (UiSkin.Click(new Rect(x, y + 1f, RowHeight - 2f, RowHeight - 2f), "X", Styles.Remove))
                 {
                     cart[i] = 0;
                     continue;
@@ -513,7 +513,7 @@ namespace DogShop.Shop
                 if (furnitureCart[i] <= 0) continue;
 
                 FurnitureDef f = furniture.Get(i);
-                if (GUI.Button(new Rect(x, y + 1f, RowHeight - 2f, RowHeight - 2f), "X", Styles.Remove))
+                if (UiSkin.Click(new Rect(x, y + 1f, RowHeight - 2f, RowHeight - 2f), "X", Styles.Remove))
                 {
                     furnitureCart[i] = 0;
                     continue;
@@ -541,14 +541,14 @@ namespace DogShop.Shop
 
             // 주문한다 — 내일 아침
             GUI.enabled = canOrder && wallet >= plain;
-            if (GUI.Button(new Rect(x, y, w, ButtonHeight),
+            if (UiSkin.Click(new Rect(x, y, w, ButtonHeight),
                            "주문한다   " + plain.ToString("N0") + "원", UiSkin.Button(UiSkin.Green)))
                 Submit(inv, false);
             y += ButtonHeight + 5f;
 
             // 취소한다 — 담은 것만 비운다. 돈은 아직 안 나갔으므로 되돌릴 것이 없다
             GUI.enabled = true;
-            if (GUI.Button(new Rect(x, y, w, ButtonHeight), "취소한다", UiSkin.Button(UiSkin.Coral)))
+            if (UiSkin.Click(new Rect(x, y, w, ButtonHeight), "취소한다", UiSkin.Button(UiSkin.Coral)))
                 ClearCart();
             y += ButtonHeight + 8f;
 
@@ -558,7 +558,7 @@ namespace DogShop.Shop
             bool inHours = InventoryManager.ExpressOpenNow;   // 10:00~17:00 만
 
             GUI.enabled = canOrder && inHours && !usedUp && !hasFurniture && wallet >= express;
-            if (GUI.Button(new Rect(x, y, w, ButtonHeight),
+            if (UiSkin.Click(new Rect(x, y, w, ButtonHeight),
                            usedUp ? "긴급주문 (오늘 완료)"
                            : !inHours ? "긴급주문 (10:00 ~ 17:00)"
                            : hasFurniture ? "긴급주문 (가구는 불가)"
@@ -621,6 +621,7 @@ namespace DogShop.Shop
             }
 
             ClearCart();
+            Sound.Play(Sfx.ShopBuy);
             Rebuild();
         }
 
@@ -637,7 +638,7 @@ namespace DogShop.Shop
             bool can = box.CanOpen(out reason);
 
             var rect = new Rect(left + inner - 210f, top - 5f, 210f, FooterHeight + 10f);
-            if (GUI.Button(rect, GUIContent.none, UiSkin.Button(can ? UiSkin.Coral : UiSkin.Cream)) && can)
+            if (UiSkin.Click(rect, GUIContent.none, UiSkin.Button(can ? UiSkin.Coral : UiSkin.Cream)) && can)
                 box.Open();
 
             // 상자 그림을 버튼 왼쪽에 얹는다. 글자만 있으면 발주 목록에 묻힌다
@@ -708,7 +709,7 @@ namespace DogShop.Shop
                     Rect rect = new Rect(card.x + 10f + q * (buttonWidth + 3f), card.y + ActionY, buttonWidth, 26f);
 
                     // 담기만 한다. 돈은 <주문한다>를 누를 때 한 번에 빠진다
-                    if (GUI.Button(rect, "+" + Quantities[q], UiSkin.Button(UiSkin.Green)))
+                    if (UiSkin.Click(rect, "+" + Quantities[q], UiSkin.Button(UiSkin.Green)))
                         cart[index] += Quantities[q];
 
                     GUI.enabled = true;
@@ -717,7 +718,7 @@ namespace DogShop.Shop
                 // 담은 카드에는 그 품목만 비우는 길을 준다. 장바구니를 통째로 비우지 않고
                 // 하나만 무르고 싶은 쪽이 훨씬 흔하다
                 if (cart[index] > 0
-                    && GUI.Button(new Rect(card.xMax - 38f, card.y + 10f, 28f, 28f),
+                    && UiSkin.Click(new Rect(card.xMax - 38f, card.y + 10f, 28f, 28f),
                                   "X", Styles.Remove))
                     cart[index] = 0;
             }
@@ -774,13 +775,13 @@ namespace DogShop.Shop
                 // 돈은 장바구니에서 한 번에 빠지므로 여기서는 잔고를 보지 않는다
                 bool full = oneOnly && furnitureCart[index] >= 1;
                 GUI.enabled = (canBuy || unlocked) && !full;
-                if (GUI.Button(new Rect(card.x + 10f, card.y + ActionY, card.width - 20f, 26f),
+                if (UiSkin.Click(new Rect(card.x + 10f, card.y + ActionY, card.width - 20f, 26f),
                                full ? "1개만" : "담기", UiSkin.Button(UiSkin.Green)))
                     furnitureCart[index]++;
                 GUI.enabled = true;
 
                 if (furnitureCart[index] > 0
-                    && GUI.Button(new Rect(card.xMax - 38f, card.y + 10f, 28f, 28f),
+                    && UiSkin.Click(new Rect(card.xMax - 38f, card.y + 10f, 28f, 28f),
                                   "X", Styles.Remove))
                     furnitureCart[index] = 0;
             }

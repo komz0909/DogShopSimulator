@@ -133,7 +133,8 @@ namespace DogShop.UI
             CustomerManager c = CustomerManager.Instance;
             if (t == null || g == null || s == null || c == null) return;
 
-            clockText.text = "Day " + g.Day + "   " + t.ClockText;
+            // 시연 모드는 몇째 날인지 3일 중으로 보여 준다(Day 2 / 3)
+            clockText.text = "Day " + g.Day + (Exhibition.Active ? " / " + Exhibition.Days : "") + "   " + t.ClockText;
             speedText.text = "x" + t.SpeedMultiplier;
             speedText.color = t.SpeedMultiplier > 1 ? MoneyColor : CalmColor;
 

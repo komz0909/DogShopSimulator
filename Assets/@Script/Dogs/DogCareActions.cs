@@ -28,9 +28,13 @@ namespace DogShop.Dogs
         public static int FoodNow => PremiumCare ? PremiumFoodIndex : FoodIndex;
         public static int ShampooNow => PremiumCare ? PremiumShampooIndex : ShampooIndex;
 
-        /// <summary>돌보기 때문에 레벨과 상관없이 발주할 수 있어야 하는 상품인가(11일차부터 고급 사료·샴푸).</summary>
+        /// <summary>
+        /// 돌보기 때문에 레벨과 상관없이 발주할 수 있어야 하는 상품인가(고급 사료·샴푸).
+        /// 하루 <b>먼저</b>(10일차부터) 연다 — 발주는 다음 날 아침에 오므로, 11일차에 열면 그날은 쓸 재고가 없다.
+        /// </summary>
         public static bool RequiredForCare(int productIndex) =>
-            PremiumCare && (productIndex == PremiumFoodIndex || productIndex == PremiumShampooIndex);
+            GameManager.Instance != null && GameManager.Instance.Day >= PremiumFromDay - 1
+            && (productIndex == PremiumFoodIndex || productIndex == PremiumShampooIndex);
 
         public const int FeedRecovery = 20;
         public const int BathRecovery = 45;
@@ -44,9 +48,11 @@ namespace DogShop.Dogs
             readonly int recovery;
             readonly bool isHealth;
             readonly string label;
+            readonly Sfx sound;
 
-            CareAction(Dog dog, int productIndex, int recovery, bool isHealth, string label)
+            CareAction(Dog dog, int productIndex, int recovery, bool isHealth, string label, Sfx sound)
             {
+                this.sound = sound;
                 this.dog = dog;
                 this.productIndex = productIndex;
                 this.recovery = recovery;
@@ -54,9 +60,9 @@ namespace DogShop.Dogs
                 this.label = label;
             }
 
-            public static CareAction Feed(Dog dog) => new CareAction(dog, FoodNow, FeedRecovery, true, "밥 주기");
-            public static CareAction Bath(Dog dog) => new CareAction(dog, ShampooNow, BathRecovery, false, "목욕");
-            public static CareAction Medicine(Dog dog) => new CareAction(dog, MedicineIndex, MedicineRecovery, true, "약 먹이기");
+            public static CareAction Feed(Dog dog) => new CareAction(dog, FoodNow, FeedRecovery, true, "밥 주기", Sfx.Feed);
+            public static CareAction Bath(Dog dog) => new CareAction(dog, ShampooNow, BathRecovery, false, "목욕", Sfx.Bath);
+            public static CareAction Medicine(Dog dog) => new CareAction(dog, MedicineIndex, MedicineRecovery, true, "약 먹이기", Sfx.Medicine);
 
             public bool CanExecute(out string reason)
             {
@@ -77,6 +83,7 @@ namespace DogShop.Dogs
             public void Execute()
             {
                 if (!InventoryManager.Instance.TryConsumeStorage(productIndex)) return;
+                Sound.Play(sound);
 
                 if (isHealth) dog.Stats.RecoverHealth(recovery);
                 else dog.Stats.RecoverCleanliness(recovery);

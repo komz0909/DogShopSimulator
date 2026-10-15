@@ -84,6 +84,7 @@ namespace DogShop.Shop
         void OpenNow()
         {
             Current = Phase.Open;
+            Sound.Play(Sfx.ShopOpen);
             OnPhaseChanged?.Invoke();
         }
 
@@ -92,6 +93,7 @@ namespace DogShop.Shop
         {
             if (Current != Phase.Open) return false;
             Current = Phase.Closed;
+            Sound.Play(Sfx.ShopClose);
             OnPhaseChanged?.Invoke();
             return true;
         }
@@ -111,7 +113,8 @@ namespace DogShop.Shop
             if (time == null || time.IsDayOver) return;
             float hour = time.CurrentHour;
 
-            if (Current == Phase.Preparing && hour >= OpenHour && hour < CloseHour)
+            // 시연 모드 3일차(도그쇼 날)는 가게를 열지 않는다 — 손님 없이 강아지 준비만 하고 쇼로 간다
+            if (Current == Phase.Preparing && hour >= OpenHour && hour < CloseHour && !ShowDayToday)
             {
                 OpenNow();
                 Notice("09:30, 가게 문을 열었다");
@@ -120,18 +123,22 @@ namespace DogShop.Shop
             if (hour >= CloseHour && Current != Phase.Closed)
             {
                 Current = Phase.Closed;
+                Sound.Play(Sfx.ShopClose);
                 OnPhaseChanged?.Invoke();
                 Notice("19:30, 영업 종료. 21시까지 정리하고 발주하자");
             }
         }
 
         /// <summary>지금 손님이 오는 비율. 영업 중(09:30~19:30)이면 1, 아니면 0.</summary>
+        static bool ShowDayToday => GameManager.Instance != null && Exhibition.IsShowDay(GameManager.Instance.Day);
+
         public float ArrivalFactor => IsOpen && TimeManager.Instance.CurrentHour < CloseHour ? 1f : 0f;
 
         public string StatusText
         {
             get
             {
+                if (ShowDayToday) return "오늘은 도그쇼! 가게는 쉰다";
                 switch (Current)
                 {
                     case Phase.Open: return "영업중 (19:30 에 문을 닫는다)";

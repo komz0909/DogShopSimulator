@@ -236,6 +236,9 @@ namespace DogShop.Core
 
         public void Save()
         {
+            // 시연 모드는 저장하지 않는다 — 본편 세이브(이어하기)를 덮으면 안 된다
+            if (Exhibition.Active) { Debug.Log("[Save] 시연 모드는 저장하지 않는다"); return; }
+
             SaveData data = Capture();
             if (data == null) return;
 
@@ -246,6 +249,7 @@ namespace DogShop.Core
 
         public bool Load()
         {
+            if (Exhibition.Active) return false;   // 시연 판에 본편 세이브를 끌어오지 않는다
             if (!HasSave) return false;
 
             SaveData data = JsonUtility.FromJson<SaveData>(File.ReadAllText(SavePath));

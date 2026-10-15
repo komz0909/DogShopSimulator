@@ -44,7 +44,7 @@ namespace DogShop.Core
         {
             if (Instance != null && Instance != this) { Destroy(this); return; }
             Instance = this;
-            Money = startingMoney;
+            Money = Exhibition.Active ? Exhibition.StartMoney : startingMoney;   // 시연 모드는 넉넉히 시작한다
             ReputationAtDayStart = Reputation;
         }
 

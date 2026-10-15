@@ -100,7 +100,7 @@ namespace DogShop.Shop
             float x = win.x + Pad, w = win.width - Pad * 2f, y = win.y + Pad;
 
             GUI.Label(new Rect(x, y, w, 36f), "온라인 주문", title);
-            if (GUI.Button(new Rect(win.xMax - Pad - 36f, y, 36f, 34f), "X", UiSkin.Button(UiSkin.Coral))) { Close(); GUI.matrix = keep; return; }
+            if (UiSkin.Click(new Rect(win.xMax - Pad - 36f, y, 36f, 34f), "X", UiSkin.Button(UiSkin.Coral))) { Close(); GUI.matrix = keep; return; }
             y += 44f;
 
             int shown = 0;
@@ -131,7 +131,7 @@ namespace DogShop.Shop
                 switch (o.state)
                 {
                     case OnlineOrderManager.State.New:
-                        if (GUI.Button(btn, "주문 수락", UiSkin.Button(UiSkin.Green))) mgr.Accept(o);
+                        if (UiSkin.Click(btn, "주문 수락", UiSkin.Button(UiSkin.Green))) mgr.Accept(o);
                         if (!stock) GUI.Label(new Rect(btn.x - 190f, row.y + 34f, 185f, 22f), "창고 부족: " + missing, warn);
                         break;
                     case OnlineOrderManager.State.Accepted:

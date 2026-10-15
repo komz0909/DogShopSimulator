@@ -134,6 +134,9 @@ namespace DogShop.Show
             if (g == null || t == null || t.IsDayOver) return;
             if (!ChampionshipManager.Instance.IsFinalDay(g.Day)) return;
 
+            // 시연 모드는 3일차 아침에 바로 쇼로 가지 않는다 — 마지막 준비(밥·목욕·훈련)를 하고 [도그쇼 시작]으로 들어간다
+            if (Exhibition.Active) return;
+
             // 무인 측정은 사람이 못 누르니 건너뛴다 — 배수 1(=스탯 그대로)로 하루를 마친다
             if (Debugging.MeasurementMode.Instance != null && Debugging.MeasurementMode.Instance.Active) return;
 
@@ -166,6 +169,18 @@ namespace DogShop.Show
             return true;
         }
 
+        /// <summary>
+        /// 시연 모드 3일차의 [도그쇼 시작]. 본편 30일차와 <b>같은</b> 쇼 시작 화면을 연다 — 종목·채점·순위는 그대로다.
+        /// 하루가 이미 끝났거나 쇼가 돌고 있으면 못 연다.
+        /// </summary>
+        public bool BeginExhibitionShow()
+        {
+            if (phase != Phase.None || Running) return false;
+            if (TimeManager.Instance != null && TimeManager.Instance.IsDayOver) return false;
+            Begin();
+            return phase != Phase.None;
+        }
+
         void Begin()
         {
             hero = DogManager.Instance != null ? DogManager.Instance.Hero : null;
@@ -173,8 +188,9 @@ namespace DogShop.Show
 
             phase = Phase.Waiting;
             Running = true;
-            headline = "Day 30  도그쇼 챔피언십";
-            subline = "30일 동안 함께한 " + hero.DisplayName + "와(과) 무대에 오를 시간이다";
+            Sound.PlayBgm(Bgm.DogShow);
+            headline = "Day " + ChampionshipManager.LastDay + "  도그쇼 챔피언십";
+            subline = ChampionshipManager.LastDay + "일 동안 함께한 " + hero.DisplayName + "와(과) 무대에 오를 시간이다";
 
             // 가게는 오늘 안 연다. 시계·조작·HUD 를 끈다
             Silence<TimeManager>();
@@ -317,10 +333,11 @@ namespace DogShop.Show
 
                     if (posePressed && !judged)
                     {
+                        Sound.Play(Sfx.ShowSpace);
                         float diff = Mathf.Abs(ringRadius - targetRadius);
-                        if (diff <= perfectHalf) { got = 1f; Flash("PERFECT!", PerfectColor); }
-                        else if (diff <= goodHalf) { got = 0.6f; Flash("GOOD", GoodColor); }
-                        else Flash("MISS", new Color(1f, 0.55f, 0.5f));
+                        if (diff <= perfectHalf) { got = 1f; Flash("PERFECT!", PerfectColor); Sound.Play(Sfx.PosePerfect); }
+                        else if (diff <= goodHalf) { got = 0.6f; Flash("GOOD", GoodColor); Sound.Play(Sfx.PoseGood); }
+                        else { Flash("MISS", new Color(1f, 0.55f, 0.5f)); Sound.Play(Sfx.PoseMiss); }
                         judged = true;
                         break;
                     }
@@ -383,6 +400,7 @@ namespace DogShop.Show
 
                 while (chosenCard < 0) yield return null;
                 awaitingChoice = false;
+                Sound.Play(Sfx.ShowCard);
 
                 int ordered = cards[chosenCard];
                 bool right = ordered == requested && Random.value < success;
@@ -435,12 +453,14 @@ namespace DogShop.Show
                 {
                     got++;
                     Flash("정답!", new Color(0.6f, 1f, 0.75f));
+                    Sound.Play(Sfx.FetchSuccess);
                     Say("잘했어!", 1.4f);
                     hero.Animator.Play(DogAnim.WagTail);
                 }
                 else
                 {
                     Flash(ItemName(broughtItem) + "...", new Color(1f, 0.55f, 0.5f));
+                    Sound.Play(Sfx.FetchFail);
                     Say("그게 아닌데...", 1.4f);
                 }
                 subline = "골라 온 것: " + ItemName(broughtItem);
@@ -628,7 +648,7 @@ namespace DogShop.Show
             PlaceDog(trackStart, Quaternion.LookRotation(stage.TransformDirection(startFace)));
             AimCamera(trackStart, 4.2f, 1.6f, 0f);
             headline = "어질리티";
-            subline = "허들 앞에서 Space 로 점프! 30일 동안 키운 몸이 그대로 드러난다";
+            subline = "허들 앞에서 Space 로 점프! " + ChampionshipManager.LastDay + "일 동안 키운 몸이 그대로 드러난다";
             specShownAt = Time.time;
             yield return Wait(4.2f);
 
@@ -663,7 +683,7 @@ namespace DogShop.Show
             while (pos < TrackLength)
             {
                 pos += runSpeed * Time.deltaTime;
-                if (jumpRequested && Time.time - jumpStart > airTime) jumpStart = Time.time;
+                if (jumpRequested && Time.time - jumpStart > airTime) { jumpStart = Time.time; Sound.Play(Sfx.ShowJump); }
                 jumpRequested = false;
 
                 float air = Time.time - jumpStart;
@@ -680,16 +700,16 @@ namespace DogShop.Show
                     if (passed[i] || pos < TrackHurdleAt[i]) continue;
                     passed[i] = true;
                     // 바가 ~0.3m. 그 순간 그만큼 떠 있어야 넘는다
-                    if (h > 0.25f) { cleared++; Flash("CLEAR!", new Color(0.6f, 1f, 0.75f)); }
-                    else { Flash("쿵!", new Color(1f, 0.55f, 0.5f)); KnockHurdle(trackHurdles[i]); }
+                    if (h > 0.25f) { cleared++; Flash("CLEAR!", new Color(0.6f, 1f, 0.75f)); Sound.Play(Sfx.HurdleClear); }
+                    else { Flash("쿵!", new Color(1f, 0.55f, 0.5f)); KnockHurdle(trackHurdles[i]); Sound.Play(Sfx.HurdleFail); }
                 }
 
                 // 마지막 링 — 링 안쪽 아래 끝(HoopInnerBottom)보다 높이 떠 있어야 원 안으로 들어간다
                 if (!hoopDone && pos >= TrackHoopAt)
                 {
                     hoopDone = true;
-                    if (h > (hoopModel != null ? HoopModelClear : HoopInnerBottom)) { cleared++; Flash("링 통과!", PerfectColor); }
-                    else { Flash("링에 걸렸다", new Color(1f, 0.55f, 0.5f)); hoopWobble = 1f; }
+                    if (h > (hoopModel != null ? HoopModelClear : HoopInnerBottom)) { cleared++; Flash("링 통과!", PerfectColor); Sound.Play(Sfx.HurdleClear); }
+                    else { Flash("링에 걸렸다", new Color(1f, 0.55f, 0.5f)); hoopWobble = 1f; Sound.Play(Sfx.HurdleFail); }
                 }
                 if (hoop != null && hoopWobble > 0f)
                 {
@@ -1121,6 +1141,7 @@ namespace DogShop.Show
                     + "  /  어질리티 " + Mathf.RoundToInt(agilityScore * 100f) + "  /  장애물 " + Mathf.RoundToInt(courseScore * 100f)
                     + "   /   총점 " + total + "점";
             boardShownAt = Time.time;
+            Sound.Play(Sfx.Ranking);
             resultReady = true;
             while (resultReady) yield return null;
 
@@ -1477,7 +1498,7 @@ namespace DogShop.Show
             GUI.Label(new Rect(0f, Screen.height * 0.32f + 46f, Screen.width, 30f), subline, smallStyle);
 
             var r = new Rect((Screen.width - 300f) * 0.5f, Screen.height * 0.5f, 300f, 64f);
-            if (GUI.Button(r, "도그쇼 시작", new GUIStyle(UiSkin.Button(UiSkin.Green)) { fontSize = 24 }))
+            if (UiSkin.Click(r, "도그쇼 시작", new GUIStyle(UiSkin.Button(UiSkin.Green)) { fontSize = 24 }))
                 StartCoroutine(RunShow());
         }
 
@@ -1537,7 +1558,7 @@ namespace DogShop.Show
 
             var ok = new Rect(panel.center.x - 120f, panel.yMax - 66f, 240f, 48f);
             bool space = Keyboard.current != null && Keyboard.current.spaceKey.wasPressedThisFrame;
-            if (GUI.Button(ok, "준비완료 (Space)", new GUIStyle(UiSkin.Button(UiSkin.Green)) { fontSize = 20 }) || space)
+            if (UiSkin.Click(ok, "준비완료 (Space)", new GUIStyle(UiSkin.Button(UiSkin.Green)) { fontSize = 20 }) || space)
                 guideReady = true;
         }
 
@@ -1568,7 +1589,7 @@ namespace DogShop.Show
 
             var ok = new Rect(panel.center.x - 120f, panel.yMax - 62f, 240f, 48f);
             bool space = Keyboard.current != null && Keyboard.current.spaceKey.wasPressedThisFrame;
-            if (GUI.Button(ok, "준비완료 (Space)", new GUIStyle(UiSkin.Button(UiSkin.Green)) { fontSize = 20 }) || space)
+            if (UiSkin.Click(ok, "준비완료 (Space)", new GUIStyle(UiSkin.Button(UiSkin.Green)) { fontSize = 20 }) || space)
                 guideReady = true;
         }
 
@@ -1767,7 +1788,7 @@ namespace DogShop.Show
                     if (icon != null) GUI.DrawTexture(new Rect(r.x + 20f, r.y + 14f, w - 40f, w - 40f), icon, ScaleMode.ScaleToFit);
                     GUI.Label(new Rect(r.x, r.y + h - 48f, w, 22f), ItemName(cards[i]), UiSkin.Caption);
                     GUI.Label(new Rect(r.x, r.y + h - 26f, w, 20f), "[" + (i + 1) + "]", UiSkin.Caption);
-                    if (GUI.Button(r, GUIContent.none, GUIStyle.none)) chosenCard = i;
+                    if (UiSkin.Click(r, GUIContent.none, GUIStyle.none)) chosenCard = i;
                 }
             }
         }
@@ -1912,7 +1933,7 @@ namespace DogShop.Show
                       rank == 1 ? "우승! 최고의 강아지로 뽑혔다" : "다음 대회를 노려보자, 화이팅!", cheerStyle);
 
             var ok = new Rect(left.center.x - 130f, Screen.height - 96f, 260f, 56f);
-            if (GUI.Button(ok, "확인", new GUIStyle(UiSkin.Button(UiSkin.Green)) { fontSize = 22 }))
+            if (UiSkin.Click(ok, "확인", new GUIStyle(UiSkin.Button(UiSkin.Green)) { fontSize = 22 }))
                 resultReady = false;
         }
     }

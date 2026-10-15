@@ -15,36 +15,36 @@ MonoBehaviour:
   entries:
   - nameKo: "\uC0B0\uCC45"
     axis: 0
-    cost: 100
+    cost: 50
     gain: 1
     unlockLevel: 1
   - nameKo: "\uD138\uAD00\uB9AC"
     axis: 1
-    cost: 100
+    cost: 50
     gain: 1
     unlockLevel: 1
   - nameKo: "\uACE0\uAE09 \uD6C8\uB828"
     axis: 0
-    cost: 200
+    cost: 100
     gain: 2
     unlockLevel: 2
   - nameKo: "\uC2A4\uD0C0\uC77C\uB9C1"
     axis: 1
-    cost: 300
+    cost: 150
     gain: 3
     unlockLevel: 3
   - nameKo: "\uB180\uC544\uC8FC\uAE30"
     axis: 2
-    cost: 400
+    cost: 200
     gain: 4
     unlockLevel: 4
   - nameKo: "\uC804\uBB38 \uD6C8\uB828"
     axis: 0
-    cost: 500
+    cost: 250
     gain: 11
     unlockLevel: 5
   - nameKo: "\uC804\uBB38 \uBBF8\uC6A9"
     axis: 1
-    cost: 500
+    cost: 250
     gain: 11
     unlockLevel: 5

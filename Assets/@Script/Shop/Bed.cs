@@ -40,8 +40,14 @@ namespace DogShop.Shop
                 Mathf.Clamp(Screen.height - screenPos.y, Pad, Screen.height - Height() - Pad));
 
             // 잠은 19시(영업 종료)부터 — 낮에 자서 하루를 건너뛰지 않게
-            tooEarly = !time.IsDayOver && time.CurrentHour < TimeManager.CloseHour;
-            if (tooEarly)
+            // 시연 모드는 언제든 잔다 — 짧은 시연에서 저녁까지 기다리게 하지 않는다
+            tooEarly = !Exhibition.Active && !time.IsDayOver && time.CurrentHour < TimeManager.CloseHour;
+            if (Exhibition.ShowPending)
+            {
+                headline = "도그쇼에 나갈까?";
+                detail = "오늘은 도그쇼 날이다. 밥·목욕·훈련으로 준비를 마쳤으면 무대로 가자.";
+            }
+            else if (tooEarly)
             {
                 headline = "아직 잘 시간이 아니다";
                 detail = "지금 " + time.ClockText + ". 19:30 에 영업이 끝나면 잘 수 있다.";
@@ -94,7 +100,11 @@ namespace DogShop.Shop
         {
             Close();
 
+            // 시연 3일차: 자는 대신 도그쇼로 간다(쇼가 끝나야 하루가 끝난다)
+            if (Exhibition.ShowPending) { Exhibition.StartShow(); return; }
+
             // 21시 잠자러 가기(SleepPrompt)와 같은 경로. 마감 화면이 뜨고 거기서 다음 날로 넘어간다.
+            Sound.Play(Sfx.Sleep);
             TimeManager.Instance.EndDayNow();
         }
 
@@ -116,13 +126,13 @@ namespace DogShop.Shop
 
             if (tooEarly)
             {
-                if (GUI.Button(new Rect(x, y, w, RowHeight + 6f), "닫기", UiSkin.Button(UiSkin.Cream))) Close();
+                if (UiSkin.Click(new Rect(x, y, w, RowHeight + 6f), "닫기", UiSkin.Button(UiSkin.Cream))) Close();
                 return;
             }
 
             float half = (w - Pad) * 0.5f;
-            if (GUI.Button(new Rect(x, y, half, RowHeight + 6f), "잠자기", UiSkin.Button(UiSkin.Green))) Sleep();
-            if (GUI.Button(new Rect(x + half + Pad, y, half, RowHeight + 6f), "취소", UiSkin.Button(UiSkin.Cream))) Close();
+            if (UiSkin.Click(new Rect(x, y, half, RowHeight + 6f), Exhibition.ShowPending ? "도그쇼 시작" : "잠자기", UiSkin.Button(UiSkin.Green))) Sleep();
+            if (UiSkin.Click(new Rect(x + half + Pad, y, half, RowHeight + 6f), "취소", UiSkin.Button(UiSkin.Cream))) Close();
         }
     }
 }

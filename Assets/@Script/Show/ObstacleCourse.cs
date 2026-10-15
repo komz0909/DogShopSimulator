@@ -803,11 +803,12 @@ namespace DogShop.Show
                 o.rTimer += dt;
                 if (pressed >= 0)
                 {
-                    if (pressed == o.rSeq[o.rIndex]) { o.rIndex++; o.rHitAt = Time.time; }
+                    if (pressed == o.rSeq[o.rIndex]) { o.rIndex++; o.rHitAt = Time.time; Core.Sound.Play(Core.Sfx.ArrowCorrect); }
                     else
                     {
                         // 틀린 키 — 그 화살표는 그대로 두고 감점만
                         o.rWrongAt = Time.time;
+                        Core.Sound.Play(Core.Sfx.ArrowWrong);
                         WeaveMisses++;
                         int pts = Mathf.Min(WeaveMissPenalty, Mathf.Max(0, SkipPenalty - o.penalty));
                         PenaltyPoints += pts;
@@ -901,6 +902,8 @@ namespace DogShop.Show
             o.done = true;
             o.score = score;
             Next++;
+            // 감점 없이 해냈으면 성공음, 떨어졌거나 한 번이라도 깎였으면 실패음 — 장애물 하나 끝날 때마다
+            Core.Sound.Play(!o.failed && o.penalty == 0 ? Core.Sfx.TrackSuccess : Core.Sfx.TrackFail);
             return o;
         }
 

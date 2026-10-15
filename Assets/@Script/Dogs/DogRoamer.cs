@@ -329,7 +329,7 @@ namespace DogShop.Dogs
             if (called && (owner == null || toOwner <= heelDistance + 0.3f))
             {
                 called = false;
-                if (owner != null) { Show(DogAnim.WagTail, 1.6f); return; }
+                if (owner != null) { Show(DogAnim.WagTail, 1.6f); DogShop.Core.Sound.Play(DogShop.Core.Sfx.DogBark); return; }
             }
 
             // 주인이 멀어지면 하던 일을 멈추고 붙는다. 가게 밖으로 나가도 이 규칙 하나로 따라온다.

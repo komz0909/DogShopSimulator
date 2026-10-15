@@ -404,6 +404,7 @@ namespace DogShop.Shop
             else
             {
                 LostToday++;
+                Sound.Play(Sfx.CustomerLost);
                 OnLostSale?.Invoke(c.WantedProduct);
                 SendHome(c);
             }
@@ -463,6 +464,7 @@ namespace DogShop.Shop
                 c.HasItem = false;
             }
 
+            Sound.Play(Sfx.CustomerLost);
             LostToday++;
             OnLostSale?.Invoke(c.WantedProduct);
             LeaveQueue(c);
@@ -516,6 +518,7 @@ namespace DogShop.Shop
             SoldToday++;
             GameManager.Instance.RegisterSale(paid);
             OnSale?.Invoke(paid);
+            Sound.Play(Sfx.Checkout);
 
             int penalty = ReputationPenaltyOf(c);
             if (penalty > 0) GameManager.Instance.AddReputation(-penalty);

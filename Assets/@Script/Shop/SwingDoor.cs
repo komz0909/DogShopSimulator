@@ -153,8 +153,10 @@ namespace DogShop.Shop
                 if (PlayerNear() || AgentCrossing() || StreetCustomerNear()) lastAgentSeen = Time.time;
             }
 
+            bool wasOpen = wantOpen;
             wantOpen = Time.time - lastAgentSeen < AutoCloseDelay || Occupied();
             bool open = wantOpen;
+            if (open != wasOpen && Audible()) Core.Sound.Play(open ? Core.Sfx.DoorOpen : Core.Sfx.DoorClose);
             float before = openness;
             openness = Mathf.MoveTowards(openness, open ? 1f : 0f, swingSpeed / 105f * Time.deltaTime);
             if (!Mathf.Approximately(before, openness)) Pose();
@@ -198,6 +200,17 @@ namespace DogShop.Shop
         }
 
         /// <summary>주인공(CharacterController)이 문 가까이 있는가.</summary>
+        /// <summary>
+        /// 여닫는 소리를 낼 만큼 카메라가 가까운가. 손님·강아지도 문을 여는데, 침대방에 있을 때
+        /// 정문 소리까지 들리면 시끄럽다(효과음은 거리 감쇠가 없는 2D 소리다).
+        /// </summary>
+        bool Audible()
+        {
+            const float HearRadius = 14f;
+            Camera cam = Camera.main;
+            return cam != null && (cam.transform.position - doorway.center).sqrMagnitude < HearRadius * HearRadius;
+        }
+
         bool PlayerNear()
         {
             int n = Physics.OverlapSphereNonAlloc(doorway.center, PlayerOpenRadius, buffer, ~0, QueryTriggerInteraction.Ignore);

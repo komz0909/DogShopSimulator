@@ -119,6 +119,7 @@ namespace DogShop.Shop
             ResultProduct = chosen;
             ResultGrade = ItemGrades.Roll(level);
             HasResult = true;
+            Sound.Play(Sfx.BoxOpen);
             OpenedTotal++;
             SpentTotal += paid;
 

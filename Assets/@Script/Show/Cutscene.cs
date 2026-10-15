@@ -73,11 +73,17 @@ namespace DogShop.Show
         IEnumerator Start()
         {
             // 이어하기·에디터에서 바로 누른 플레이·무인 측정에는 띄우지 않는다
-            if (!GameStart.FromMenu || GameStart.Continue) yield break;
+            if (!GameStart.FromMenu || GameStart.Continue)
+            {
+                // 30일차 이어하기면 도그쇼가 먼저 자기 음악을 걸었을 수 있다 — 그건 덮지 않는다
+                if (!DogShow.Running) Sound.PlayBgm(Bgm.Shop);
+                yield break;
+            }
             // 주인공 강아지는 DogManager.Start 에서 생기고 이름을 받는다. Start 순서는 정해져 있지 않아서,
             // 같은 프레임에 글을 만들면 메인 화면에서 지은 이름 대신 "강아지"로 불릴 수 있었다 — 한 프레임 기다린다
             yield return null;
-            Play(opening, BreedTokens(), null);
+            Sound.PlayBgm(Bgm.Intro);
+            Play(opening, BreedTokens(), () => Sound.PlayBgm(Bgm.Shop));   // 끝까지 보든 건너뛰든 가게 음악으로
         }
 
         void OnDestroy()
@@ -92,14 +98,19 @@ namespace DogShop.Show
             Dictionary<string, string> all = BreedTokens();
             if (values != null) foreach (var kv in values) all[kv.Key] = kv.Value;
             notWon = all.TryGetValue("won", out string won) && won != "1";
+            Sound.PlayBgm(notWon ? Bgm.EndingOther : Bgm.EndingFirst);
 
-            Play(ending, all, () => UnityEngine.SceneManagement.SceneManager.LoadScene(titleScene));
+            Play(ending, all, () => { Sound.StopBgm(); UnityEngine.SceneManagement.SceneManager.LoadScene(titleScene); });
         }
 
         static Dictionary<string, string> BreedTokens()
         {
             Dog hero = DogManager.Instance != null ? DogManager.Instance.Hero : null;
-            return new Dictionary<string, string> { { "breed", hero != null ? hero.DisplayName : "강아지" } };   // 이름을 지어 줬으면 이름으로 부른다
+            return new Dictionary<string, string>
+            {
+                { "breed", hero != null ? hero.DisplayName : "강아지" },   // 이름을 지어 줬으면 이름으로 부른다
+                { "days", ChampionshipManager.LastDay.ToString() },          // 본편 30, 시연 모드 3 — 글의 {days}일
+            };
         }
 
         void Play(Slide[] slides, Dictionary<string, string> values, Action done)
@@ -209,7 +220,7 @@ namespace DogShop.Show
             GUI.Label(new Rect(Pad, Screen.height - Pad * 1.4f, Screen.width - Pad * 2f, Pad),
                 (index + 1) + " / " + playing.Length + "     클릭/Space: 다음", hintStyle);
 
-            if (GUI.Button(new Rect(Screen.width - 120f - Pad, Pad, 120f, 36f), "건너뛰기", UiSkin.Button(UiSkin.Cream)))
+            if (UiSkin.Click(new Rect(Screen.width - 120f - Pad, Pad, 120f, 36f), "건너뛰기", UiSkin.Button(UiSkin.Cream)))
             {
                 Finish(true);
                 return;

@@ -16,7 +16,7 @@ MonoBehaviour:
   - nameKo: "\uAE30\uBCF8 \uC0AC\uB8CC"
     category: 0
     wholesale: 15
-    retail: 23
+    retail: 34
     demandWeight: 4
     unlockLevel: 1
     propPrefab: {fileID: 919132149155446097, guid: 194b1b15d72855b40b482591d65860be, type: 3}
@@ -27,7 +27,7 @@ MonoBehaviour:
   - nameKo: "\uC0F4\uD478"
     category: 2
     wholesale: 20
-    retail: 28
+    retail: 41
     demandWeight: 3
     unlockLevel: 1
     propPrefab: {fileID: 919132149155446097, guid: c88207a3359213640bc6145a712ce3f7, type: 3}
@@ -38,7 +38,7 @@ MonoBehaviour:
   - nameKo: "\uAE30\uBCF8 \uC57D\uD488"
     category: 2
     wholesale: 35
-    retail: 48
+    retail: 70
     demandWeight: 1
     unlockLevel: 2
     propPrefab: {fileID: 919132149155446097, guid: eed8e0181e5dbf0488f5784621c04c81, type: 3}
@@ -49,7 +49,7 @@ MonoBehaviour:
   - nameKo: "\uBAA9\uC904"
     category: 1
     wholesale: 50
-    retail: 65
+    retail: 94
     demandWeight: 2
     unlockLevel: 3
     propPrefab: {fileID: 919132149155446097, guid: b8ff7496a9d3f8441ae054bd13b0a5d2, type: 3}
@@ -60,7 +60,7 @@ MonoBehaviour:
   - nameKo: "\uAC15\uC544\uC9C0\uAECC"
     category: 0
     wholesale: 20
-    retail: 29
+    retail: 42
     demandWeight: 3
     unlockLevel: 3
     propPrefab: {fileID: 919132149155446097, guid: e6886379f94f95243b55194fa2128a2d, type: 3}
@@ -71,7 +71,7 @@ MonoBehaviour:
   - nameKo: "\uC7A5\uB09C\uAC10"
     category: 1
     wholesale: 90
-    retail: 108
+    retail: 156
     demandWeight: 2
     unlockLevel: 5
     propPrefab: {fileID: 919132149155446097, guid: d601cd2f21f9078479abcc1444d7be89, type: 3}
@@ -82,7 +82,7 @@ MonoBehaviour:
   - nameKo: "\uACE0\uAE09 \uC0AC\uB8CC"
     category: 0
     wholesale: 30
-    retail: 42
+    retail: 60
     demandWeight: 2
     unlockLevel: 4
     propPrefab: {fileID: 919132149155446097, guid: 3105ff18dcc80b14887a1ee10563766b, type: 3}
@@ -93,7 +93,7 @@ MonoBehaviour:
   - nameKo: "\uACE0\uAE09 \uAC04\uC2DD \uC138\uD2B8"
     category: 0
     wholesale: 70
-    retail: 82
+    retail: 140
     demandWeight: 1
     unlockLevel: 8
     propPrefab: {fileID: 919132149155446097, guid: ad820fbfe621ab0459f47e3950507375, type: 3}
@@ -104,7 +104,7 @@ MonoBehaviour:
   - nameKo: "\uC218\uC785 \uC0AC\uB8CC"
     category: 0
     wholesale: 50
-    retail: 62
+    retail: 89
     demandWeight: 2
     unlockLevel: 6
     propPrefab: {fileID: 919132149155446097, guid: f544226a3e03fb946896122c6637b2a8, type: 3}
@@ -115,7 +115,7 @@ MonoBehaviour:
   - nameKo: "\uD504\uB9AC\uBBF8\uC5C4 \uBBF8\uC6A9\uD0A4\uD2B8"
     category: 2
     wholesale: 100
-    retail: 125
+    retail: 180
     demandWeight: 1
     unlockLevel: 8
     propPrefab: {fileID: 919132149155446097, guid: b0974393f522f654db2c23971cf5d28f, type: 3}
@@ -126,7 +126,7 @@ MonoBehaviour:
   - nameKo: "\uAC15\uC544\uC9C0 \uD1B5\uC870\uB9BC"
     category: 0
     wholesale: 40
-    retail: 52
+    retail: 74
     demandWeight: 3
     unlockLevel: 5
     propPrefab: {fileID: 919132149155446097, guid: 31b6289242473664ba6b114065f7a4ad, type: 3}
@@ -137,7 +137,7 @@ MonoBehaviour:
   - nameKo: "\uBF08\uB2E4\uADC0 \uC7A5\uB09C\uAC10"
     category: 1
     wholesale: 80
-    retail: 95
+    retail: 137
     demandWeight: 3
     unlockLevel: 4
     propPrefab: {fileID: 919132149155446097, guid: b0086d32e15235e42bc7aa52bcab9099, type: 3}
@@ -148,7 +148,7 @@ MonoBehaviour:
   - nameKo: "\uC0AC\uB8CC \uADF8\uB987"
     category: 1
     wholesale: 110
-    retail: 130
+    retail: 187
     demandWeight: 2
     unlockLevel: 7
     propPrefab: {fileID: 919132149155446097, guid: 89c209135e6b2154a987864ae11eea64, type: 3}
@@ -159,7 +159,7 @@ MonoBehaviour:
   - nameKo: "\uACE0\uAE30 \uC778\uD615"
     category: 1
     wholesale: 100
-    retail: 118
+    retail: 170
     demandWeight: 2
     unlockLevel: 6
     propPrefab: {fileID: 919132149155446097, guid: 97a0256dc06b5dd44a63ef20d1efe12f, type: 3}
@@ -170,7 +170,7 @@ MonoBehaviour:
   - nameKo: "\uACE0\uC591\uC774 \uD1B5\uC870\uB9BC"
     category: 0
     wholesale: 60
-    retail: 82
+    retail: 118
     demandWeight: 2
     unlockLevel: 7
     propPrefab: {fileID: 919132149155446097, guid: 0cde1fb1e4a3ad24ca40d33f4304783b, type: 3}
@@ -181,7 +181,7 @@ MonoBehaviour:
   - nameKo: "\uB300\uC6A9\uB7C9 \uD1B5\uC870\uB9BC"
     category: 0
     wholesale: 100
-    retail: 135
+    retail: 194
     demandWeight: 2
     unlockLevel: 9
     propPrefab: {fileID: 919132149155446097, guid: 6d566f0fb4a0c6647b18fe1b59968bb5, type: 3}
@@ -192,7 +192,7 @@ MonoBehaviour:
   - nameKo: "\uACE0\uAE09 \uAC15\uC544\uC9C0 \uCE68\uB300"
     category: 1
     wholesale: 130
-    retail: 150
+    retail: 216
     demandWeight: 2
     unlockLevel: 9
     propPrefab: {fileID: 7744074048789943059, guid: 0bbe4edd973de4140af1b9f085866466, type: 3}
@@ -203,7 +203,7 @@ MonoBehaviour:
   - nameKo: "\uAC15\uC544\uC9C0 \uCE68\uB300"
     category: 1
     wholesale: 120
-    retail: 140
+    retail: 202
     demandWeight: 2
     unlockLevel: 8
     propPrefab: {fileID: 919132149155446097, guid: 0f2d40dac5f3dbf4d8658360e8d1f29d, type: 3}
@@ -214,7 +214,7 @@ MonoBehaviour:
   - nameKo: "\uAE30\uC0DD\uCDA9\uC57D"
     category: 2
     wholesale: 70
-    retail: 88
+    retail: 127
     demandWeight: 2
     unlockLevel: 6
     propPrefab: {fileID: 919132149155446097, guid: cc86c371530909f45a765df0da58c4e5, type: 3}
@@ -225,7 +225,7 @@ MonoBehaviour:
   - nameKo: "\uC9C4\uB4DC\uAE30 \uD1F4\uCE58\uC81C"
     category: 2
     wholesale: 80
-    retail: 100
+    retail: 144
     demandWeight: 2
     unlockLevel: 7
     propPrefab: {fileID: 919132149155446097, guid: f3a467d4c56379e4984b2f1e15d7d934, type: 3}
@@ -236,7 +236,7 @@ MonoBehaviour:
   - nameKo: "\uACE0\uAE09 \uC0F4\uD478"
     category: 2
     wholesale: 50
-    retail: 68
+    retail: 98
     demandWeight: 2
     unlockLevel: 4
     propPrefab: {fileID: 2017378456510807002, guid: d5ab3e83789876744b22a63633141ad1, type: 3}

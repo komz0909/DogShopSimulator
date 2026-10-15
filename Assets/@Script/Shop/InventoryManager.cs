@@ -169,8 +169,11 @@ namespace DogShop.Shop
             delivered = new int[catalog.Count];
             graded = new int[catalog.Count * ItemGrades.Count];
 
+            // 시연 모드는 시작 레벨(Lv 3)까지 열린 상품을 모두 깔아 둔다 — 첫날 발주 없이도 바로 진열·판매해 볼 수 있게
+            int stockedLevel = Exhibition.Active ? Exhibition.StartLevel : 1;
+            int stockEach = Exhibition.Active ? Exhibition.StartStockPerProduct : startingStoragePerProduct;
             for (int i = 0; i < catalog.Count; i++)
-                if (catalog.Get(i).unlockLevel <= 1) storage[i] = startingStoragePerProduct;
+                if (catalog.Get(i).unlockLevel <= stockedLevel) storage[i] = stockEach;
         }
 
         void Start()
@@ -473,7 +476,11 @@ namespace DogShop.Shop
                 incoming[i] = 0;
                 any = true;
             }
-            if (any) OnStockChanged?.Invoke();
+            if (any)
+            {
+                OnStockChanged?.Invoke();
+                Sound.Play(Sfx.Delivery);
+            }
         }
 
         /// <summary>가게 앞 배달 더미에서 하나 집는다. 집은 것은 호출한 쪽이 상자에 넣는다.</summary>

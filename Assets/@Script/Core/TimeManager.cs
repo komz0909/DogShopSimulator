@@ -73,7 +73,11 @@ namespace DogShop.Core
         {
             if (IsDayOver) return;
 
-            CurrentHour += Time.deltaTime * SpeedMultiplier / RealSecondsPerGameHour;
+            // 시연 모드는 하루가 짧다(1일차 2분 30초, 2·3일차 1분 40초)
+            float secondsPerHour = Exhibition.Active && GameManager.Instance != null
+                ? Exhibition.SecondsPerGameHour(GameManager.Instance.Day)
+                : RealSecondsPerGameHour;
+            CurrentHour += Time.deltaTime * SpeedMultiplier / secondsPerHour;
 
             int whole = Mathf.FloorToInt(CurrentHour);
             if (whole != lastWholeHour)

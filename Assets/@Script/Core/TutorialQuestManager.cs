@@ -28,7 +28,7 @@ namespace DogShop.Shop
         /// <summary>보장 온라인 주문이 들어오는 1일차 시각.</summary>
         const float TutorialOrderHour = 12f;
         /// <summary>온라인 주문 퀘스트의 번호(0부터).</summary>
-        const int OnlineOrderStep = 3;
+        public const int OnlineOrderStep = 3;
         const float CheckEvery = 0.5f;
 
         public sealed class Quest
@@ -175,6 +175,8 @@ namespace DogShop.Shop
             if (time.IsDayOver || online.TutorialOrderPending) return;
             // 도그쇼 날처럼 가게가 꺼져 있으면(ShopHours 를 끈다) 넣지 않는다 — 아무도 못 보고 취소된다
             if (ShopHours.Instance == null || !ShopHours.Instance.isActiveAndEnabled) return;
+            // 시연 3일차(도그쇼 날)는 가게를 열지 않으니 튜토리얼 주문도 넣지 않는다
+            if (Exhibition.IsShowDay(game.Day)) return;
 
             float hour = time.CurrentHour;
             bool due = !orderIssued

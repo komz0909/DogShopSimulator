@@ -26,6 +26,9 @@ namespace DogShop.Core
         /// <summary>새 게임에서 지어 준 이름(빈 문자열이면 견종 이름).</summary>
         public static string DogName = "";
 
+        /// <summary>시연 모드(3일)로 들어왔는가. 새 게임·이어하기는 이걸 지운다 — 본편이 시연 값을 물려받지 않게.</summary>
+        public static bool Exhibition;
+
         /// <summary>
         /// 플레이를 시작할 때마다 지운다.
         ///
@@ -41,6 +44,7 @@ namespace DogShop.Core
             Continue = false;
             BreedIndex = 0;
             DogName = "";
+            Exhibition = false;
         }
 
         public static void NewGame(int breedIndex, string dogName)
@@ -49,12 +53,21 @@ namespace DogShop.Core
             Continue = false;
             BreedIndex = breedIndex;
             DogName = dogName ?? "";
+            Exhibition = false;
+        }
+
+        /// <summary>시연 모드 새 판. 세이브를 읽지도 쓰지도 않는다(<see cref="Core.Exhibition"/>).</summary>
+        public static void NewExhibition(int breedIndex, string dogName)
+        {
+            NewGame(breedIndex, dogName);
+            Exhibition = true;
         }
 
         public static void Resume()
         {
             FromMenu = true;
             Continue = true;
+            Exhibition = false;
         }
     }
 }

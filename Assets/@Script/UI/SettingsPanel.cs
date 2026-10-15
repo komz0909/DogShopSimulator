@@ -47,26 +47,8 @@ namespace DogShop.UI
         /// <summary>창을 그린다. 닫기를 누르면 true — 닫는 건 부르는 쪽이 한다.</summary>
         public static bool Draw(Texture2D closeImage, Texture2D frameImage)
         {
-            if (dim == null)
-            {
-                dim = new Texture2D(1, 1);
-                dim.SetPixel(0, 0, new Color(0f, 0f, 0f, 0.62f));
-                dim.Apply();
-                dim.hideFlags = HideFlags.HideAndDontSave;
-            }
-
-            var screen = new Rect(0f, 0f, Screen.width, Screen.height);
-            GUI.DrawTexture(screen, dim);
-
-            Matrix4x4 keep = GUI.matrix;
-            float s = Mathf.Min(Screen.width / 1920f, Screen.height / 1080f);
-            GUI.matrix = Matrix4x4.Scale(new Vector3(s, s, 1f));
-
-            var panel = new Rect((Screen.width / s - Width) * 0.5f, (Screen.height / s - Height) * 0.5f, Width, Height);
-            if (frameImage != null) GUI.DrawTexture(panel, frameImage, ScaleMode.StretchToFill);
-            else GUI.Box(panel, GUIContent.none, UiSkin.Tag(UiSkin.Cream));
-
-            Styles();
+            Rect screen, panel;
+            Matrix4x4 keep = BeginFrame(frameImage, out screen, out panel);
 
             // 제목은 간판 위(그림 x 0.34~0.76, 왼쪽 끝 톱니를 피해 오른쪽으로)
             GUI.Label(new Rect(panel.x + 290f, panel.y + 14f, 260f, 64f), "게임 설정", title);
@@ -77,11 +59,11 @@ namespace DogShop.UI
             float fieldW = Right - 210f;
             float row = panel.y + Top;
 
-            // 사운드
+            // 사운드 — 배경음과 효과음을 한 줄에 따로. 값은 저장돼 다음 실행에도 남는다(Sound 가 PlayerPrefs 에 둔다)
             GUI.Label(new Rect(x, row, 120f, 30f), "사운드", label);
-            AudioListener.volume = Slider(new Rect(field, row + 1f, fieldW - 70f, 28f), AudioListener.volume);
-            GUI.Label(new Rect(panel.x + Right - 64f, row, 64f, 30f),
-                Mathf.RoundToInt(AudioListener.volume * 100f) + "%", value);
+            float half = fieldW * 0.5f;
+            Core.Sound.BgmVolume = VolumeRow(new Rect(field, row, half - 8f, 30f), "배경음", Core.Sound.BgmVolume);
+            Core.Sound.SfxVolume = VolumeRow(new Rect(field + half + 8f, row, half - 8f, 30f), "효과음", Core.Sound.SfxVolume);
 
             // FPS
             row += 50f;
@@ -90,7 +72,7 @@ namespace DogShop.UI
             for (int i = 0; i < FpsChoices.Length; i++)
             {
                 bool on = fpsIndex == i;
-                if (GUI.Button(new Rect(field + i * (bw + 4f), row - 3f, bw, 34f), FpsChoices[i].ToString(),
+                if (UiSkin.Click(new Rect(field + i * (bw + 4f), row - 3f, bw, 34f), FpsChoices[i].ToString(),
                         UiSkin.Button(on ? UiSkin.Green : Honey)))
                 {
                     fpsIndex = i;
@@ -141,6 +123,83 @@ namespace DogShop.UI
         /// 볼륨 막대. 기본 슬라이더는 회색 윈도 모양이라 크림 종이 위에서 혼자 떠 보였다.
         /// 홈은 연한 갈색, 채운 쪽은 초록, 손잡이는 버튼과 같은 산호색 판이다.
         /// </summary>
+        /// <summary>
+        /// 같은 틀에 큰 버튼 몇 개만 세운 창 — 게임 안 ESC 의 일시 정지 메뉴와 종료 확인에 쓴다.
+        /// 누른 버튼의 번호를 돌려준다. 아무것도 안 눌렀으면 -1, 귀퉁이 발바닥(닫기)이면 -2.
+        /// </summary>
+        public static int DrawMenu(string heading, string note, string[] buttons, Texture2D closeImage, Texture2D frameImage)
+        {
+            Rect screen, panel;
+            Matrix4x4 keep = BeginFrame(frameImage, out screen, out panel);
+            GUI.Label(new Rect(panel.x + 290f, panel.y + 14f, 260f, 64f), heading, title);
+
+            const float bw = 380f, bh = 66f, gap = 22f;
+            float noteH = string.IsNullOrEmpty(note) ? 0f : 54f;
+            float blockH = noteH + buttons.Length * bh + (buttons.Length - 1) * gap;
+            float paperTop = panel.y + Top, paperBottom = panel.y + Height * 0.893f;
+            float y = paperTop + (paperBottom - paperTop - blockH) * 0.5f;
+            float bx = panel.x + (Width - bw) * 0.5f;
+
+            if (noteH > 0f)
+            {
+                GUI.Label(new Rect(panel.x + Left, y, Right - Left, noteH - 14f), note, noteStyle);
+                y += noteH;
+            }
+
+            int clicked = -1;
+            for (int i = 0; i < buttons.Length; i++)
+            {
+                // 첫 버튼(계속 진행 등)만 초록 — 가장 흔히 누를 것이 눈에 먼저 띄게
+                if (UiSkin.Click(new Rect(bx, y, bw, bh), buttons[i], i == 0 ? menuMain : menuOther)) clicked = i;
+                y += bh + gap;
+            }
+
+            Rect spot = frameImage != null
+                ? UiSkin.TexelRect(panel, 1112f, 825f, 1026f, 58f, 58f, 57f)
+                : new Rect(panel.xMax - 70f, panel.y + 20f, 50f, 50f);
+            if (UiSkin.PawClose(spot, closeImage)) clicked = -2;
+
+            GUI.matrix = keep;
+            GUI.Button(screen, GUIContent.none, GUIStyle.none);   // 가림판은 맨 마지막(Draw 와 같은 이유)
+            return clicked;
+        }
+
+        /// <summary>어둡게 덮고, 1080p 설계 배율을 걸고, 틀을 그린다. 원래 GUI.matrix 를 돌려준다.</summary>
+        static Matrix4x4 BeginFrame(Texture2D frameImage, out Rect screen, out Rect panel)
+        {
+            if (dim == null)
+            {
+                dim = new Texture2D(1, 1);
+                dim.SetPixel(0, 0, new Color(0f, 0f, 0f, 0.62f));
+                dim.Apply();
+                dim.hideFlags = HideFlags.HideAndDontSave;
+            }
+
+            screen = new Rect(0f, 0f, Screen.width, Screen.height);
+            GUI.DrawTexture(screen, dim);
+
+            Matrix4x4 keep = GUI.matrix;
+            float s = Mathf.Min(Screen.width / 1920f, Screen.height / 1080f);
+            GUI.matrix = Matrix4x4.Scale(new Vector3(s, s, 1f));
+
+            panel = new Rect((Screen.width / s - Width) * 0.5f, (Screen.height / s - Height) * 0.5f, Width, Height);
+            if (frameImage != null) GUI.DrawTexture(panel, frameImage, ScaleMode.StretchToFill);
+            else GUI.Box(panel, GUIContent.none, UiSkin.Tag(UiSkin.Cream));
+
+            Styles();
+            return keep;
+        }
+
+        /// <summary>"배경음 [=====] 80%" 한 칸. 바뀐 값을 돌려준다(같으면 그대로 — 매 프레임 저장하지 않게 부르는 쪽 값과 비교한다).</summary>
+        static float VolumeRow(Rect r, string name, float v)
+        {
+            const float nameW = 64f, pctW = 50f;
+            GUI.Label(new Rect(r.x, r.y, nameW, r.height), name, soft);
+            float next = Slider(new Rect(r.x + nameW, r.y + 1f, r.width - nameW - pctW, r.height - 2f), v);
+            GUI.Label(new Rect(r.xMax - pctW, r.y, pctW, r.height), Mathf.RoundToInt(next * 100f) + "%", value);
+            return Mathf.Approximately(next, v) ? v : next;
+        }
+
         static float Slider(Rect r, float v)
         {
             var track = new Rect(r.x, r.y + r.height * 0.5f - 6f, r.width, 12f);
@@ -169,13 +228,13 @@ namespace DogShop.UI
             ("Q", "가구 돌리기"),
             ("1  2  3", "게임 속도 x1 / x2 / x4"),
             ("F5 / F9", "저장 / 불러오기"),
-            ("ESC", "설정 / 창 닫기"),
+            ("ESC", "메뉴 / 창 닫기"),
             ("Space, 1~4", "도그쇼 점프 / 카드 고르기"),
         };
 
         const float KeyRow = 35f;
 
-        static GUIStyle title, label, value, soft, keyText, thumb;
+        static GUIStyle title, label, value, soft, keyText, thumb, noteStyle, menuMain, menuOther;
         static Font built;
 
         static void Styles()
@@ -188,6 +247,10 @@ namespace DogShop.UI
             value = Make(17, Ink, TextAnchor.MiddleRight, true);
             soft = Make(14, Soft, TextAnchor.MiddleLeft, false);
             keyText = Make(15, Ink, TextAnchor.MiddleLeft, false);
+            noteStyle = Make(17, Soft, TextAnchor.MiddleCenter, false);
+            noteStyle.wordWrap = true;
+            menuMain = new GUIStyle(UiSkin.Button(UiSkin.Green)) { font = UiSkin.Font, fontSize = 26 };
+            menuOther = new GUIStyle(UiSkin.Button(Honey)) { font = UiSkin.Font, fontSize = 26 };
 
             thumb = new GUIStyle(UiSkin.Button(UiSkin.Coral)) { fixedWidth = 28f, fixedHeight = 28f, padding = new RectOffset() };
             thumb.hover.background = UiSkin.Button(UiSkin.Coral).hover.background;

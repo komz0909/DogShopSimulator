@@ -57,8 +57,13 @@ namespace DogShop.Dogs
         /// <summary>지금 단계의 비용.</summary>
         public int CostOf(int index) => TrainingStages.ValueAt(catalog.Get(index).cost, StageOf(index));
 
-        /// <summary>지금 단계의 획득량.</summary>
-        public int GainOf(int index) => TrainingStages.ValueAt(catalog.Get(index).gain, StageOf(index));
+        /// <summary>지금 단계의 획득량. 시연 모드는 <see cref="Exhibition.GrowthMultiplier"/> 배 — 사흘 안에 쇼를 준비할 수 있게.</summary>
+        public int GainOf(int index) => TrainingStages.ValueAt(catalog.Get(index).gain, StageOf(index)) * GrowthScale;
+
+        /// <summary>운동 한 번의 획득량(시연 모드 배율 포함). 창에 보이는 숫자와 실제로 오르는 양이 같아야 한다.</summary>
+        public static int ExerciseGainOf(int index) => Exercises[index].gain * GrowthScale;
+
+        static int GrowthScale => Exhibition.Active ? Exhibition.GrowthMultiplier : 1;
 
         /// <summary>강화 중이면 남은 날, 아니면 0.</summary>
         public int UpgradeDaysLeft(int index) =>
@@ -191,9 +196,9 @@ namespace DogShop.Dogs
 
         public static readonly ExerciseDef[] Exercises =
         {
-            new ExerciseDef { nameKo = "공놀이", cost = 120, gain = 3, unlockLevel = 1 },
-            new ExerciseDef { nameKo = "달리기", cost = 250, gain = 6, unlockLevel = 3 },
-            new ExerciseDef { nameKo = "장애물", cost = 450, gain = 10, unlockLevel = 5 },
+            new ExerciseDef { nameKo = "공놀이", cost = 100, gain = 3, unlockLevel = 1 },
+            new ExerciseDef { nameKo = "달리기", cost = 200, gain = 6, unlockLevel = 3 },
+            new ExerciseDef { nameKo = "장애물", cost = 400, gain = 10, unlockLevel = 5 },
         };
 
         public bool ExercisedToday { get; private set; }
@@ -231,8 +236,9 @@ namespace DogShop.Dogs
             ExerciseDef def = Exercises[index];
             if (!GameManager.Instance.TrySpend(def.cost, GameManager.SpendKind.Dog)) return false;
 
-            dog.Stats.AddGrowth(GrowthAxis.Agility, def.gain, out int gained);
+            dog.Stats.AddGrowth(GrowthAxis.Agility, ExerciseGainOf(index), out int gained);
             ExercisedToday = true;
+            Sound.Play(Sfx.Train);
             SpentTodayAgility += def.cost;
 
             DogRoamer roamer = dog.GetComponent<DogRoamer>();
@@ -381,6 +387,7 @@ namespace DogShop.Dogs
             if (!GameManager.Instance.TrySpend(cost, GameManager.SpendKind.Dog)) return false;
 
             dog.Stats.AddGrowth(def.axis, GainOf(index));
+            Sound.Play(Sfx.Train);
             ShowTraining(dog, def);
 
             SlotsUsed++;

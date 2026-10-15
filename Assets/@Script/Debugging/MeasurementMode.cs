@@ -98,8 +98,62 @@ namespace DogShop.Debugging
 
             MindShopHours();
             ServeCustomers();
+            ShipOnlineOrders();
+            ClearTutorial();
             CleanFloor();
             AdvanceDayIfOver();
+        }
+
+        /// <summary>
+        /// 온라인 주문을 들어오는 대로 받고, 창고에 물건이 다 있으면 바로 출고한다.
+        /// 포장대 동선(담기·봉하기·내보내기)은 생략한다 — 진열과 같은 "완벽한 운영" 가정이다.
+        /// 봇은 아침마다 창고를 진열대로 다 비우므로 창고가 모자라면 <b>진열대에서</b> 덜어 온다 —
+        /// 사람이 온라인 주문 몫을 창고에 남겨 두는 것과 돈으로는 같다(같은 물건이 판매가에 나간다).
+        /// 그래도 모자란 주문은 받아만 두고, 발주가 들어와 채워지면 그때 나간다.
+        /// </summary>
+        void ShipOnlineOrders()
+        {
+            OnlineOrderManager online = OnlineOrderManager.Instance;
+            if (online == null || online.Orders.Count == 0) return;
+
+            InventoryManager inv = InventoryManager.Instance;
+            var pending = new System.Collections.Generic.List<OnlineOrderManager.Order>(online.Orders);
+            foreach (OnlineOrderManager.Order o in pending)
+            {
+                if (o.state == OnlineOrderManager.State.New) online.Accept(o);
+                if (o.state != OnlineOrderManager.State.Accepted) continue;
+
+                bool enough = true;
+                for (int i = 0; i < o.products.Length; i++)
+                    if (inv.StorageOf(o.products[i]) + inv.ShelfOf(o.products[i]) < o.quantities[i]) enough = false;
+                if (!enough) continue;
+
+                for (int i = 0; i < o.products.Length; i++)
+                    for (int q = 0; q < o.quantities[i]; q++)
+                        if (!inv.TryConsumeStorage(o.products[i])) inv.TryConsumeShelf(o.products[i]);
+                online.Ship(o);
+            }
+        }
+
+        /// <summary>
+        /// 1일차 튜토리얼 퀘스트를 다 깨고 보상(50원씩)을 받는다. 사람은 1일차에 이걸 하므로 측정도 해야 맞다.
+        /// 봇은 상자·진열·발주·훈련을 퀘스트가 세는 길(GameEvents)로 하지 않으니 그 이벤트를 대신 쏜다.
+        /// "온라인 주문 배송"만은 진짜 출고(<see cref="ShipOnlineOrders"/>)로 채운다.
+        /// </summary>
+        void ClearTutorial()
+        {
+            TutorialQuestManager quests = TutorialQuestManager.Instance;
+            if (quests == null || quests.IsComplete) return;
+            if (quests.ReadyToClaim) { quests.Claim(); return; }
+
+            switch (quests.Step)
+            {
+                case 0: GameEvents.RaiseStorageToCrate(); break;
+                case 1: GameEvents.RaiseItemDisplayed(); break;
+                case 2: GameEvents.RaiseStockOrdered(); break;
+                case TutorialQuestManager.OnlineOrderStep: break;
+                default: GameEvents.RaiseDogTrained(); break;
+            }
         }
 
         /// <summary>
@@ -194,6 +248,9 @@ namespace DogShop.Debugging
             // 단계상승은 훈련 <b>뒤</b>다. 강화를 걸면 그 훈련을 못 쓰는데,
             // 오늘 이미 쓴 뒤라면 어차피 쿨타임이라 잃는 슬롯이 없다
             UpgradeTrainings();
+
+            // 명성 장식·여분 진열대. 가게·훈련 다음, 상자보다는 먼저
+            BuyFurnitureExtras();
 
             // 상자는 <b>맨 마지막</b>이다. 재고·진열대·승급·훈련을 다 하고도 남는 돈으로만 산다
             BuyBoxes();
@@ -362,10 +419,67 @@ namespace DogShop.Debugging
 
                 MoveInside(furniture);
             }
+
+            // 장식 가구도 판매장 안에 들여야 명성이 붙는다(DecorBonus 는 앞마당에 선 것을 안 친다)
+            FurnitureShop shop = FurnitureShop.Instance;
+            if (shop == null || shop.Catalog == null || ShopSpace.Instance == null) return;
+            Rect floorRect = ShopSpace.Instance.FloorRect;
+            foreach (BoughtFurniture bought in FindObjectsByType<BoughtFurniture>(FindObjectsSortMode.None))
+            {
+                int index = bought.CatalogIndex;
+                if (index < 0 || index >= shop.Catalog.Count || !shop.Catalog.Get(index).IsDecor) continue;
+                Vector3 p = bought.transform.position;
+                if (floorRect.Contains(new Vector2(p.x, p.z))) continue;
+
+                PlaceableFurniture furniture = bought.GetComponent<PlaceableFurniture>();
+                if (furniture != null) MoveInside(furniture, awayFromEntrance: true);
+            }
+        }
+
+        /// <summary>진열대 수요와 상관없이 더 사 두는 진열대(가구 카탈로그 0 진열대, 1 벽 진열대)와 그 개수.</summary>
+        static readonly int[] ExtraShelfIndex = { 0, 1 };
+        const int ExtraShelfEach = 2;
+
+        /// <summary>
+        /// 명성 장식(종류마다 하나)과 여분 진열대를 산다. 사람은 돈이 모이면 가게를 꾸미고 넓히므로
+        /// 측정도 그 지출을 넣어야 "돈이 쌓인다"를 제대로 잰다.
+        /// 장식이 먼저다 — 놓은 날부터 명성이 붙어 승급을 앞당긴다. 사고 나서도 이틀치 소진액은 남긴다.
+        /// </summary>
+        void BuyFurnitureExtras()
+        {
+            FurnitureShop shop = FurnitureShop.Instance;
+            if (shop == null || shop.Catalog == null) return;
+            int floor = DailyConsumptionCost() * 2;
+
+            // 장식 — 싼 것부터
+            var decor = new System.Collections.Generic.List<int>();
+            for (int i = 0; i < shop.Catalog.Count; i++) if (shop.Catalog.Get(i).IsDecor) decor.Add(i);
+            decor.Sort((a, b) => shop.Catalog.Get(a).price.CompareTo(shop.Catalog.Get(b).price));
+            foreach (int i in decor)
+            {
+                string reason;
+                if (!shop.CanBuy(i, out reason)) continue;
+                if (GameManager.Instance.Money - shop.Catalog.Get(i).price < floor) return;
+                shop.TryBuy(i);
+            }
+
+            // 여분 진열대 — 이미 가진 것(산 것만 센다)이 모자라면
+            foreach (int i in ExtraShelfIndex)
+            {
+                string reason;
+                while (shop.OwnedCount(i) < ExtraShelfEach && shop.CanBuy(i, out reason))
+                {
+                    if (GameManager.Instance.Money - shop.Catalog.Get(i).price < floor) return;
+                    if (!shop.TryBuy(i)) break;
+                }
+            }
         }
 
         /// <summary>입구에서 가까운 빈 자리를 찾아 옮긴다. 가까울수록 잘 팔린다.</summary>
-        void MoveInside(PlaceableFurniture furniture)
+        /// <param name="awayFromEntrance">
+        /// 참이면 입구에서 <b>먼</b> 자리부터 — 장식은 팔 물건이 없으니 입구 앞 좋은 자리를 진열대에 양보한다.
+        /// </param>
+        void MoveInside(PlaceableFurniture furniture, bool awayFromEntrance = false)
         {
             Vector3 entrance = new Vector3(4f, 0f, 0f);
 
@@ -378,6 +492,7 @@ namespace DogShop.Debugging
                 {
                     Vector3 floor = new Vector3(x, 0f, z);
                     float distance = Vector3.Distance(floor, entrance);
+                    if (awayFromEntrance) distance = -distance;
                     if (distance >= bestDistance) continue;
 
                     Vector3 position = floor;
@@ -708,7 +823,7 @@ namespace DogShop.Debugging
 
             for (int i = 0; i < inv.Catalog.Count; i++)
             {
-                if (!inv.IsUnlocked(i)) continue;
+                if (!inv.IsLevelUnlocked(i)) continue;   // 돌보기용으로 먼저 열린 고급 사료·샴푸는 진열하지 않는다
 
                 // 상자에서 나온 등급품을 <b>좋은 것부터</b> 먼저 올린다. 손님은 진열대에서
                 // 가장 좋은 것을 집어 가므로, 창고에 묵혀 두면 그 값을 못 받는다

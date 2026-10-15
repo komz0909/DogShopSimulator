@@ -23,7 +23,7 @@ MonoBehaviour:
     floorWidth: 8
     unlockKo: "\uC0AC\uB8CC/\uC6A9\uD488"
   - requiredReputation: 23
-    upgradeCost: 250
+    upgradeCost: 200
     customersPerDay: 12
     basketPriceTarget: 73
     trainingSlots: 2
@@ -33,7 +33,7 @@ MonoBehaviour:
     unlockKo: "\uC57D\uD488 \uCE74\uD14C\uACE0\uB9AC / \uACE0\uAE09 \uD6C8\uB828
       \uD574\uAE08"
   - requiredReputation: 55
-    upgradeCost: 450
+    upgradeCost: 360
     customersPerDay: 15
     basketPriceTarget: 77
     trainingSlots: 3
@@ -43,7 +43,7 @@ MonoBehaviour:
     unlockKo: "\uBAA9\uC904 / \uC2A4\uD0C0\uC77C\uB9C1 \uD574\uAE08 / \uD6C8\uB828
       \uC2AC\uB86F +1 / \uC6B4\uBC18 \uC0C1\uC790 10\uCE78"
   - requiredReputation: 98
-    upgradeCost: 650
+    upgradeCost: 520
     customersPerDay: 18
     basketPriceTarget: 83
     trainingSlots: 3
@@ -53,7 +53,7 @@ MonoBehaviour:
     unlockKo: "\uAC04\uC2DD/\uC7A5\uB09C\uAC10 / \uB180\uC544\uC8FC\uAE30 \uD574\uAE08
       / \uB9E4\uC7A5 \uD655\uC7A5"
   - requiredReputation: 156
-    upgradeCost: 900
+    upgradeCost: 720
     customersPerDay: 21
     basketPriceTarget: 83
     trainingSlots: 3
@@ -63,7 +63,7 @@ MonoBehaviour:
     unlockKo: "\uACE0\uAE09 \uC0AC\uB8CC / \uC804\uBB38 \uD6C8\uB828/\uC804\uBB38
       \uBBF8\uC6A9 \uD574\uAE08"
   - requiredReputation: 230
-    upgradeCost: 1200
+    upgradeCost: 960
     customersPerDay: 24
     basketPriceTarget: 103
     trainingSlots: 3
@@ -72,7 +72,7 @@ MonoBehaviour:
     floorWidth: 9.5
     unlockKo: "\uBF08\uB2E4\uADC0 \uC7A5\uB09C\uAC10 / \uAC15\uC544\uC9C0 \uCE68\uB300"
   - requiredReputation: 322
-    upgradeCost: 1600
+    upgradeCost: 1280
     customersPerDay: 27
     basketPriceTarget: 103
     trainingSlots: 3
@@ -82,7 +82,7 @@ MonoBehaviour:
     unlockKo: "\uB9E4\uC7A5 \uD655\uC7A5 / \uC0AC\uB8CC \uADF8\uB987/\uACE0\uAE30
       \uC778\uD615/\uAE30\uC0DD\uCDA9\uC57D / \uC6B4\uBC18 \uC0C1\uC790 12\uCE78"
   - requiredReputation: 433
-    upgradeCost: 2100
+    upgradeCost: 1680
     customersPerDay: 30
     basketPriceTarget: 123
     trainingSlots: 3
@@ -92,7 +92,7 @@ MonoBehaviour:
     unlockKo: "\uACE0\uAE09 \uAC04\uC2DD \uC138\uD2B8 / \uACE0\uAE09 \uCE68\uB300
       / \uC9C4\uB4DC\uAE30 \uD1F4\uCE58\uC81C"
   - requiredReputation: 566
-    upgradeCost: 2700
+    upgradeCost: 2160
     customersPerDay: 33
     basketPriceTarget: 123
     trainingSlots: 3
@@ -102,7 +102,7 @@ MonoBehaviour:
     unlockKo: "\uB2E8\uACE8 \uD655\uB300: \uC190\uB2D8 +3 / \uC218\uC785 \uC0AC\uB8CC/\uD504\uB9AC\uBBF8\uC5C4
       \uBBF8\uC6A9\uD0A4\uD2B8 / \uB9E4\uC7A5 \uD655\uC7A5"
   - requiredReputation: 819
-    upgradeCost: 3400
+    upgradeCost: 2720
     customersPerDay: 36
     basketPriceTarget: 123
     trainingSlots: 3

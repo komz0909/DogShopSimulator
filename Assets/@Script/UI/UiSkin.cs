@@ -187,9 +187,23 @@ namespace DogShop.UI
         /// 장식과 구분되도록 조금 크게 그리고, 마우스를 올리면 더 커진다. 누르면 true.
         /// 버튼 발바닥은 빨간색이다 — 장식과 같은 금색이면 닫기인 줄 몰랐다. "닫기" 글자 팁은 뺐다(사용자 요청).
         /// </summary>
+        /// <summary>
+        /// 누르면 클릭음이 나는 버튼. 게임 안 버튼은 전부 이걸 쓴다 —
+        /// 화면 전체를 덮는 가림판(아무도 안 받은 클릭을 삼키는 투명 버튼)만 <c>GUI.Button</c> 그대로 둔다.
+        /// 거기서 소리가 나면 빈 곳을 눌러도 딸깍거린다.
+        /// </summary>
+        public static bool Click(Rect rect, string text, GUIStyle style) => Clicked(GUI.Button(rect, text, style));
+        public static bool Click(Rect rect, GUIContent content, GUIStyle style) => Clicked(GUI.Button(rect, content, style));
+
+        static bool Clicked(bool pressed)
+        {
+            if (pressed) Core.Sound.Play(Core.Sfx.Click);
+            return pressed;
+        }
+
         public static bool PawClose(Rect spot, Texture2D paw)
         {
-            if (paw == null) return GUI.Button(spot, "X", Button(Coral));
+            if (paw == null) return UiSkin.Click(spot, "X", Button(Coral));
 
             bool hover = spot.Contains(Event.current.mousePosition);
             float k = hover ? 1.25f : 1.1f;
@@ -197,7 +211,7 @@ namespace DogShop.UI
                              spot.width * k, spot.height * k);
             GUI.DrawTexture(d, paw, ScaleMode.ScaleToFit);
 
-            return GUI.Button(spot, GUIContent.none, GUIStyle.none);
+            return UiSkin.Click(spot, GUIContent.none, GUIStyle.none);
         }
 
         public static GUIStyle Panel_

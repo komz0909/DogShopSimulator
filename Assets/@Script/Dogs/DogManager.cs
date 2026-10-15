@@ -51,6 +51,13 @@ namespace DogShop.Dogs
             {
                 Dog dog = Spawn(breed);
                 if (dog != null && GameStart.FromMenu && !GameStart.Continue) dog.SetName(GameStart.DogName);
+
+                // 시연 모드: 어느 정도 자란 강아지로 시작한다(미모·훈련도·어질리티 40). 사흘 훈련으로 쇼를 준비할 출발점
+                if (dog != null && Exhibition.Active)
+                {
+                    int s = Exhibition.StartGrowthStat;
+                    dog.Stats.Restore(DogStats.MaxUpkeep, DogStats.MaxUpkeep, s, s, s);
+                }
             }
         }
 

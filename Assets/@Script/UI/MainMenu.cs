@@ -83,6 +83,9 @@ namespace DogShop.UI
         const float TitleStretch = 1.16f;
 
         Page page = Page.Home;
+
+        /// <summary>[시연 모드]로 견종 고르기에 들어왔나. [확인]에서 시연 판으로 시작한다.</summary>
+        bool exhibitionPick;
         int picked = -1;
         bool settingsOpen;
 
@@ -91,6 +94,9 @@ namespace DogShop.UI
             if (uiFont != null) UiSkin.Font = uiFont;
             SettingsPanel.ApplyFps();
         }
+
+        // 메인 화면도 가게와 같은 배경음. 이어하기로 가게에 들어가면 곡이 끊기지 않고 이어진다(같은 곡이면 다시 틀지 않는다)
+        void Start() => Sound.PlayBgm(Bgm.Shop);
 
         void Update()
         {
@@ -160,7 +166,7 @@ namespace DogShop.UI
             GUI.Label(rect, label, style);
 
             if (!enabled) return false;
-            return GUI.Button(rect, GUIContent.none, GUIStyle.none);
+            return UiSkin.Click(rect, GUIContent.none, GUIStyle.none);
         }
 
         /// <summary>
@@ -205,13 +211,17 @@ namespace DogShop.UI
                 GUI.DrawTexture(new Rect(Screen.width * HomeTitleLeft, Screen.height * HomeTitleTop, tw, th), logo, ScaleMode.StretchToFill);
             }
 
-            const int count = 4;
+            const int count = 5;
             float width = HomeButtonW * s, height = HomeButtonH * s, step = HomeButtonStep * s;
             float x = Screen.width * (1f - HomeButtonsRight) - width;
             float y = Screen.height * (1f - HomeButtonsBottom) - (step * (count - 1) + height);   // 맨 위 버튼
 
             // 시안처럼 뼈를 칸에 꽉 채워(조금 납작하게) 그린다
-            if (BoneButton(new Rect(x, y, width, height), "게임 시작", true, true)) page = Page.Breeds;
+            // 시연 모드(3일, 전시용) — 게임 시작 위. 견종 고르기는 본편과 같은 화면을 쓴다
+            if (BoneButton(new Rect(x, y, width, height), "시연 모드", true, true)) { exhibitionPick = true; page = Page.Breeds; }
+            y += step;
+
+            if (BoneButton(new Rect(x, y, width, height), "게임 시작", true, true)) { exhibitionPick = false; page = Page.Breeds; }
 
             bool hasSave = SaveManager.HasSaveFile;
             if (BoneButton(new Rect(x, y + step, width, height), "이어하기", hasSave, true))
@@ -232,7 +242,8 @@ namespace DogShop.UI
             DrawTitleImage(Screen.height * 0.12f, Mathf.Min(150f, Screen.height * 0.16f));
 
             GUI.Label(new Rect(0f, Screen.height * 0.22f, Screen.width, 26f),
-                "함께 지낼 강아지를 골라 보자. 누르면 자세히 볼 수 있다", UiSkin.Caption);
+                exhibitionPick ? "시연 모드 (3일): 함께할 강아지를 골라 보자. 3일차에 도그쇼에 나간다"
+                               : "함께 지낼 강아지를 골라 보자. 누르면 자세히 볼 수 있다", UiSkin.Caption);
 
             float width = breeds.Length * CardWidth + (breeds.Length - 1) * Gap;
             float x = (Screen.width - width) * 0.5f;
@@ -311,7 +322,7 @@ namespace DogShop.UI
                 if (art) blurb.normal.textColor = UiSkin.Ink;
                 GUI.Label(new Rect(card.x + 12f, tagY + 29f, card.width - 24f, card.yMax - tagY - 36f), breeds[i].blurb, blurb);
 
-                if (GUI.Button(new Rect(card.x, card.y, card.width, card.height), GUIContent.none, GUIStyle.none))
+                if (UiSkin.Click(new Rect(card.x, card.y, card.width, card.height), GUIContent.none, GUIStyle.none))
                     OpenCard(i);
             }
         }
@@ -544,9 +555,10 @@ namespace DogShop.UI
             var okStyle = new GUIStyle(cardTitle) { fontSize = Mathf.RoundToInt(ok.height * 0.4f), alignment = TextAnchor.MiddleCenter };
             okStyle.normal.textColor = new Color(0.36f, 0.2f, 0.08f);
             GUI.Label(new Rect(ok.x + ok.width * 0.08f, ok.y, ok.width, ok.height), "확인", okStyle);
-            if (GUI.Button(ok, GUIContent.none, GUIStyle.none))
+            if (UiSkin.Click(ok, GUIContent.none, GUIStyle.none))
             {
-                GameStart.NewGame(picked, dogName.Trim());
+                if (exhibitionPick) GameStart.NewExhibition(picked, dogName.Trim());
+                else GameStart.NewGame(picked, dogName.Trim());
                 SceneManager.LoadScene(shopScene);
                 return;
             }
@@ -561,7 +573,7 @@ namespace DogShop.UI
             var backStyle = new GUIStyle(cardTitle) { fontSize = Mathf.RoundToInt(back.height * 0.36f), alignment = TextAnchor.MiddleCenter };
             backStyle.normal.textColor = Color.white;
             GUI.Label(back, "다른 강아지", backStyle);
-            if (GUI.Button(back, GUIContent.none, GUIStyle.none)) { CloseCard(); return; }
+            if (UiSkin.Click(back, GUIContent.none, GUIStyle.none)) { CloseCard(); return; }
 
             // 카드 밖을 누르면 닫힌다. 카드 안 빈 곳 클릭은 삼킨다 — 맨 마지막에 깐다(위 버튼이 먼저 받게)
             if (Event.current.type == EventType.MouseDown && !card.Contains(Event.current.mousePosition)) { CloseCard(); Event.current.Use(); return; }

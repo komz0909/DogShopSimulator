@@ -82,6 +82,7 @@ namespace DogShop.Player
                 if (roamer != null)
                 {
                     roamer.Call();
+                    Sound.Play(Sfx.DogCall);
                     // 부르면서 손을 흔든다 — 강아지가 뛰어오는 이유가 화면에 보이게
                     CharacterAnimatorDriver body = player.GetComponentInChildren<CharacterAnimatorDriver>();
                     if (body != null) body.Wave();
@@ -195,6 +196,7 @@ namespace DogShop.Player
                 if (!load) return;
                 if (!inRange) { Reject("너무 멀다, 가까이 갈 것"); return; }
                 CleanlinessManager.Instance.Clean(dirt);
+                Sound.Play(Sfx.CleanDone);
                 return;
             }
 
@@ -406,13 +408,13 @@ namespace DogShop.Player
                     if (!inv.TryConsumeGraded(productIndex, grade)) continue;
 
                     if (!carry.Held.AddOne(productIndex, grade)) inv.StoreGraded(productIndex, grade);
-                    else GameEvents.RaiseStorageToCrate();
+                    else { GameEvents.RaiseStorageToCrate(); Sound.Play(Sfx.CratePut); }
                     return;
                 }
 
                 if (!inv.TryConsumeStorage(productIndex)) return;
                 if (!carry.Held.AddOne(productIndex)) inv.Grant(productIndex, 1);
-                else GameEvents.RaiseStorageToCrate();
+                else { GameEvents.RaiseStorageToCrate(); Sound.Play(Sfx.CratePut); }
             }
         }
 
@@ -456,6 +458,7 @@ namespace DogShop.Player
 
                 // 상자가 안 받으면 배달 더미에 도로 놓는다 — 물건이 사라지는 경로를 만들지 않는다
                 if (!carry.Held.AddOne(productIndex)) InventoryManager.Instance.Store(productIndex);
+                else Sound.Play(Sfx.CratePut);
             }
         }
 
@@ -490,6 +493,7 @@ namespace DogShop.Player
             public void Execute()
             {
                 if (!carry.Held.RemoveOne(productIndex)) return;
+                Sound.Play(Sfx.CrateTake);
                 InventoryManager.Instance.Store(productIndex);
             }
         }
@@ -568,6 +572,7 @@ namespace DogShop.Player
                 // 창고에 남겨 두면 그만큼 늦게 팔린다
                 ItemGrade grade = carry.Held.BestGradeOf(productIndex);
                 if (!carry.Held.RemoveOne(productIndex, grade)) return;
+                Sound.Play(Sfx.CrateTake);
 
                 table.Place(slot, productIndex, grade);
                 GameEvents.RaiseItemDisplayed();
@@ -607,7 +612,7 @@ namespace DogShop.Player
             {
                 int productIndex = table.ProductAt(slot);
                 if (!table.Take(slot)) return;
-                carry.Held.AddOne(productIndex);
+                if (carry.Held.AddOne(productIndex)) Sound.Play(Sfx.CratePut);
             }
         }
 

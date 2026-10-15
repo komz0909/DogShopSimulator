@@ -79,8 +79,18 @@ namespace DogShop.UI
             GUI.Label(new Rect(x, y, w, RowHeight), "오늘 하루 수고했다. 내일 09:00 에 일어난다", body);
             y += RowHeight + Pad;
 
-            if (GUI.Button(new Rect(x, y, w, RowHeight + 8f), "잠자러 가기", UiSkin.Button(UiSkin.Green)))
+            // 시연 3일차엔 잠 대신 도그쇼 — 쇼 없이 4일차로 넘어가지 않게
+            if (Exhibition.ShowPending)
+            {
+                if (UiSkin.Click(new Rect(x, y, w, RowHeight + 8f), "도그쇼 시작", UiSkin.Button(UiSkin.Green))) Exhibition.StartShow();
+                return;
+            }
+
+            if (UiSkin.Click(new Rect(x, y, w, RowHeight + 8f), "잠자러 가기", UiSkin.Button(UiSkin.Green)))
+            {
+                Sound.Play(Sfx.Sleep);
                 time.EndDayNow();
+            }
         }
     }
 }
