@@ -36,15 +36,30 @@ namespace DogShop.Shop
         class Car
         {
             public Transform body;
+            public AudioSource engine;
             public int lane;
             public float speed;
         }
 
         readonly List<Car> cars = new List<Car>();
 
+        /// <summary>
+        /// 지나가는 차 소리. 차마다 자기 소리를 작게 틀고, 크기는 <b>주인공과의 거리</b>로 정한다(카메라가 아니라 —
+        /// 3인칭 카메라는 주인공 뒤로 4.5m 떨어져 있어 가게 안에서도 차도에 가까워진다).
+        /// 주인공이 건물 안(가게·창고·방, z 0 이상)이면 소리를 끈다 — 가게 안에서는 안 들려야 한다. 도그쇼·설정 창에서도 끈다.
+        /// </summary>
+        const float HearRadius = 14f, EngineVolume = 0.35f;
+
+        Transform player;
+        AudioClip engineClip;
+        float engineClipVolume;
+
         void Start()
         {
             if (carPrefabs.Length == 0) return;
+            engineClip = DogShop.Core.Sound.ClipOf(DogShop.Core.Sfx.CarMove, out engineClipVolume);
+            Player.PlayerController pc = FindFirstObjectByType<Player.PlayerController>();
+            if (pc != null) player = pc.transform;
             float length = EastX - WestX;
             for (int lane = 0; lane < Lanes.Length; lane++)
             {
@@ -71,11 +86,39 @@ namespace DogShop.Shop
             go.transform.rotation = Quaternion.Euler(0f, dir > 0f ? 90f : 270f, 0f);
             car.body = go.transform;
             car.speed = Random.Range(MinSpeed, MaxSpeed);
+
+            if (engineClip != null)
+            {
+                car.engine = go.AddComponent<AudioSource>();
+                car.engine.clip = engineClip;
+                car.engine.loop = true;
+                car.engine.playOnAwake = false;
+                car.engine.spatialBlend = 0f;   // 크기는 아래에서 거리로 직접 정한다
+                car.engine.volume = 0f;
+                car.engine.time = Random.Range(0f, engineClip.length);   // 차마다 소리가 겹쳐 한 박자로 울리지 않게
+                car.engine.Play();
+            }
+        }
+
+        /// <summary>차 소리의 바탕 크기. 주인공이 건물 안이거나 도그쇼 중이면 0, 아니면 목록 볼륨 x 효과음 설정 x 작게.</summary>
+        float HearVolume()
+        {
+            if (player == null || player.position.z > 0f) return 0f;   // 가게·창고·방은 z 0 이상 — 안에서는 안 들린다
+            if (Show.DogShow.Running) return 0f;
+            return engineClipVolume * DogShop.Core.Sound.SfxVolume * EngineVolume;
         }
 
         void Update()
         {
             float dt = Time.deltaTime;
+            float hear = dt > 0f ? HearVolume() : 0f;
+            foreach (Car car in cars)
+            {
+                if (car.engine == null || car.body == null) continue;
+                float d = player != null ? Vector2.Distance(new Vector2(player.position.x, player.position.z), new Vector2(car.body.position.x, car.body.position.z)) : HearRadius;
+                float near = Mathf.Clamp01(1f - d / HearRadius);
+                car.engine.volume = hear * near * near;
+            }
             if (dt <= 0f) return;
 
             foreach (Car car in cars)

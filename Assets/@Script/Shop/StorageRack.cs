@@ -37,6 +37,7 @@ namespace DogShop.Shop
         void Awake()
         {
             FitCollider();
+            AimHeadroom.Add(GetComponent<BoxCollider>(), TopY);   // 맨 윗단 물건까지 조준에 잡히게
 
             // 프리팹에 붙은 표시(선반 하나 = 상품 하나 시절)는 쓰지 않는다. 단마다 따로 붙인다
             ProductSlotDisplay legacy = GetComponent<ProductSlotDisplay>();

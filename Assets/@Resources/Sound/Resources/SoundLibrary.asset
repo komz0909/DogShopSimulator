@@ -71,20 +71,20 @@ MonoBehaviour:
     clip: {fileID: 8300000, guid: 95b37181173a84c4da33fc997c0a971b, type: 3}
     volume: 0.8
   - id: PosePerfect
-    clip: {fileID: 8300000, guid: 4850accb7a1cb2541977ff6430831960, type: 3}
-    volume: 0.8
+    clip: {fileID: 8300000, guid: 2558e37f45936ab41aa2f29b0b0048c6, type: 3}
+    volume: 1
   - id: PoseGood
     clip: {fileID: 8300000, guid: 76a88fb1b6034f94bba9d7b902ec1e5a, type: 3}
     volume: 0.8
   - id: PoseMiss
-    clip: {fileID: 8300000, guid: 6ae054c874e1e8d4994605b2f296bada, type: 3}
-    volume: 0.8
+    clip: {fileID: 8300000, guid: ee8977030c2905b4085c2f9c22a72daf, type: 3}
+    volume: 1
   - id: FetchSuccess
     clip: {fileID: 8300000, guid: 2558e37f45936ab41aa2f29b0b0048c6, type: 3}
-    volume: 0.8
+    volume: 1
   - id: FetchFail
     clip: {fileID: 8300000, guid: ee8977030c2905b4085c2f9c22a72daf, type: 3}
-    volume: 0.8
+    volume: 1
   - id: HurdleClear
     clip: {fileID: 8300000, guid: f83cbacad5bfccd4db88053871ff7a79, type: 3}
     volume: 0.8
@@ -132,6 +132,15 @@ MonoBehaviour:
     volume: 0.8
   - id: Click
     clip: {fileID: 8300000, guid: 5550268143b03c048ac2a9119335fc9e, type: 3}
+    volume: 0.8
+  - id: Countdown
+    clip: {fileID: 8300000, guid: c94356f813797194b870ac48a315d71d, type: 3}
+    volume: 0.8
+  - id: Go
+    clip: {fileID: 8300000, guid: be6b31ae03907aa4bb43b3a7c56f2086, type: 3}
+    volume: 0.8
+  - id: CarMove
+    clip: {fileID: 8300000, guid: 75d6683a387554f4cb42e4feda85f967, type: 3}
     volume: 0.8
   bgm:
   - id: DogShow

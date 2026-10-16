@@ -35,7 +35,8 @@ namespace DogShop.Player
         /// 숨긴 벽은 통과하는 Raycast. 마우스 조준(계산대·강아지·상자 고르기)과 가구 배치가 쓴다 —
         /// 벽이 안 보이는데 클릭이 벽에 막히면 아무것도 못 누른다.
         /// </summary>
-        public static bool Raycast(Ray ray, out RaycastHit hit, float range, int mask, QueryTriggerInteraction triggers)
+        public static bool Raycast(Ray ray, out RaycastHit hit, float range, int mask, QueryTriggerInteraction triggers,
+                                   bool skipPlayer = false, float minDistance = 0f)
         {
             hit = default;
             int n = Physics.RaycastNonAlloc(ray, buffer, range, mask, triggers);
@@ -43,6 +44,9 @@ namespace DogShop.Player
             for (int i = 0; i < n; i++)
             {
                 if (Ignores(buffer[i].collider) || buffer[i].distance >= best) continue;
+                // 조준은 주인공 몸을 지나간다 — 진열대 앞에 서서 아래 칸을 겨누면 조준선이 제 몸에 먼저 맞아 E/R 가 먹지 않았다
+                if (skipPlayer && buffer[i].collider is CharacterController) continue;
+                if (buffer[i].distance < minDistance) continue;
                 best = buffer[i].distance;
                 hit = buffer[i];
             }

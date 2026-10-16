@@ -27,6 +27,14 @@ namespace DogShop.Shop
             new Vector3(0.9f, BackZ, 0f),    new Vector3(2.2f, BackZ, 0f),
         };
 
+        /// <summary>
+        /// 시연 모드에서 더 세우는 선반 자리. 뒷벽 오른쪽(x 3~8)은 비어 있다 — 앞벽 쪽은 통로와 포장대라 못 쓴다.
+        /// </summary>
+        static readonly Vector3[] ExhibitionSpots =
+        {
+            new Vector3(3.5f, BackZ, 0f), new Vector3(4.8f, BackZ, 0f), new Vector3(6.1f, BackZ, 0f), new Vector3(7.4f, BackZ, 0f),
+        };
+
         /// <summary>선반 깊이(0.42)의 절반 + 벽과 틈. 앞벽 안쪽 면은 z 6.2, 뒷벽 안쪽 면은 z 10.</summary>
         const float FrontZ = 6.2f + 0.23f;
         const float BackZ = 10f - 0.23f;
@@ -55,11 +63,13 @@ namespace DogShop.Shop
         {
             if (rackPrefab != null)
             {
-                for (int i = 0; i < BaseSpots.Length; i++)
+                // 시연 모드는 Lv 6 상품 13종이 다 들어가게 뒷벽에 4개를 더 세운다
+                int extra = Core.Exhibition.Active ? Mathf.Min(Core.Exhibition.ExtraStorageRacks, ExhibitionSpots.Length) : 0;
+                for (int i = 0; i < BaseSpots.Length + extra; i++)
                 {
                     GameObject instance = Instantiate(rackPrefab, transform);
                     instance.name = "Rack_" + (i + 1);
-                    Vector3 spot = BaseSpots[i];
+                    Vector3 spot = i < BaseSpots.Length ? BaseSpots[i] : ExhibitionSpots[i - BaseSpots.Length];
                     instance.transform.localPosition = new Vector3(spot.x, StorageRack.PivotHeight, spot.y);
                     instance.transform.localRotation = Quaternion.Euler(0f, spot.z, 0f);
                     // 기본 선반은 자리가 세이브에 안 남는다 — 옮길 수 있게 두면 불러올 때마다 제자리로 돌아간다. 못 옮기게 한다

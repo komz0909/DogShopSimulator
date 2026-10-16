@@ -29,10 +29,10 @@ namespace DogShop.Shop
         public static int Stage => SlotCapacity >= 12 ? 3 : SlotCapacity >= 10 ? 2 : 1;
 
         /// <summary>
-        /// 한 번 누를 때 옮기는 개수 = 단계. 창고에서 상자에 담을 때(E)와 상자에서 진열대에 올릴 때(R)에 쓴다.
-        /// 상자가 커져도 한 개씩 옮기면 누르는 횟수만 늘어 큰 상자가 손에 안 느껴졌다.
+        /// 한 번 누를 때 옮기는 개수. 상자 단계와 상관없이 <b>1개</b>다(창고에서 담기 E, 진열대에 올리기 R).
+        /// 단계만큼(2·3개) 옮기던 때가 있었는데, 몇 개가 어디로 갔는지 헷갈려 하나씩으로 되돌렸다(2026-10-16). 단계는 상자 칸 수만 늘린다.
         /// </summary>
-        public static int PerMove => Stage;
+        public const int PerMove = 1;
 
         /// <summary>상자 안에 실제로 보이는 최대 개수. 그 이상은 라벨 숫자로만 표시한다.</summary>
         const int MaxVisible = 4;
@@ -189,10 +189,14 @@ namespace DogShop.Shop
         public void ReturnAllToStorage()
         {
             EnsureCounts();
+            // counts 는 [상품 x 등급 레인] — 칸 번호를 상품 번호로 쓰면 엉뚱한 상품이 창고로 갔다. 레인을 상품·등급으로 되돌린다
             for (int i = 0; i < counts.Length; i++)
             {
                 if (counts[i] <= 0) continue;
-                InventoryManager.Instance.Grant(i, counts[i]);
+                int product = i / Lanes;
+                int lane = i % Lanes;
+                if (lane == 0) InventoryManager.Instance.Grant(product, counts[i]);   // 레인 0 = 등급 없음
+                else for (int n = 0; n < counts[i]; n++) InventoryManager.Instance.StoreGraded(product, (ItemGrade)(lane - 1));
                 counts[i] = 0;
             }
             Total = 0;
@@ -208,15 +212,19 @@ namespace DogShop.Shop
             EnsureCounts();
             ProductCatalog catalog = InventoryManager.Instance.Catalog;
 
+            // 상품별로 센다. counts 는 [상품 x 등급 레인] 배열이라 칸 번호가 상품 번호가 아니다 —
+            // 예전엔 칸 번호로 상품 이름을 찾아 엉뚱한 이름이 찍히고(기본 사료가 "샴푸"로), 뒤쪽 상품은
+            // 카탈로그 범위를 넘어 예외가 났다. 그 예외가 거절 안내를 만들다 터지면 E/R 자체가 먹지 않았다
             StringBuilder text = new StringBuilder();
             int listed = 0;
-            for (int i = 0; i < counts.Length; i++)
+            for (int p = 0; p < catalog.Count; p++)
             {
-                if (counts[i] <= 0) continue;
+                int n = CountOf(p);
+                if (n <= 0) continue;
                 if (listed >= 3) { text.Append(" …"); break; }
                 if (listed > 0) text.Append(" / ");
-                text.Append(catalog.Get(i).nameKo).Append(" ").Append(counts[i]);
-                if (SlotCostOf(i) > 1) text.Append("(2칸)");
+                text.Append(catalog.Get(p).nameKo).Append(" ").Append(n);
+                if (SlotCostOf(p) > 1) text.Append("(2칸)");
                 listed++;
             }
 
@@ -236,9 +244,11 @@ namespace DogShop.Shop
             ProductCatalog catalog = InventoryManager.Instance.Catalog;
 
             int slot = 0;
-            for (int product = 0; product < counts.Length && slot < MaxVisible; product++)
+            // 상품별로(등급 레인을 합쳐서) 세운다. 칸 번호를 상품 번호로 쓰면 다른 상품 모델이 서고 뒤쪽 상품은 예외가 났다
+            for (int product = 0; product < catalog.Count && slot < MaxVisible; product++)
             {
-                for (int n = 0; n < counts[product] && slot < MaxVisible; n++)
+                int have = CountOf(product);
+                for (int n = 0; n < have && slot < MaxVisible; n++)
                 {
                     GameObject created = CreateContent(catalog.Get(product).propPrefab, slot);
                     if (created != null) visible.Add(created);

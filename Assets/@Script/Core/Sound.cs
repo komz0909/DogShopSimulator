@@ -14,6 +14,7 @@ namespace DogShop.Core
         PosePerfect, PoseGood, PoseMiss, FetchSuccess, FetchFail, HurdleClear, HurdleFail,
         LevelUp, Train, Warning, BoxOpen, Settlement, Feed, Bath, Medicine,
         CratePut, CrateTake, CustomerLost, ShopOpen, ShopClose, Click,
+        Countdown, Go, CarMove,
     }
 
     /// <summary>배경음. 한 번에 하나만 흐른다.</summary>
@@ -28,11 +29,12 @@ namespace DogShop.Core
     public static class Sound
     {
         static SoundPlayer player;
+        static SoundLibrary library;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         static void Boot()
         {
-            SoundLibrary library = Resources.Load<SoundLibrary>("SoundLibrary");
+            library = Resources.Load<SoundLibrary>("SoundLibrary");
             if (library == null) { Debug.LogWarning("[Sound] Resources/SoundLibrary 없음 — 소리 없이 진행"); return; }
 
             var go = new GameObject("Sound");
@@ -54,6 +56,19 @@ namespace DogShop.Core
         static float lastWarning = -10f;
 
         public static void Play(Sfx sfx) { if (player != null) player.PlaySfx(sfx); }
+
+        /// <summary>
+        /// 그 효과음의 클립과 목록 볼륨. 거리에 따라 크기가 변하는 소리(지나가는 차처럼)는 자기 AudioSource 로 직접 튼다.
+        /// 효과음 볼륨 설정은 <see cref="SfxVolume"/> 을 곱해 쓴다.
+        /// </summary>
+        public static AudioClip ClipOf(Sfx sfx, out float volume)
+        {
+            volume = 0f;
+            if (library == null) return null;
+            SoundLibrary.Entry e = library.Find(sfx);
+            volume = e.volume;
+            return e.clip;
+        }
 
         /// <summary>배경음을 바꾼다. 이미 그 곡이면 처음부터 다시 틀지 않는다.</summary>
         public static void PlayBgm(Bgm bgm, bool loop = true) { if (player != null) player.PlayBgm(bgm, loop); }

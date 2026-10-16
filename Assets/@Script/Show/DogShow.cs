@@ -295,9 +295,11 @@ namespace DogShop.Show
             for (int n = 3; n >= 1; n--)
             {
                 countdown = n.ToString();
+                Sound.Play(Sfx.Countdown);   // 3, 2, 1 마다
                 yield return Wait(1f);
             }
             countdown = "GO!";
+            Sound.Play(Sfx.Go);
             countdownUntil = Time.time + 0.7f;
         }
 
@@ -333,7 +335,6 @@ namespace DogShop.Show
 
                     if (posePressed && !judged)
                     {
-                        Sound.Play(Sfx.ShowSpace);
                         float diff = Mathf.Abs(ringRadius - targetRadius);
                         if (diff <= perfectHalf) { got = 1f; Flash("PERFECT!", PerfectColor); Sound.Play(Sfx.PosePerfect); }
                         else if (diff <= goodHalf) { got = 0.6f; Flash("GOOD", GoodColor); Sound.Play(Sfx.PoseGood); }
@@ -344,7 +345,7 @@ namespace DogShop.Show
                     yield return null;
                 }
 
-                if (!judged) Flash("MISS", new Color(1f, 0.55f, 0.5f));
+                if (!judged) { Flash("MISS", new Color(1f, 0.55f, 0.5f)); Sound.Play(Sfx.PoseMiss); }   // 안 누르고 넘어가도 MISS 소리
                 hero.Animator.Play(got >= 1f ? DogAnim.WagTail : got > 0f ? DogAnim.Sit : DogAnim.Angry);
                 total += got;
                 ringRadius = -1f;
@@ -453,14 +454,14 @@ namespace DogShop.Show
                 {
                     got++;
                     Flash("정답!", new Color(0.6f, 1f, 0.75f));
-                    Sound.Play(Sfx.FetchSuccess);
+                    Sound.Play(Sfx.FetchSuccess);   // 2단계 성공음
                     Say("잘했어!", 1.4f);
                     hero.Animator.Play(DogAnim.WagTail);
                 }
                 else
                 {
                     Flash(ItemName(broughtItem) + "...", new Color(1f, 0.55f, 0.5f));
-                    Sound.Play(Sfx.FetchFail);
+                    Sound.Play(Sfx.FetchFail);      // 2단계 실패음
                     Say("그게 아닌데...", 1.4f);
                 }
                 subline = "골라 온 것: " + ItemName(broughtItem);

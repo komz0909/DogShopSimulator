@@ -172,6 +172,11 @@ namespace DogShop.Shop
             product = new int[SlotCount];
             stock = new int[SlotCount * Lanes];
             for (int i = 0; i < SlotCount; i++) product[i] = -1;
+
+            // 윗판에 놓인 물건까지 조준에 잡히게(몸통 콜라이더는 윗판 높이에서 끝난다)
+            float top = float.MinValue;
+            for (int i = 0; i < SlotCount; i++) top = Mathf.Max(top, slotHeights[i]);
+            AimHeadroom.Add(GetComponent<BoxCollider>(), top);
         }
 
         bool Valid(int slot) => product != null && slot >= 0 && slot < product.Length;
@@ -205,16 +210,9 @@ namespace DogShop.Shop
                 return false;
             }
 
-            // 빈 칸이라고 아무나 가져가지 못한다 — 한 칸도 못 받은 상품이 먼저다
-            if (product[slot] < 0 && ShelfManager.Instance != null
-                && !ShelfManager.Instance.CanClaimEmptySlot(productIndex, acceptedBulk))
-            {
-                string waiting = ShelfManager.Instance.WaitingName(acceptedBulk);
-                reason = (waiting != null ? waiting : "아직 한 칸도 못 받은 상품")
-                       + " 자리다. 진열대를 더 놓아야 한다";
-                return false;
-            }
-
+            // 빈 칸은 크기만 맞으면 어느 상품이든 올린다. 예전엔 "한 칸도 못 받은 상품이 먼저"라며
+            // 빈 칸을 다른 상품 몫으로 막았는데(측정 봇용 보호 규칙), 상품이 칸보다 많은 시연 모드에서
+            // 플레이어가 올리려는 물건이 계속 거절됐다(2026-10-16). 한 칸에는 한 상품(같은 이름)만이라는 규칙만 남긴다
             // 칸의 <b>모든 등급</b> 합으로 본다. stock 은 [칸 * Lanes + 등급레인] 배열이라 stock[slot] 은 엉뚱한 칸의
             // 한 레인만 읽었다 — 그래서 0/6 칸에 샴푸가 12/6 까지 올라갔다
             if (CountAt(slot) >= CapacityFor(productIndex)) { reason = "이 칸이 가득 찼다"; return false; }
@@ -369,6 +367,9 @@ namespace DogShop.Shop
         /// <summary>상판 앞 모서리·두께를 조준해도 그 칸으로 친다.</summary>
         const float BoardTolerance = 0.06f;
 
+        /// <summary>조준선을 물건 깊이까지 보내 잴 때의 허용치 — 상판 두께만큼.</summary>
+        const float DepthTolerance = 0.02f;
+
         /// <summary>
         /// 조준한 지점이 가리키는 칸.
         ///
@@ -379,7 +380,9 @@ namespace DogShop.Shop
         /// 지금은 ① 조준점 <b>아래에 있는 상판 중 가장 높은 것</b>(물건이 그 위에 놓이므로)을 층으로 고르고
         /// ② 그 층 안에서 좌우·앞뒤 중심이 가장 가까운 칸을 고른다.
         /// </summary>
-        public int SlotAt(Vector3 worldPoint)
+        public int SlotAt(Vector3 worldPoint) => SlotAt(worldPoint, BoardTolerance);
+
+        int SlotAt(Vector3 worldPoint, float tolerance)
         {
             Vector3 local = transform.InverseTransformPoint(worldPoint);
 
@@ -390,7 +393,7 @@ namespace DogShop.Shop
             {
                 float h = slotHeights[i];
                 lowest = Mathf.Min(lowest, h);
-                if (h <= local.y + BoardTolerance && h > floor) floor = h;
+                if (h <= local.y + tolerance && h > floor) floor = h;
             }
             if (floor == float.MinValue) floor = lowest;
 
@@ -408,6 +411,35 @@ namespace DogShop.Shop
                 best = i;
             }
             return best;
+        }
+
+        /// <summary>
+        /// 조준선으로 칸을 고른다(E·R). 콜라이더에 맞은 점은 진열대 <b>앞면</b>이라, 물건이 놓인 안쪽보다 앞에 있다 —
+        /// 위에서 내려다보는 3인칭에서는 그 점이 물건보다 높게 잡혀 벽 진열대(칸 간격 0.31m)에서 <b>한 칸 위</b>가 골라졌다.
+        /// 그래서 조준선이 칸들이 놓인 깊이(앞뒤 가운데 면)에 닿는 점으로 고른다. 그 점이 진열대 밖이면 맞은 점을 그대로 쓴다.
+        /// </summary>
+        public int SlotAlong(Ray ray, Vector3 hitPoint)
+        {
+            Vector3 o = transform.InverseTransformPoint(ray.origin);
+            Vector3 d = transform.InverseTransformDirection(ray.direction);
+
+            float depth = 0f;
+            for (int i = 0; i < SlotCount; i++) depth += CenterZOf(i);
+            depth /= Mathf.Max(1, SlotCount);
+
+            BoxCollider body = GetComponent<BoxCollider>();
+            if (body != null && Mathf.Abs(d.z) > 0.05f)
+            {
+                float t = (depth - o.z) / d.z;
+                Vector3 p = o + d * t;
+                Vector3 c = body.center, h = body.size * 0.5f;
+                bool inside = t > 0f
+                    && Mathf.Abs(p.x - c.x) <= h.x + 0.05f
+                    && p.y >= c.y - h.y - 0.05f && p.y <= c.y + h.y + AimHeadroom.Height;
+                // 물건 깊이에서 잰 높이는 정확하다 — 앞 모서리용 허용치(6cm)를 주면 물건 윗부분(다음 판 6cm 아래)이 윗칸으로 넘어간다
+                if (inside) return SlotAt(transform.TransformPoint(p), DepthTolerance);
+            }
+            return SlotAt(hitPoint);
         }
 
         // ---- 배치 ----

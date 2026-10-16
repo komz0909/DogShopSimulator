@@ -23,6 +23,9 @@ namespace DogShop.Player
     {
         const float RayRange = 60f;
         const float InteractRange = 3.5f;
+
+        /// <summary>조준선이 이만큼보다 더 카메라 쪽(주인공 등 뒤)에서 맞은 것은 무시한다.</summary>
+        const float BehindMargin = 1f;
         const float LabelWidth = 200f;
         const float LabelRange = 6f;
 
@@ -174,7 +177,7 @@ namespace DogShop.Player
 
                 // 어느 칸인지는 <b>조준한 높이</b>가 정한다. 벽 진열대처럼 위아래 두 칸이면
                 // 플레이어가 보는 칸에 놓인다 — 칸 고르는 키를 따로 만들 이유가 없다.
-                int slot = shelf.SlotAt(hit.point);
+                int slot = shelf.SlotAlong(aimRay, hit.point);   // 앞면이 아니라 물건이 놓인 깊이로 칸을 고른다
 
                 if (load) ActionRunner.TryRun(new TakeFromShelfAction(carry, shelf, slot));
                 else ActionRunner.TryRun(new PlaceOneAction(carry, shelf, slot));
@@ -273,13 +276,23 @@ namespace DogShop.Player
         /// </summary>
         static bool IsGround(RaycastHit hit) => hit.normal.y > 0.7f && hit.point.y <= GroundLevel;
 
+        /// <summary>마지막 조준선. 진열대 칸은 맞은 점이 아니라 이 선으로 고른다(<see cref="ShelfTable.SlotAlong"/>).</summary>
+        Ray aimRay;
+
         bool Aim(out RaycastHit hit)
         {
             hit = default;
             if (cam == null) return false;
 
             Vector2 screenPos = PointerMenus.PickPosition();
-            return WallCutaway.Raycast(cam.ScreenPointToRay(screenPos), out hit, RayRange, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Collide);   // 숨긴 벽은 통과
+            Ray ray = cam.ScreenPointToRay(screenPos);
+            aimRay = ray;
+
+            // 3인칭 카메라와 주인공 사이에 있는 것은 주인공 <b>등 뒤</b>다 — 겨눈 대상일 리 없다.
+            // 창고 앞벽 선반을 겨누면 조준선이 등 뒤 뒷벽 선반을 먼저 스쳤다. 주인공보다 1m 넘게 카메라 쪽인 것은 건너뛴다(1인칭은 0)
+            float behind = Mathf.Max(0f, Vector3.Dot(player.position - ray.origin, ray.direction) - BehindMargin);
+            return WallCutaway.Raycast(ray, out hit, RayRange, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Collide,
+                                       skipPlayer: true, minDistance: behind);   // 숨긴 벽은 통과
         }
 
         Vector2 ScreenPointOf(Vector3 worldPoint)
@@ -385,7 +398,7 @@ namespace DogShop.Player
                 return true;
             }
 
-            /// <summary>상자 단계만큼(1·2·3개) 담는다. 칸이 차거나 재고가 떨어지면 거기서 멈춘다.</summary>
+            /// <summary>PerMove(1개)만큼 담는다. 칸이 차거나 재고가 떨어지면 거기서 멈춘다.</summary>
             public void Execute()
             {
                 for (int n = 0; n < CarryCrate.PerMove; n++)
@@ -553,7 +566,7 @@ namespace DogShop.Player
                 return table.CanPlace(slot, productIndex, out reason);
             }
 
-            /// <summary>상자 단계만큼(1·2·3개) 올린다. 칸이 차거나 상자에서 그 물건이 떨어지면 거기서 멈춘다.</summary>
+            /// <summary>PerMove(1개)만큼 올린다. 칸이 차거나 상자에서 그 물건이 떨어지면 거기서 멈춘다.</summary>
             public void Execute()
             {
                 for (int n = 0; n < CarryCrate.PerMove; n++)
@@ -611,8 +624,12 @@ namespace DogShop.Player
             public void Execute()
             {
                 int productIndex = table.ProductAt(slot);
-                if (!table.Take(slot)) return;
-                if (carry.Held.AddOne(productIndex)) Sound.Play(Sfx.CratePut);
+                // 등급품은 등급째로 되담는다 — 예전엔 등급 없이 담겨 상자에서 나온 좋은 물건이 보통 물건이 됐다.
+                // 상자가 못 받으면 진열대에 도로 놓는다(물건이 사라지는 길을 만들지 않는다)
+                ItemGrade grade = table.GradeAt(slot);
+                if (!table.Take(slot, grade)) return;
+                if (carry.Held.AddOne(productIndex, grade)) Sound.Play(Sfx.CratePut);
+                else table.Place(slot, productIndex, grade);
             }
         }
 

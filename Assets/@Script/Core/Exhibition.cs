@@ -26,17 +26,22 @@ namespace DogShop.Core
         public const int Days = 3;
 
         /// <summary>
-        /// 가게 Lv 3 에서 시작한다. Lv 1 은 상품이 사료·샴푸 두 가지뿐이라 가게를 맛보기엔 너무 비었다.
-        /// Lv 3 이면 상품 5종(사료·샴푸·약품·목줄·강아지껌), 훈련 4종, 운동 2종, 하루 훈련 3번이 열린다.
-        /// 넓이는 Lv 1 과 같아(8m) 가게 모양이 달라지지 않는다.
+        /// 가게 Lv 6 에서 시작한다. Lv 1 은 상품이 사료·샴푸 두 가지뿐이라 가게를 맛보기엔 너무 비었다.
+        /// Lv 6 이면 상품 13종, 훈련 7종 전부, 운동 3종, 하루 훈련 3번이 열리고 가게도 한 번 넓어진(9.5m) 모습이다.
         /// </summary>
-        public const int StartLevel = 3;
+        public const int StartLevel = 6;
+
+        /// <summary>
+        /// 기본 창고 선반(4개, 12단)에 더해 뒷벽에 세우는 선반 수. Lv 6 상품 13종이 한 단씩 다 들어가고 남는다.
+        /// 자리는 <see cref="Shop.StorageManager"/> 가 정한다(창고 뒷벽 x 3.5~7.4).
+        /// </summary>
+        public const int ExtraStorageRacks = 4;
 
         /// <summary>시작 자금. 발주·훈련·운동을 망설이지 않고 해 볼 만큼(본편 900원).</summary>
         public const int StartMoney = 3000;
 
         /// <summary>열린 상품마다 창고에 깔아 두는 수. 첫날 발주하지 않아도 바로 진열하고 팔 수 있게.</summary>
-        public const int StartStockPerProduct = 12;
+        public const int StartStockPerProduct = 10;
 
         /// <summary>
         /// 시작 능력치(미모·훈련도·어질리티). 0 에서 3일 만에 쇼에 나가면 네 종목이 전부 최저 난이도에 묶인다.
