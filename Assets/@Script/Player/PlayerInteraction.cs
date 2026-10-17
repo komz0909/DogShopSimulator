@@ -505,9 +505,18 @@ namespace DogShop.Player
 
             public void Execute()
             {
-                if (!carry.Held.RemoveOne(productIndex)) return;
+                // 등급 없는 것부터. 진열대에서 되담은 등급품만 남았으면 등급째로 창고에 넣는다 —
+                // 예전엔 등급 없는 칸만 빼려다 실패해 R 을 눌러도 아무 일이 없었다
+                if (carry.Held.RemoveOne(productIndex))
+                {
+                    Sound.Play(Sfx.CrateTake);
+                    InventoryManager.Instance.Store(productIndex);
+                    return;
+                }
+                ItemGrade grade = carry.Held.BestGradeOf(productIndex);
+                if (grade == ItemGrade.None || !carry.Held.RemoveOne(productIndex, grade)) return;
                 Sound.Play(Sfx.CrateTake);
-                InventoryManager.Instance.Store(productIndex);
+                InventoryManager.Instance.StoreGraded(productIndex, grade);
             }
         }
 

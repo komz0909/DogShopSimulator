@@ -65,11 +65,11 @@ MonoBehaviour:
     clip: {fileID: 8300000, guid: ac42a478a5646a24b8b5b443d1ad2268, type: 3}
     volume: 0.8
   - id: TrackSuccess
-    clip: {fileID: 8300000, guid: e2945888bf93e3f4eaff1e980c66f06d, type: 3}
-    volume: 0.8
+    clip: {fileID: 8300000, guid: 2558e37f45936ab41aa2f29b0b0048c6, type: 3}
+    volume: 1
   - id: TrackFail
-    clip: {fileID: 8300000, guid: 95b37181173a84c4da33fc997c0a971b, type: 3}
-    volume: 0.8
+    clip: {fileID: 8300000, guid: ee8977030c2905b4085c2f9c22a72daf, type: 3}
+    volume: 1
   - id: PosePerfect
     clip: {fileID: 8300000, guid: 2558e37f45936ab41aa2f29b0b0048c6, type: 3}
     volume: 1

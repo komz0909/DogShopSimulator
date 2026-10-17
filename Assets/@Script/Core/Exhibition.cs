@@ -80,7 +80,22 @@ namespace DogShop.Core
             GameManager.Instance != null && IsShowDay(GameManager.Instance.Day)
             && Show.ChampionshipManager.Instance != null && !Show.ChampionshipManager.Instance.HasShowResult;
 
-        /// <summary>도그쇼 시작 화면을 연다(본편 30일차와 같은 화면). 열었으면 true.</summary>
-        public static bool StartShow() => Show.DogShow.Instance != null && Show.DogShow.Instance.BeginExhibitionShow();
+        /// <summary>
+        /// 도그쇼 시작 화면을 연다(본편 30일차와 같은 화면). 열었으면 true.
+        /// 쇼가 이미 돌고 있거나 하루가 끝났으면 그냥 false. 그 밖의 이유(무대·출전견 없음)로 못 열면
+        /// 알리고 하루를 끝낸다 — 침대·21시 안내가 쇼 시작으로만 바뀌어 있어 3일차에서 영영 못 넘어갔다.
+        /// </summary>
+        public static bool StartShow()
+        {
+            Show.DogShow show = Show.DogShow.Instance;
+            if (show != null && Show.DogShow.Running) return false;
+            if (show != null && show.BeginExhibitionShow()) return true;
+
+            TimeManager time = TimeManager.Instance;
+            if (time == null || time.IsDayOver) return false;
+            ActionRunner.Reject("도그쇼를 열 수 없어 오늘을 마친다");
+            time.EndDayNow();
+            return false;
+        }
     }
 }

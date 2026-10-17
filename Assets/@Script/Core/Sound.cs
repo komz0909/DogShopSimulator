@@ -141,6 +141,15 @@ namespace DogShop.Core
         public void PlayBgm(Bgm id, bool loop)
         {
             if (id == Current && !switching) return;
+            if (switching && id == pending) return;
+            // 바꾸는 도중에 지금 곡을 다시 부르면(컷신을 페이드 중에 건너뜀) 바꾸기를 취소한다 — 처음부터 다시 틀지 않는다
+            if (switching && id == Current && bgm.isPlaying)
+            {
+                switching = false;
+                fade = 1f;
+                Apply();
+                return;
+            }
             pending = id;
             pendingLoop = loop;
             switching = true;

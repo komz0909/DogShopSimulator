@@ -121,8 +121,9 @@ namespace DogShop.Show
         {
             int level = ShopLevelManager.Instance.Level;
 
+            // 도그쇼를 실제로 치렀으면 출전 자격은 따지지 않는다 — 순위표까지 본 뒤 "무대에 서지 못했다"가 나왔다
             string reason;
-            if (!champ.CanEnter(hero, out reason))
+            if (!champ.HasShowResult && !champ.CanEnter(hero, out reason))
             {
                 resultLine = "챔피언십 출전 불가: " + reason;
                 gradeLine = "최종 랭크  " + champ.FinalGrade(champ.RivalCount + 1, level, g.Money);

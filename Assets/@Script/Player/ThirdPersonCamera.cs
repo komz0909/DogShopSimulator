@@ -88,7 +88,12 @@ namespace DogShop.Player
             ApplyMode();
         }
 
-        void OnDisable() => Cursor.lockState = CursorLockMode.None;
+        // 잠금만 풀면 커서가 숨은 채 남는다(도그쇼가 카메라를 끌 때) — 같이 보이게 한다
+        void OnDisable()
+        {
+            Cursor.lockState = CursorLockMode.None;
+            Cursor.visible = true;
+        }
 
         void LateUpdate()
         {

@@ -63,6 +63,7 @@ namespace DogShop.Show
 
         GUIStyle textStyle;
         GUIStyle hintStyle;
+        GUIStyle skipStyle;
 
         void Awake()
         {
@@ -196,6 +197,13 @@ namespace DogShop.Show
                 hintStyle = new GUIStyle(UiSkin.Caption) { alignment = TextAnchor.MiddleRight };
             }
 
+            // 글자는 화면 크기를 따라간다(1080p 에서 자막 35 · 안내 21). 예전엔 픽셀 고정(24)이라 큰 화면에서 작았다
+            float k = UiSkin.ScreenScale;
+            textStyle.fontSize = Mathf.RoundToInt(30f * k);
+            hintStyle.fontSize = Mathf.RoundToInt(18f * k);
+            if (skipStyle == null || skipStyle.font != UiSkin.Font) skipStyle = new GUIStyle(UiSkin.Button(UiSkin.Cream));
+            skipStyle.fontSize = Mathf.RoundToInt(20f * k);
+
             GUI.depth = -100;
             Rect screen = new Rect(0f, 0f, Screen.width, Screen.height);
 
@@ -217,10 +225,11 @@ namespace DogShop.Show
             GUI.Label(new Rect(Pad * 2f, bandRect.y + Pad * 0.5f, Screen.width - Pad * 4f, band - Pad * 1.6f),
                 Fill(slide.text), textStyle);
 
-            GUI.Label(new Rect(Pad, Screen.height - Pad * 1.4f, Screen.width - Pad * 2f, Pad),
+            GUI.Label(new Rect(Pad, Screen.height - Pad * 1.6f * k, Screen.width - Pad * 2f, Pad * 1.3f * k),
                 (index + 1) + " / " + playing.Length + "     클릭/Space: 다음", hintStyle);
 
-            if (UiSkin.Click(new Rect(Screen.width - 120f - Pad, Pad, 120f, 36f), "건너뛰기", UiSkin.Button(UiSkin.Cream)))
+            float skipW = 150f * k, skipH = 46f * k;
+            if (UiSkin.Click(new Rect(Screen.width - skipW - Pad, Pad, skipW, skipH), "건너뛰기", skipStyle))
             {
                 Finish(true);
                 return;

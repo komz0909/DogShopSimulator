@@ -241,24 +241,28 @@ namespace DogShop.UI
         {
             DrawTitleImage(Screen.height * 0.12f, Mathf.Min(150f, Screen.height * 0.16f));
 
-            GUI.Label(new Rect(0f, Screen.height * 0.22f, Screen.width, 26f),
+            // 안내 한 줄 — 하늘 위라 밝은 글씨는 안 보였다. 진한 색으로, 화면 크기를 따라 키운다
+            var guide = new GUIStyle(UiSkin.Caption) { fontSize = Mathf.RoundToInt(22f * UiSkin.ScreenScale) };
+            guide.normal.textColor = UiSkin.Ink;
+            GUI.Label(new Rect(0f, Screen.height * 0.21f, Screen.width, 40f * UiSkin.ScreenScale),
                 exhibitionPick ? "시연 모드 (3일): 함께할 강아지를 골라 보자. 3일차에 도그쇼에 나간다"
-                               : "함께 지낼 강아지를 골라 보자. 누르면 자세히 볼 수 있다", UiSkin.Caption);
+                               : "함께 지낼 강아지를 골라 보자. 누르면 자세히 볼 수 있다", guide);
 
             float width = breeds.Length * CardWidth + (breeds.Length - 1) * Gap;
             float x = (Screen.width - width) * 0.5f;
-            float y = Screen.height * 0.5f - CardHeight * 0.42f;
 
-            // 견종이 6종이라 카드 줄이 1280px 이다. 화면이 그보다 좁으면 줄 전체를 가운데 기준으로 줄인다
-            float fit = Mathf.Min(1f, (Screen.width - 40f) / width);
+            // 카드 줄(설계 1280x316)을 화면에 맞춰 키운다 — 1080p 에서 약 1.27배(UiSkin.Boost x 1.1).
+            // 예전엔 픽셀 그대로라 카드와 소개 글(12)이 작았다. 화면이 좁으면 폭에, 낮으면 높이에 맞춰 줄인다
+            float fit = Mathf.Min(UiSkin.ScreenScale * 1.1f, (Screen.width - 40f) / width, Screen.height * 0.5f / CardHeight);
+            float y = Screen.height * 0.5f - CardHeight * fit * 0.42f;
             Matrix4x4 before = GUI.matrix;
-            if (fit < 1f) GUIUtility.ScaleAroundPivot(new Vector2(fit, fit), new Vector2(Screen.width * 0.5f, y));
+            GUIUtility.ScaleAroundPivot(new Vector2(fit, fit), new Vector2(Screen.width * 0.5f, y));
             DrawBreeds(x, y);
             GUI.matrix = before;
 
             // 시작은 소개 카드의 [확인]이 맡는다. 여기는 뒤로만
-            float bw = 240f, bh = bw / BoneAspect;
-            float by = y + CardHeight + 30f;
+            float bw = 240f * Mathf.Max(1f, UiSkin.ScreenScale), bh = bw / BoneAspect;
+            float by = Mathf.Min(y + CardHeight * fit + 24f, Screen.height - bh - 8f);
             if (BoneButton(new Rect((Screen.width - bw) * 0.5f, by, bw, bh), "뒤로"))
             {
                 page = Page.Home;
@@ -312,13 +316,14 @@ namespace DogShop.UI
                 // 몸집과 속도. 견종을 고르는 것이 겉모습만의 일이 아니라는 걸 숫자로 보여 준다
                 float tagY = art ? card.y + 224f : portrait.yMax + 34f;
                 float tagW = (card.width - 28f) * 0.5f;
+                // 딱지 글은 카드 배율을 같이 받으므로 기본 딱지 글꼴(16)보다 작게 — 그대로 두면 딱지 밖으로 넘쳤다
                 GUI.Box(new Rect(card.x + 10f, tagY, tagW, 24f),
-                    "몸길이 " + breeds[i].bodyLength.ToString("0.0") + "m", UiSkin.Tag(UiSkin.Cream));
+                    "몸길이 " + breeds[i].bodyLength.ToString("0.0") + "m", new GUIStyle(UiSkin.Tag(UiSkin.Cream)) { fontSize = 13 });
                 GUI.Box(new Rect(card.x + 18f + tagW, tagY, tagW, 24f),
-                    "달리기 " + breeds[i].runSpeed.ToString("0.0"), UiSkin.Tag(UiSkin.Sky));
+                    "달리기 " + breeds[i].runSpeed.ToString("0.0"), new GUIStyle(UiSkin.Tag(UiSkin.Sky)) { fontSize = 13 });
 
                 // 소개 글은 두세 줄이라 카드 아래 끝까지 쓴다(예전 한 줄 반짜리 칸에서는 셋째 줄이 잘렸다)
-                var blurb = new GUIStyle(UiSkin.Label) { alignment = TextAnchor.UpperCenter, fontSize = 12 };
+                var blurb = new GUIStyle(UiSkin.Label) { alignment = TextAnchor.UpperCenter, fontSize = 14 };   // 12 -> 14
                 if (art) blurb.normal.textColor = UiSkin.Ink;
                 GUI.Label(new Rect(card.x + 12f, tagY + 29f, card.width - 24f, card.yMax - tagY - 36f), breeds[i].blurb, blurb);
 
@@ -488,10 +493,10 @@ namespace DogShop.UI
             }
 
             // 오른쪽 정보판
-            Rect panel = R(0.665f, 0.10f, 0.985f, 0.76f);
+            Rect panel = R(0.645f, 0.09f, 0.99f, 0.79f);   // 글자를 키우며 판도 넓혔다(0.665~0.985 / 0.10~0.76 이던 것)
             GUI.DrawTexture(panel, RoundedPanel(), ScaleMode.StretchToFill);
             float px = panel.x + S * 0.025f, pw = panel.width - S * 0.05f;
-            float y = panel.y + S * 0.022f, line = S * 0.05f;
+            float y = panel.y + S * 0.022f, line = S * 0.053f;   // 판이 커진 만큼 줄 간격도(0.05)
 
             Icon(new Rect(px, y, line, line), iconPaw, "🐾");
             GUI.Label(new Rect(px + line * 1.15f, y - S * 0.004f, pw - line, line), breed.nameKo, cardTitle);
@@ -638,6 +643,7 @@ namespace DogShop.UI
             float S = Mathf.Min(Screen.height * 0.94f, Screen.width * 0.66f);
             if (Mathf.Abs(stylesFor - S) < 1f && cardTitle != null) return;
             stylesFor = S;
+            // 글자 크기는 카드 크기(S)의 비율이다. 피드백(글자가 작다)으로 전부 15% 가량 키웠다(2026-10-17)
             Color cream = new Color(1f, 0.97f, 0.9f);
             GUIStyle Make(float size, TextAnchor anchor, Color color)
             {
@@ -645,17 +651,17 @@ namespace DogShop.UI
                 st.normal.textColor = color;
                 return st;
             }
-            cardTitle = Make(0.036f, TextAnchor.MiddleLeft, cream);
-            cardTag = Make(0.02f, TextAnchor.MiddleCenter, new Color(0.35f, 0.22f, 0.2f));
-            cardText = Make(0.022f, TextAnchor.MiddleLeft, cream);
-            cardRowLabel = Make(0.02f, TextAnchor.MiddleLeft, cream);
+            cardTitle = Make(0.043f, TextAnchor.MiddleLeft, cream);
+            cardTag = Make(0.023f, TextAnchor.MiddleCenter, new Color(0.35f, 0.22f, 0.2f));
+            cardText = Make(0.026f, TextAnchor.MiddleLeft, cream);
+            cardRowLabel = Make(0.025f, TextAnchor.MiddleLeft, cream);
             cardRowLabel.wordWrap = false;
-            cardAccentLeft = Make(0.022f, TextAnchor.MiddleLeft, new Color(1f, 0.82f, 0.35f));
-            cardSmallNote = Make(0.0145f, TextAnchor.MiddleLeft, new Color(1f, 0.9f, 0.75f, 0.85f));
+            cardAccentLeft = Make(0.027f, TextAnchor.MiddleLeft, new Color(1f, 0.82f, 0.35f));
+            cardSmallNote = Make(0.0175f, TextAnchor.MiddleLeft, new Color(1f, 0.9f, 0.75f, 0.85f));
             cardSmallNote.wordWrap = false;
-            cardStarGlyph = Make(0.026f, TextAnchor.MiddleCenter, Color.white);
-            cardBody = Make(0.019f, TextAnchor.UpperLeft, cream);
-            cardHint = Make(0.019f, TextAnchor.MiddleCenter, new Color(0.55f, 0.52f, 0.5f));
+            cardStarGlyph = Make(0.028f, TextAnchor.MiddleCenter, Color.white);
+            cardBody = Make(0.024f, TextAnchor.UpperLeft, cream);
+            cardHint = Make(0.022f, TextAnchor.MiddleCenter, new Color(0.55f, 0.52f, 0.5f));
             cardField = null;
         }
 

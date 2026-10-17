@@ -30,7 +30,7 @@ namespace DogShop.Shop
             if (Instance != null && Instance != this) { Destroy(this); return; }
             Instance = this;
 
-            // 시연 모드는 Lv 3 에서 시작한다(상품·훈련이 고르게 열린 가게). Start 의 ApplyFloor 가 넓이를 맞춘다
+            // 시연 모드는 Exhibition.StartLevel(Lv 6) 에서 시작한다(상품·훈련이 고르게 열린 가게). Start 의 ApplyFloor 가 넓이를 맞춘다
             if (Exhibition.Active) Level = Exhibition.StartLevel;
         }
 

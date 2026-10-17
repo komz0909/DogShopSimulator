@@ -43,7 +43,9 @@ namespace DogShop.Show
         ///   기울기 = 흔들림(최대 약 8도) + 쏠림(가장자리에서 8도), 미끄러짐 가속 = g sin(기울기) x 0.8, 감쇠 2/초
         ///   12도에서 미끄러지는 끝속도 약 0.8m/s — 테이블 위 걸음(달리기의 절반, 1.1m/s~)으로 버틸 수 있다
         /// </summary>
-        const float TableWobbleA = 7f, TableWobbleB = 4f, TableLean = 11f, SlideGain = 0.8f, SlideDamp = 2f;   // 처음 값(5, 3, 8)은 기울기가 약하다는 의견으로 키웠다
+        // 처음 값(5, 3, 8)은 기울기가 약하다는 의견으로 (7, 4, 11)로, 다시 "크게 더 기울게" 의견으로 (9, 5.5, 15)로 키웠다(2026-10-17).
+        // 판이 1.5m 로 넓어진 만큼 가장자리까지 미끄러질 길이 길어 더 기울어도 바로 떨어지지는 않는다
+        const float TableWobbleA = 9f, TableWobbleB = 5.5f, TableLean = 15f, SlideGain = 0.8f, SlideDamp = 2f;
         /// <summary>
         /// 테이블 난이도(0~1). DogShow 가 강아지 종합 스탯을 넣는다. 높을수록 덜·천천히 기운다 —
         /// 잘 키운 강아지는 거의 서 있기만 해도 되고, 덜 키웠으면 계속 반대로 버텨야 한다.
@@ -138,7 +140,7 @@ namespace DogShop.Show
             Add(Kind.DogWalk, "도그 워크", new Vector3(4.5f, 0f, -7.3f), 90f, new Vector3(0.75f, 0.6f, 4.2f));
             Add(Kind.Weave, "위브", new Vector3(3.8f, 0f, -10.6f), -90f, new Vector3(1.4f, 0.9f, PoleCount * PoleGap));
             Add(Kind.Seesaw, "시소", new Vector3(-3.4f, 0f, -10.6f), -90f, new Vector3(0.5f, 0.4f, 3.0f));
-            Add(Kind.Table, "테이블", new Vector3(-7.3f, 0f, -10.6f), -90f, new Vector3(1.0f, 0.35f, 1.0f));
+            Add(Kind.Table, "테이블", new Vector3(-7.3f, 0f, -10.6f), -90f, new Vector3(1.5f, 0.35f, 1.5f));   // 1.0 -> 1.5m(크게, 더 기울게 2026-10-17)
             Next = 0;
             Falls = Touches = WeaveMisses = Skips = 0;
             PenaltyPoints = 0;

@@ -209,6 +209,9 @@ namespace DogShop.Show
             Silence<GameSettings>();
             Silence<Debugging.DebugHud>();
             PointerMenus.SetOpen(this, true);   // 커서를 풀어 둔다
+            // 1인칭(커서 잠금)에서 G 로 바로 열면 커서가 숨은 채 남았다 — 쇼 버튼을 눌러야 하니 직접 보이게 한다
+            Cursor.lockState = CursorLockMode.None;
+            Cursor.visible = true;
         }
 
         void Silence<T>() where T : Behaviour
@@ -1670,11 +1673,14 @@ namespace DogShop.Show
         static Texture2D arrowTex;
 
         /// <summary>
-        /// 오른쪽을 보는 굵은 화살표(흰 속, 갈색 테두리). 글꼴에 → 글리프가 없어 그림으로 굽는다.
-        /// 왼쪽은 좌우를 뒤집어 그린다. 색은 GUI.color 로 입힌다.
+        /// 오른쪽을 보는 굵은 화살표(크림 속, 갈색 테두리, 발바닥 무늬) — Resources/T_UI_WeaveArrow.png.
+        /// 다른 방향은 DrawArrow 가 돌려 그리고, 색은 GUI.color 로 입힌다.
+        /// 그림이 없으면 예전처럼 단순한 화살표를 굽는다(글꼴에 → 글리프가 없다).
         /// </summary>
         static Texture2D ArrowTexture()
         {
+            if (arrowTex != null) return arrowTex;
+            arrowTex = Resources.Load<Texture2D>("T_UI_WeaveArrow");
             if (arrowTex != null) return arrowTex;
             const int W = 128, H = 104, Edge = 7;
             bool Inside(float x, float y)
@@ -1713,7 +1719,13 @@ namespace DogShop.Show
             Matrix4x4 m = GUI.matrix;
             Color keep = GUI.color;
             GUI.color = tint;
-            GUIUtility.RotateAroundPivot((dir - 1) * 90f, r.center);   // 오른쪽(1)이 0도, 시계 방향이 +
+            // 오른쪽(1)이 0도, 시계 방향이 +. GUIUtility.RotateAroundPivot 은 배율 행렬(guiScale)이 걸려 있으면 축이 어긋나
+            // 화살표가 창 밖으로 튀어 나갔다 — 축을 화면 좌표로 옮겨 직접 돌린다
+            // 왼쪽(3)은 돌리지 않고 좌우로 뒤집는다 — 180도 돌리면 발바닥 무늬가 거꾸로 선다
+            Vector3 pivot = m.MultiplyPoint3x4(new Vector3(r.center.x, r.center.y, 0f));
+            bool mirror = dir == 3;
+            GUI.matrix = Matrix4x4.TRS(pivot, Quaternion.Euler(0f, 0f, mirror ? 0f : (dir - 1) * 90f), mirror ? new Vector3(-1f, 1f, 1f) : Vector3.one)
+                       * Matrix4x4.TRS(-pivot, Quaternion.identity, Vector3.one) * m;
             GUI.DrawTexture(r, ArrowTexture(), ScaleMode.ScaleToFit);
             GUI.matrix = m;
             GUI.color = keep;
