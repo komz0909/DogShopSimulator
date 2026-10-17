@@ -243,14 +243,18 @@ namespace DogShop.Debugging
             // 승급 당일 특급 입고분은 Restock 안에서 문 앞에 떨어지므로 한 번 더 쓸어 담는다
             HaulDelivery();
 
-            TrainHero();
+            // 승급 저축일이면 훈련·단계상승·장식을 쉰다 — 아래 SavingForUpgrade 참고
+            if (!SavingForUpgrade())
+            {
+                TrainHero();
 
-            // 단계상승은 훈련 <b>뒤</b>다. 강화를 걸면 그 훈련을 못 쓰는데,
-            // 오늘 이미 쓴 뒤라면 어차피 쿨타임이라 잃는 슬롯이 없다
-            UpgradeTrainings();
+                // 단계상승은 훈련 <b>뒤</b>다. 강화를 걸면 그 훈련을 못 쓰는데,
+                // 오늘 이미 쓴 뒤라면 어차피 쿨타임이라 잃는 슬롯이 없다
+                UpgradeTrainings();
 
-            // 명성 장식·여분 진열대. 가게·훈련 다음, 상자보다는 먼저
-            BuyFurnitureExtras();
+                // 명성 장식·여분 진열대. 가게·훈련 다음, 상자보다는 먼저
+                BuyFurnitureExtras();
+            }
 
             // 상자는 <b>맨 마지막</b>이다. 재고·진열대·승급·훈련을 다 하고도 남는 돈으로만 산다
             BuyBoxes();
@@ -689,6 +693,32 @@ namespace DogShop.Debugging
         /// 250원 업그레이드를 사고 340원이 남았는데 L2는 하루 재고에 더 큰 돈이 필요해
         /// 가게가 영구 자본 부족에 빠졌다. 레벨은 올랐지만 팔 물건이 없었다.
         /// </summary>
+        /// <summary>연달아 저축할 수 있는 최대 날수. 이만큼 모아도 못 오르면 하루는 훈련하고 다시 모은다.</summary>
+        const int MaxSavingDays = 5;
+        int savingDays;
+
+        /// <summary>
+        /// 오늘은 승급 자금을 모으는 날인가. 명성은 넘었는데 <b>돈만</b> 모자라면
+        /// 훈련·단계상승·장식을 쉬고 그 돈을 승급에 돌린다 — 사람이 며칠 훈련을 쉬고 가게부터 키우는 것과 같다.
+        ///
+        /// 53차 측정: 매일 남는 돈의 절반을 훈련에 쓰니 하루 순이익이 0에 가까워져
+        /// 돈이 1,600~1,900원에 묶였고, 승급 문턱(비용 520 + 승급 뒤 하루치 약 1,100)을 끝내 못 넘어
+        /// 9일차부터 30일차까지 Lv3에 멈췄다(52차도 같은 꼴).
+        /// 끝없이 쉬면 강아지가 안 자라므로 최대 <see cref="MaxSavingDays"/>일만 쉬고 하루는 훈련한다.
+        /// </summary>
+        bool SavingForUpgrade()
+        {
+            ShopLevelManager level = ShopLevelManager.Instance;
+            bool want = level != null && !level.IsMaxLevel
+                        && !(stopUpgradingAt > 0 && level.Level >= stopUpgradingAt)
+                        && GameManager.Instance.Reputation >= level.Next.requiredReputation
+                        && GameManager.Instance.Money < level.Next.upgradeCost + UpgradeReserve();
+            if (!want) { savingDays = 0; return false; }
+            if (savingDays >= MaxSavingDays) { savingDays = 0; return false; }
+            savingDays++;
+            return true;
+        }
+
         void TryUpgrade()
         {
             ShopLevelManager level = ShopLevelManager.Instance;

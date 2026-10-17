@@ -686,10 +686,11 @@ namespace DogShop.Shop
         public void RestoreFrom(SaveData data)
         {
             CopyInto(data.storage, storage);
-            ShelfManager.Instance?.RestoreFrom(data);
             CopyInto(data.incoming, incoming);
             CopyInto(data.delivered, delivered);
             CopyInto(data.graded, graded);
+            // 창고(등급품 포함)를 다 채운 뒤에 진열 칸 — 짝 없는 진열대의 물건은 창고로 되돌리는데, 앞에 두면 덮어써졌다
+            ShelfManager.Instance?.RestoreFrom(data);
             rushDelivery = data.rushDelivery;
 
             ExpressUsedToday = data.expressUsedToday;

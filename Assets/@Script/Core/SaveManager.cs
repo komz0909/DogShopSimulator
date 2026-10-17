@@ -145,6 +145,14 @@ namespace DogShop.Core
         public int[] parcelQuantity = new int[0];
 
         /// <summary>진열대 칸별 상품과 개수. 진열대를 이어 붙인 한 줄이다. -1 은 빈 칸.</summary>
+        /// <summary>
+        /// 진열대마다 서 있던 자리와 칸 수(shelfSlot* 를 진열대 순서대로 이어 붙인 것의 짝).
+        /// 불러올 때 같은 자리·같은 칸 수의 진열대에 칸을 돌려준다 — 목록 순서에만 기대면
+        /// 산 진열대가 다시 세워지는 순서가 바뀔 때 물건이 다른 진열대로 갔다.
+        /// </summary>
+        public Vector3[] shelfTablePosition = new Vector3[0];
+        public int[] shelfTableSlots = new int[0];
+
         public int[] shelfSlotProduct = new int[0];
         public int[] shelfSlotCount = new int[0];
 
@@ -341,10 +349,22 @@ namespace DogShop.Core
             {
                 GameManager.Instance.RestoreFrom(data);
 
+                // 가게 레벨 → 산 가구 → 나머지(재고·진열 칸 등) 순. 같은 순번끼리는 계층 순서를 지킨다(안정 정렬)
                 ISaveParticipant[] participants = FindParticipants();
-                for (int i = 0; i < participants.Length; i++) participants[i].RestoreFrom(data);
+                var ordered = new System.Collections.Generic.List<ISaveParticipant>(participants);
+                var rank = new System.Collections.Generic.Dictionary<ISaveParticipant, int>();
+                for (int i = 0; i < participants.Length; i++)
+                    rank[participants[i]] = RestoreOrderOf(participants[i]) * 1000 + i;
+                ordered.Sort((a, b) => rank[a].CompareTo(rank[b]));
+                for (int i = 0; i < ordered.Count; i++) ordered[i].RestoreFrom(data);
             }
             finally { IsRestoring = false; }
+        }
+
+        static int RestoreOrderOf(ISaveParticipant p)
+        {
+            ISaveRestoreOrder o = p as ISaveRestoreOrder;
+            return o != null ? o.RestoreOrder : 0;
         }
 
         /// <summary>

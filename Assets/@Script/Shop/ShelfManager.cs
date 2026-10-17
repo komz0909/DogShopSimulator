@@ -77,24 +77,99 @@ namespace DogShop.Shop
             data.shelfSlotCount = new int[0];
             data.shelfSlotGrade = new int[0];
 
+            data.shelfTablePosition = new Vector3[tables.Count];
+            data.shelfTableSlots = new int[tables.Count];
+            Player.FurniturePlacer placer = FindAnyObjectByType<Player.FurniturePlacer>();
+
             int offset = 0;
             for (int i = 0; i < tables.Count; i++)
             {
                 tables[i].CaptureInto(data.shelfSlotProduct, data.shelfSlotStock, offset);
                 offset += tables[i].SlotCount;
+
+                // 들고 옮기는 중이면 집어 들기 전 자리 — 산 가구 저장(FurnitureShop)과 같은 자리를 남겨야 짝이 맞는다
+                Vector3 position = tables[i].transform.position;
+                Quaternion unused;
+                PlaceableFurniture furniture = tables[i].GetComponent<PlaceableFurniture>();
+                if (placer != null && furniture != null) { Vector3 home; if (placer.TryGetHome(furniture, out home, out unused)) position = home; }
+                data.shelfTablePosition[i] = position;
+                data.shelfTableSlots[i] = tables[i].SlotCount;
             }
         }
+
+        /// <summary>저장된 칸들(새 형식: 칸 x 등급레인)의 물건을 등급째로 창고에 넣는다.</summary>
+        static void ReturnToStorage(DogShop.Core.SaveData data, int offset, int slots)
+        {
+            InventoryManager inv = InventoryManager.Instance;
+            if (inv == null || data.shelfSlotStock == null) return;
+            const int Lanes = ItemGrades.Count + 1;
+            for (int k = 0; k < slots; k++)
+            {
+                int slot = offset + k;
+                if (slot >= data.shelfSlotProduct.Length) return;
+                int product = data.shelfSlotProduct[slot];
+                if (product < 0 || product >= inv.Catalog.Count) continue;
+                for (int lane = 0; lane < Lanes; lane++)
+                {
+                    int at = slot * Lanes + lane;
+                    if (at >= data.shelfSlotStock.Length) break;
+                    int n = data.shelfSlotStock[at];
+                    if (n <= 0) continue;
+                    if (lane == 0) inv.Store(product, n);
+                    else inv.StoreGraded(product, (ItemGrade)(lane - 1), n);
+                }
+            }
+        }
+
+        /// <summary>같은 진열대로 볼 거리. 산 가구는 저장된 자리 그대로 다시 세우므로 사실상 0 이다.</summary>
+        const float MatchDistance = 0.3f;
 
         public void RestoreFrom(DogShop.Core.SaveData data)
         {
             if (data.shelfSlotProduct == null || data.shelfSlotCount == null) return;
 
-            int offset = 0;
-            for (int i = 0; i < tables.Count; i++)
+            bool byPosition = data.shelfTablePosition != null && data.shelfTableSlots != null
+                              && data.shelfTablePosition.Length > 0 && data.shelfTablePosition.Length == data.shelfTableSlots.Length;
+            if (!byPosition)
             {
-                tables[i].RestoreFrom(data.shelfSlotProduct, data.shelfSlotStock,
-                                      data.shelfSlotCount, data.shelfSlotGrade, offset);
-                offset += tables[i].SlotCount;
+                // 옛 세이브: 진열대 순서대로
+                int offset = 0;
+                for (int i = 0; i < tables.Count; i++)
+                {
+                    tables[i].RestoreFrom(data.shelfSlotProduct, data.shelfSlotStock,
+                                          data.shelfSlotCount, data.shelfSlotGrade, offset);
+                    offset += tables[i].SlotCount;
+                }
+                return;
+            }
+
+            // 저장된 진열대마다 같은 자리·같은 칸 수의 진열대를 찾아 그 칸을 돌려준다
+            var used = new bool[tables.Count];
+            int savedOffset = 0;
+            for (int s = 0; s < data.shelfTableSlots.Length; s++)
+            {
+                int slots = data.shelfTableSlots[s];
+                int best = -1;
+                float bestDistance = MatchDistance;
+                for (int i = 0; i < tables.Count; i++)
+                {
+                    if (used[i] || tables[i].SlotCount != slots) continue;
+                    float d = Vector3.Distance(tables[i].transform.position, data.shelfTablePosition[s]);
+                    if (d <= bestDistance) { best = i; bestDistance = d; }
+                }
+                if (best >= 0)
+                {
+                    used[best] = true;
+                    tables[best].RestoreFrom(data.shelfSlotProduct, data.shelfSlotStock,
+                                             data.shelfSlotCount, data.shelfSlotGrade, savedOffset);
+                }
+                else
+                {
+                    // 짝이 없으면(가구 데이터가 깨졌거나 옛 자리 보정) 그 칸 물건을 버리지 않고 창고로 돌린다
+                    Debug.LogWarning("[Load] 진열대 짝을 못 찾음, 물건은 창고로 — " + data.shelfTablePosition[s] + " 칸 " + slots);
+                    ReturnToStorage(data, savedOffset, slots);
+                }
+                savedOffset += slots;
             }
         }
 

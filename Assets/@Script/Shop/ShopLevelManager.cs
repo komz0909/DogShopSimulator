@@ -6,7 +6,7 @@ using UnityEngine;
 namespace DogShop.Shop
 {
     /// <summary>가게 레벨 1~10. 명성 문턱 + 재화 + 주인공견 스탯 게이트를 모두 만족해야 올라간다.</summary>
-    public class ShopLevelManager : MonoBehaviour, ISaveParticipant
+    public class ShopLevelManager : MonoBehaviour, ISaveParticipant, ISaveRestoreOrder
     {
         public static ShopLevelManager Instance { get; private set; }
 
@@ -113,6 +113,9 @@ namespace DogShop.Shop
         }
 
         public void CaptureInto(SaveData data) => data.shopLevel = Level;
+
+        /// <summary>가장 먼저 — 가게 넓이·칸 수·상자 크기가 레벨에서 나온다(가구·진열·상자 복원이 이 값을 본다).</summary>
+        public int RestoreOrder => -2;
 
         public void RestoreFrom(SaveData data)
         {

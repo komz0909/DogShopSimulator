@@ -14,7 +14,7 @@ namespace DogShop.Shop
     /// 산 가구는 세이브에 남는다. 안 남기면 진열대를 사서 놓아 둔 가게가 불러올 때마다
     /// 처음 두 개로 돌아간다.
     /// </summary>
-    public class FurnitureShop : MonoBehaviour, ISaveParticipant
+    public class FurnitureShop : MonoBehaviour, ISaveParticipant, ISaveRestoreOrder
     {
         /// <summary>배달 온 가구가 서는 자리. 앞마당 오른쪽을 쓴다(배달 더미는 왼쪽부터 찬다).</summary>
         static readonly Vector3 DropSpot = new Vector3(6.6f, 0f, -2.2f);
@@ -267,6 +267,9 @@ namespace DogShop.Shop
             if (ShopSpace.Instance != null) ShopSpace.Instance.Rebake();
             if (CustomerManager.Instance != null) CustomerManager.Instance.RefreshQueue();
         }
+
+        /// <summary>재고(진열 칸)보다 먼저 — 산 진열대가 서 있어야 그 칸에 물건을 되돌릴 수 있다.</summary>
+        public int RestoreOrder => -1;
 
         public void RestoreFrom(SaveData data)
         {
