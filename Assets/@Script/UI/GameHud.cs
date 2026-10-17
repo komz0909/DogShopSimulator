@@ -208,7 +208,8 @@ namespace DogShop.UI
 
             var scaler = canvasGo.GetComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = new Vector2(1920f, 1080f);
+            // 기준 해상도를 줄이면 그만큼 크게 그려진다 — UiSkin.Boost 배(글자가 작다는 피드백, 2026-10-17)
+            scaler.referenceResolution = new Vector2(1920f, 1080f) / UiSkin.Boost;
             scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
             scaler.matchWidthOrHeight = 0.5f;
 

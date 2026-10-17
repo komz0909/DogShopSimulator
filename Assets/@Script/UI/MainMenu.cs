@@ -201,7 +201,7 @@ namespace DogShop.UI
         void DrawHome()
         {
             // 타이틀은 왼쪽 위 가게 위로 크게, 버튼은 오른쪽 아래 — 가운데 거리·하늘은 비워 둔다
-            float s = Mathf.Min(Screen.width / 1920f, Screen.height / 1080f);
+            float s = UiSkin.ScreenScale;   // 버튼 다섯 개 + 로고가 1080p 에서도 화면 안에 든다(버튼 줄 751px)
 
             // 타이틀: 아래 작은 가게 그림을 뺀 로고만(UI_TitleLogo). 없으면 원래 타이틀을 쓴다
             Texture2D logo = titleLogo != null ? titleLogo : titleImage;

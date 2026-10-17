@@ -257,8 +257,8 @@ namespace DogShop.Dogs
 
         // ---- 배치 ----
 
-        /// <summary>창을 화면에 맞추는 배율. 설계 크기보다 작은 화면이면 통째로 줄인다.</summary>
-        float Scale => Mathf.Min(1f, Screen.width * 0.94f / DesignW, Screen.height * 0.94f / DesignH);
+        /// <summary>창 배율. 1080p 에서 UiSkin.Boost 배로 그리고, 화면의 94% 를 넘지 않게 줄인다.</summary>
+        float Scale => UI.UiSkin.ScaleFor(DesignW, DesignH, 0.94f);
 
         Vector2 Origin => new Vector2((Screen.width - DesignW * Scale) * 0.5f, (Screen.height - DesignH * Scale) * 0.5f);
 

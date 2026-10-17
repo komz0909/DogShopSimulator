@@ -20,8 +20,12 @@ namespace DogShop.Shop
         const float WestX = -40f;
         const float EastX = 49f;
 
-        /// <summary>행인 줄(z). 가게 쪽 인도 두 줄(손님 줄보다 차도 쪽), 건너편 인도 두 줄.</summary>
-        static readonly float[] Lanes = { -6.7f, -7.3f, -18.0f, -18.7f };
+        /// <summary>
+        /// 행인 줄(z). 가게 쪽 인도 두 줄(손님 줄 -5.4 보다 차도 쪽), 건너편 인도 두 줄.
+        /// 가로수 줄기가 가게 쪽 z -7.4, 건너편 z -17.6 에 줄지어 있어 예전 줄(-6.7·-7.3 / -18.0·-18.7)은 나무를 뚫고 지나갔다.
+        /// 줄기에서 0.7m 넘게 떨어진 건물 쪽으로 옮겼다(2026-10-17).
+        /// </summary>
+        static readonly float[] Lanes = { -6.0f, -6.6f, -18.4f, -19.0f };
 
         readonly List<StreetWalker> walkers = new List<StreetWalker>();
         float spawnTimer;

@@ -650,7 +650,7 @@ namespace DogShop.Player
         {
             if (labelStyle != null) return;
 
-            labelStyle = new GUIStyle(GUI.skin.box) { fontSize = 14 };
+            labelStyle = new GUIStyle(GUI.skin.box) { fontSize = 16 };
             labelStyle.normal.textColor = Color.white;
             if (uiFont != null) labelStyle.font = uiFont;
 
@@ -660,7 +660,7 @@ namespace DogShop.Player
             crateStyle = new GUIStyle(labelStyle);
             crateStyle.normal.textColor = new Color(0.75f, 1f, 0.8f);
 
-            hintStyle = new GUIStyle(GUI.skin.box) { fontSize = 18 };
+            hintStyle = new GUIStyle(GUI.skin.box) { fontSize = 21 };
             hintStyle.normal.textColor = new Color(1f, 0.93f, 0.6f);
             if (uiFont != null) hintStyle.font = uiFont;
         }

@@ -535,6 +535,7 @@ namespace DogShop.Shop
         {
             c.Label = "";
             c.State = CustomerState.ToExit;
+            c.PassThroughOthers();   // 나가는 길은 남을 밀지도, 남에게 막히지도 않는다
             c.MoveTo(Door);
         }
 

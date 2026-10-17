@@ -179,7 +179,7 @@ namespace DogShop.UI
             GUI.DrawTexture(screen, dim);
 
             Matrix4x4 keep = GUI.matrix;
-            float s = Mathf.Min(Screen.width / 1920f, Screen.height / 1080f);
+            float s = UiSkin.ScaleFor(Width, Height);   // UiSkin.Boost 배, 화면 안에서만
             GUI.matrix = Matrix4x4.Scale(new Vector3(s, s, 1f));
 
             panel = new Rect((Screen.width / s - Width) * 0.5f, (Screen.height / s - Height) * 0.5f, Width, Height);

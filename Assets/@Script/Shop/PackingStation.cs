@@ -243,7 +243,7 @@ namespace DogShop.Shop
             Reset();
         }
 
-        static float UiScale => Mathf.Min(Screen.width / 1920f, Screen.height / 1080f);
+        static float UiScale => UiSkin.ScreenScale;   // 작은 판 하나라 화면 밖으로 나갈 일이 없다
         static Rect PanelRect() { float s = UiScale; return new Rect((Screen.width / s - 420f) * 0.5f, Screen.height / s * 0.62f, 420f, 130f); }
 
         public bool ContainsPoint(Vector2 screenPos)

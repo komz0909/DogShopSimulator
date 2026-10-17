@@ -23,8 +23,11 @@ namespace DogShop.Shop
 
         [SerializeField] float carScale = 0.85f;
 
-        /// <summary>차선(z)과 달리는 방향. 원래 세워 둔 차 자리 그대로다.</summary>
-        static readonly (float z, float dir)[] Lanes = { (-9.8f, 1f), (-15.2f, -1f) };
+        /// <summary>
+        /// 차선(z)과 달리는 방향. 차도는 z -16.5~-8.5(폭 8m)라 한 차선이 4m — 그 가운데(-10.5 / -14.5)로 달린다.
+        /// 예전엔 세워 둔 차 자리(-9.8 / -15.2)를 그대로 써서 양쪽 다 연석에 붙어 달렸다.
+        /// </summary>
+        static readonly (float z, float dir)[] Lanes = { (-10.5f, 1f), (-14.5f, -1f) };
 
         /// <summary>차가 나타나고 사라지는 x — 거리 끝 건물 뒤.</summary>
         const float WestX = -48f, EastX = 58f;

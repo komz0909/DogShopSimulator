@@ -35,7 +35,8 @@ namespace DogShop.Shop
 
         void OnDestroy() { if (IsOpen) PointerMenus.SetOpen(this, false); }
 
-        static float UiScale => Mathf.Min(Screen.width / 1920f, Screen.height / 1080f);
+        /// <summary>창 배율 — 주문이 가장 많을 때의 크기로 화면 안에 맞춘다(UiSkin.Boost 배까지 키움).</summary>
+        static float UiScale => UiSkin.ScaleFor(Width, Pad * 2f + 44f + MaxRows * (RowHeight + 6f) + 40f);
 
         Rect WindowRect()
         {

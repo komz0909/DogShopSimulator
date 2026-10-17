@@ -286,7 +286,7 @@ namespace DogShop.Player
         {
             if (!Active) return;
 
-            GUIStyle style = new GUIStyle(GUI.skin.box) { fontSize = 18 };
+            GUIStyle style = new GUIStyle(GUI.skin.box) { fontSize = 21 };
             style.normal.textColor = held != null && !valid
                 ? new Color(1f, 0.55f, 0.45f)
                 : new Color(0.7f, 1f, 0.75f);

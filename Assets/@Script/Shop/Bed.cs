@@ -14,8 +14,8 @@ namespace DogShop.Shop
     /// </summary>
     public class Bed : MonoBehaviour, IPointerMenu
     {
-        const float Width = 340f;
-        const float RowHeight = 30f;
+        const float Width = 390f;
+        const float RowHeight = 34f;
         const float Pad = 12f;
 
         [SerializeField] string displayName = "잠자리";

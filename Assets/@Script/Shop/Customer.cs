@@ -169,6 +169,18 @@ namespace DogShop.Shop
             transform.rotation = Quaternion.RotateTowards(transform.rotation, Quaternion.LookRotation(facing), TurnSpeed * Time.deltaTime);
         }
 
+        /// <summary>
+        /// 나가는 손님은 다른 손님을 피하지 않고 지나간다. 서로 비키려다 들어오는 손님을 밀어내거나,
+        /// 좁은 문·계산대 앞에서 마주 서서 못 나가는 일이 잦았다.
+        /// 회피를 끄고 우선순위를 가장 낮게(99) 둔다 — 다른 손님은 자기보다 낮은 쪽은 피하지 않으므로 서로 밀지 않는다.
+        /// </summary>
+        public void PassThroughOthers()
+        {
+            if (agent == null) return;
+            agent.obstacleAvoidanceType = ObstacleAvoidanceType.NoObstacleAvoidance;
+            agent.avoidancePriority = 99;
+        }
+
         public void MoveTo(Vector3 target)
         {
             destination = target;

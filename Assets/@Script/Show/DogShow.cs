@@ -624,10 +624,10 @@ namespace DogShop.Show
 
         void DrawBubble(Vector3 world, string text)
         {
-            Vector3 sp = showCamera.WorldToScreenPoint(world);
+            Vector3 sp = GuiPoint(showCamera.WorldToScreenPoint(world));
             if (sp.z <= 0f) return;
             float w = Mathf.Max(60f, text.Length * 18f + 30f);
-            var r = new Rect(sp.x - w * 0.5f, Screen.height - sp.y - 40f, w, 38f);
+            var r = new Rect(sp.x - w * 0.5f, SH - sp.y - 40f, w, 38f);
             GUI.Box(r, GUIContent.none, UiSkin.Panel_);
             GUI.Label(r, text, midStyle);
         }
@@ -1393,9 +1393,28 @@ namespace DogShop.Show
 
         // ---- 화면 ----
 
+        // ---- 화면 배율 ----
+        // 도그쇼 화면은 1080p 픽셀 좌표로 그린다. UiSkin.Boost 배로 키우려고 GUI.matrix 를 걸고,
+        // 화면 크기는 SW·SH(배율로 나눈 값)로 잰다 — 위치가 화면 비율로 정해지니 화면 밖으로 나가지 않는다
+        float guiScale = 1f;
+        float SW => Screen.width / guiScale;
+        float SH => Screen.height / guiScale;
+
+        /// <summary>카메라 화면 좌표(픽셀)를 배율을 건 GUI 좌표로. y 는 그대로 아래에서 위 — 쓰는 쪽이 SH - y 로 뒤집는다.</summary>
+        Vector3 GuiPoint(Vector3 screen) => new Vector3(screen.x / guiScale, screen.y / guiScale, screen.z);
+
         void OnGUI()
         {
             if (!Running) return;
+            guiScale = UiSkin.ScreenScale;
+            Matrix4x4 keep = GUI.matrix;
+            GUI.matrix = Matrix4x4.Scale(new Vector3(guiScale, guiScale, 1f));
+            DrawGui();
+            GUI.matrix = keep;
+        }
+
+        void DrawGui()
+        {
             GUI.depth = -80;
             EnsureStyles();
 
@@ -1403,10 +1422,10 @@ namespace DogShop.Show
 
             // 위쪽 제목 띠
             GUI.color = new Color(0f, 0f, 0f, 0.55f);
-            GUI.DrawTexture(new Rect(0f, 0f, Screen.width, 92f), Texture2D.whiteTexture);
+            GUI.DrawTexture(new Rect(0f, 0f, SW, 92f), Texture2D.whiteTexture);
             GUI.color = Color.white;
-            GUI.Label(new Rect(0f, 10f, Screen.width, 40f), headline, bigStyle);
-            GUI.Label(new Rect(20f, 52f, Screen.width - 40f, 30f), subline, smallStyle);
+            GUI.Label(new Rect(0f, 10f, SW, 40f), headline, bigStyle);
+            GUI.Label(new Rect(20f, 52f, SW - 40f, 30f), subline, smallStyle);
 
             if (phase == Phase.Pose) DrawRing();
             if (phase == Phase.Fetch) { DrawBubbles(); DrawFetch(); }
@@ -1421,7 +1440,7 @@ namespace DogShop.Show
             {
                 var s = new GUIStyle(bigStyle) { fontSize = 96 };
                 s.normal.textColor = countdown == "GO!" ? new Color(0.6f, 1f, 0.75f) : Color.white;
-                GUI.Label(new Rect(0f, Screen.height * 0.36f, Screen.width, 120f), countdown, s);
+                GUI.Label(new Rect(0f, SH * 0.36f, SW, 120f), countdown, s);
             }
             else if (countdown == "GO!") countdown = "";
 
@@ -1429,7 +1448,7 @@ namespace DogShop.Show
             {
                 var s = new GUIStyle(bigStyle) { fontSize = 46 };
                 s.normal.textColor = flashColor;
-                GUI.Label(new Rect(0f, Screen.height * 0.30f, Screen.width, 60f), flashText, s);
+                GUI.Label(new Rect(0f, SH * 0.30f, SW, 60f), flashText, s);
             }
         }
 
@@ -1492,21 +1511,21 @@ namespace DogShop.Show
         void DrawStartButton()
         {
             GUI.color = new Color(0f, 0f, 0f, 0.55f);
-            GUI.DrawTexture(new Rect(0f, 0f, Screen.width, Screen.height), Texture2D.whiteTexture);
+            GUI.DrawTexture(new Rect(0f, 0f, SW, SH), Texture2D.whiteTexture);
             GUI.color = Color.white;
 
-            GUI.Label(new Rect(0f, Screen.height * 0.32f, Screen.width, 44f), headline, bigStyle);
-            GUI.Label(new Rect(0f, Screen.height * 0.32f + 46f, Screen.width, 30f), subline, smallStyle);
+            GUI.Label(new Rect(0f, SH * 0.32f, SW, 44f), headline, bigStyle);
+            GUI.Label(new Rect(0f, SH * 0.32f + 46f, SW, 30f), subline, smallStyle);
 
-            var r = new Rect((Screen.width - 300f) * 0.5f, Screen.height * 0.5f, 300f, 64f);
+            var r = new Rect((SW - 300f) * 0.5f, SH * 0.5f, 300f, 64f);
             if (UiSkin.Click(r, "도그쇼 시작", new GUIStyle(UiSkin.Button(UiSkin.Green)) { fontSize = 24 }))
                 StartCoroutine(RunShow());
         }
 
         void DrawRing()
         {
-            float size = Mathf.Min(Screen.width, Screen.height) * 0.42f;
-            Vector2 c = new Vector2(Screen.width * 0.5f, Screen.height * 0.58f);
+            float size = Mathf.Min(SW, SH) * 0.42f;
+            Vector2 c = new Vector2(SW * 0.5f, SH * 0.58f);
 
             // 목표 원 안쪽 메달(바르코 그림). 판정 띠보다 안쪽에 두어 띠를 가리지 않는다
             if (centerArt != null)
@@ -1544,7 +1563,7 @@ namespace DogShop.Show
         {
             const float rowH = 38f;
             float h = 70f + guideLines.Length * rowH + 90f;
-            var panel = new Rect(Screen.width * 0.5f - 400f, Screen.height * 0.5f - h * 0.5f + 20f, 800f, h);
+            var panel = new Rect(SW * 0.5f - 400f, SH * 0.5f - h * 0.5f + 20f, 800f, h);
             GUI.Box(panel, GUIContent.none, UiSkin.Panel_);
             GUI.Label(new Rect(panel.x, panel.y + 14f, panel.width, 34f), guideTitle, midStyle);
 
@@ -1566,7 +1585,7 @@ namespace DogShop.Show
         /// <summary>출발 전 안내판 — 장애물 6개를 지나는 법과 감점 규칙. [준비완료]를 눌러야 출발한다.</summary>
         void DrawCourseGuide()
         {
-            var panel = new Rect(Screen.width * 0.5f - 350f, Screen.height * 0.5f - 220f, 700f, 450f);
+            var panel = new Rect(SW * 0.5f - 350f, SH * 0.5f - 220f, 700f, 450f);
             GUI.Box(panel, GUIContent.none, UiSkin.Panel_);
             GUI.Label(new Rect(panel.x, panel.y + 12f, panel.width, 32f), "장애물 달리기 안내", midStyle);
 
@@ -1599,7 +1618,7 @@ namespace DogShop.Show
             // 장애물 순서표: 지난 것 초록, 다음 것 하늘색, 남은 것 크림
             float w = 108f, gap = 8f;
             int n = course.Obstacles.Count;
-            float x = (Screen.width - (n * w + (n - 1) * gap)) * 0.5f;
+            float x = (SW - (n * w + (n - 1) * gap)) * 0.5f;
             for (int i = 0; i < n; i++)
             {
                 ObstacleCourse.Obstacle o = course.Obstacles[i];
@@ -1607,26 +1626,26 @@ namespace DogShop.Show
                 GUI.Box(new Rect(x + i * (w + gap), 100f, w, 28f), (i + 1) + ". " + o.nameKo, UiSkin.Tag(c));
             }
 
-            GUI.Label(new Rect(Screen.width - 220f, 100f, 200f, 28f), "시간 " + courseTime.ToString("0.0") + " / " + CourseLimit.ToString("0") + "초", UiSkin.Caption);
+            GUI.Label(new Rect(SW - 220f, 100f, 200f, 28f), "시간 " + courseTime.ToString("0.0") + " / " + CourseLimit.ToString("0") + "초", UiSkin.Caption);
             if (course.PenaltyPoints > 0)
-                GUI.Box(new Rect(Screen.width - 160f, 132f, 120f, 28f), "감점 -" + course.PenaltyPoints, UiSkin.Tag(UiSkin.Coral));
+                GUI.Box(new Rect(SW - 160f, 132f, 120f, 28f), "감점 -" + course.PenaltyPoints, UiSkin.Tag(UiSkin.Coral));
 
             if (course.Finished) return;
             ObstacleCourse.Obstacle next = course.Obstacles[course.Next];
 
             // 다음 장애물 입구 위에 표시
-            Vector3 sp = showCamera.WorldToScreenPoint(course.EntryWorld(next) + Vector3.up * 0.9f);
+            Vector3 sp = GuiPoint(showCamera.WorldToScreenPoint(course.EntryWorld(next) + Vector3.up * 0.9f));
             if (sp.z > 0f)
             {
                 float bob = Mathf.Sin(Time.time * 5f) * 4f;
-                GUI.Box(new Rect(sp.x - 70f, Screen.height - sp.y - 30f + bob, 140f, 28f), "다음: " + next.nameKo, UiSkin.Tag(UiSkin.Sky));
+                GUI.Box(new Rect(sp.x - 70f, SH - sp.y - 30f + bob, 140f, 28f), "다음: " + next.nameKo, UiSkin.Tag(UiSkin.Sky));
             }
 
             if (next.kind == ObstacleCourse.Kind.Table && next.stay > 0f)
-                GUI.Label(new Rect(0f, Screen.height * 0.70f, Screen.width, 40f),
+                GUI.Label(new Rect(0f, SH * 0.70f, SW, 40f),
                           "버티기 " + next.stay.ToString("0.0") + " / " + ObstacleCourse.TableHold.ToString("0") + "초", midStyle);
             else if (next.kind == ObstacleCourse.Kind.Seesaw && next.endWait > 0f && !next.tipped)
-                GUI.Label(new Rect(0f, Screen.height * 0.70f, Screen.width, 40f),
+                GUI.Label(new Rect(0f, SH * 0.70f, SW, 40f),
                           "기다리기 " + Mathf.RoundToInt(course.SeesawProgress(next) * 100f) + "%", midStyle);
             if (next.kind == ObstacleCourse.Kind.Weave && next.rhythm) DrawWeaveArrows(next);
 
@@ -1639,7 +1658,7 @@ namespace DogShop.Show
                 var style = new GUIStyle(midStyle) { fontSize = 30 };
                 float bw = style.CalcSize(new GUIContent(text)).x + 80f;
                 // 화면 아래쪽 — 위쪽은 감점 알림(Flash)과 위브 화살표 줄이 쓴다
-                var box = new Rect((Screen.width - bw) * 0.5f, Screen.height * 0.80f, bw, 60f);
+                var box = new Rect((SW - bw) * 0.5f, SH * 0.80f, bw, 60f);
                 Color keep = GUI.color;
                 GUI.color = new Color(1f, 1f, 1f, a);
                 GUI.Box(box, GUIContent.none, UiSkin.Panel_);
@@ -1710,7 +1729,7 @@ namespace DogShop.Show
             const int Show = 7;
             const float S = 64f, Big = 96f, Gap = 16f;
             float total = Big + (Show - 1) * (S + Gap);
-            float x0 = (Screen.width - total) * 0.5f;
+            float x0 = (SW - total) * 0.5f;
             const float top = 150f;
 
             var back = new Rect(x0 - 28f, top - 16f, total + 56f, Big + 70f);
@@ -1761,15 +1780,15 @@ namespace DogShop.Show
             foreach (var kv in propOf)
             {
                 if (kv.Value == null || !kv.Value.gameObject.activeSelf) continue;
-                Vector3 sp = showCamera.WorldToScreenPoint(kv.Value.position + Vector3.up * (PropSize * 0.9f));
+                Vector3 sp = GuiPoint(showCamera.WorldToScreenPoint(kv.Value.position + Vector3.up * (PropSize * 0.9f)));
                 if (sp.z <= 0f) continue;
-                GUI.Label(new Rect(sp.x - 70f, Screen.height - sp.y - 24f, 140f, 22f), ItemName(kv.Key), UiSkin.Caption);
+                GUI.Label(new Rect(sp.x - 70f, SH - sp.y - 24f, 140f, 22f), ItemName(kv.Key), UiSkin.Caption);
             }
 
             // 심사위원이 원하는 물건
             if (requested >= 0 && awaitingChoice)
             {
-                var ask = new Rect(Screen.width * 0.5f - 90f, 104f, 180f, 120f);
+                var ask = new Rect(SW * 0.5f - 90f, 104f, 180f, 120f);
                 GUI.Box(ask, GUIContent.none, UiSkin.Panel_);
                 Texture2D icon = ItemIcon(requested);
                 if (icon != null) GUI.DrawTexture(new Rect(ask.x + 50f, ask.y + 8f, 80f, 80f), icon, ScaleMode.ScaleToFit);
@@ -1780,7 +1799,7 @@ namespace DogShop.Show
             {
                 float w = 150f, h = 170f, gap = 16f;
                 float total = cards.Length * w + (cards.Length - 1) * gap;
-                float x = (Screen.width - total) * 0.5f, y = Screen.height - h - 24f;
+                float x = (SW - total) * 0.5f, y = SH - h - 24f;
                 for (int i = 0; i < cards.Length; i++)
                 {
                     var r = new Rect(x + i * (w + gap), y, w, h);
@@ -1798,7 +1817,7 @@ namespace DogShop.Show
         {
             // 입양 첫날(스탯 0) 대비 지금 — 막대가 차오르는 연출
             float grow = Mathf.Clamp01((Time.time - specShownAt) / 1.6f);
-            var panel = new Rect(Screen.width * 0.5f - 300f, Screen.height * 0.5f - 120f, 600f, 250f);
+            var panel = new Rect(SW * 0.5f - 300f, SH * 0.5f - 120f, 600f, 250f);
             GUI.Box(panel, GUIContent.none, UiSkin.Panel_);
             GUI.Label(new Rect(panel.x, panel.y + 10f, panel.width, 32f), hero.DisplayName + "의 지금 몸 상태", midStyle);
 
@@ -1870,9 +1889,9 @@ namespace DogShop.Show
             }
 
             // 3:4 판을 화면 오른쪽에. 강아지는 가운데에서 왼쪽으로 보인다
-            float h = Mathf.Min(Screen.height - 120f, 660f);
+            float h = Mathf.Min(SH - 120f, 660f);
             float w = h * 0.75f;
-            var board = new Rect(Mathf.Min(Screen.width * 0.52f, Screen.width - w - 20f), 100f, w, h);
+            var board = new Rect(Mathf.Min(SW * 0.52f, SW - w - 20f), 100f, w, h);
             if (boardArt != null) GUI.DrawTexture(board, boardArt, ScaleMode.StretchToFill);
             else GUI.Box(board, GUIContent.none, UiSkin.Panel_);
             cheerStyle.fontSize = Mathf.RoundToInt(board.height * 0.042f);
@@ -1927,13 +1946,13 @@ namespace DogShop.Show
             if (elapsed < doneAt) return;
 
             int rank = champ.ShowRank;
-            var left = new Rect(0f, 0f, board.x, Screen.height);
+            var left = new Rect(0f, 0f, board.x, SH);
             placeStyle.normal.textColor = rank == 1 ? PerfectColor : rank <= 3 ? new Color(0.85f, 0.9f, 1f) : Color.white;
-            GUI.Label(new Rect(left.x, Screen.height * 0.62f, left.width, 80f), rank + "등!", placeStyle);
-            GUI.Label(new Rect(left.x, Screen.height * 0.62f + 78f, left.width, 34f),
+            GUI.Label(new Rect(left.x, SH * 0.62f, left.width, 80f), rank + "등!", placeStyle);
+            GUI.Label(new Rect(left.x, SH * 0.62f + 78f, left.width, 34f),
                       rank == 1 ? "우승! 최고의 강아지로 뽑혔다" : "다음 대회를 노려보자, 화이팅!", cheerStyle);
 
-            var ok = new Rect(left.center.x - 130f, Screen.height - 96f, 260f, 56f);
+            var ok = new Rect(left.center.x - 130f, SH - 96f, 260f, 56f);
             if (UiSkin.Click(ok, "확인", new GUIStyle(UiSkin.Button(UiSkin.Green)) { fontSize = 22 }))
                 resultReady = false;
         }

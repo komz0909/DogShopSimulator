@@ -12,7 +12,7 @@ namespace DogShop.Shop
     /// </summary>
     public class RandomBoxMenu : MonoBehaviour
     {
-        const float Width = 340f;
+        const float Width = 390f;
         const float Height = 320f;
 
         /// <summary>반짝임 한 바퀴에 걸리는 시간(초).</summary>
@@ -49,7 +49,7 @@ namespace DogShop.Shop
 
             GUI.Box(rect, GUIContent.none, UiSkin.Panel_);
 
-            var header = new GUIStyle(UiSkin.Title) { fontSize = 18, alignment = TextAnchor.MiddleLeft };
+            var header = new GUIStyle(UiSkin.Title) { fontSize = 20, alignment = TextAnchor.MiddleLeft };
             if (boxIcon != null)
                 GUI.DrawTexture(new Rect(rect.x + 96f, rect.y + 6f, 34f, 34f), boxIcon, ScaleMode.ScaleToFit, true);
             GUI.Label(new Rect(rect.x + 136f, rect.y + 12f, rect.width - 140f, 26f), "상자를 열었다", header);
@@ -67,10 +67,10 @@ namespace DogShop.Shop
             big.normal.textColor = tint;
             GUI.Label(new Rect(rect.x, rect.y + 172f, rect.width, 56f), ItemGrades.NameOf(grade), big);
 
-            var line = new GUIStyle(UiSkin.Caption) { fontSize = 17 };
+            var line = new GUIStyle(UiSkin.Caption) { fontSize = 19 };
             GUI.Label(new Rect(rect.x, rect.y + 226f, rect.width, 24f), box.ResultLine(), line);
 
-            var note = new GUIStyle(UiSkin.Caption) { fontSize = 13 };
+            var note = new GUIStyle(UiSkin.Caption) { fontSize = 15 };
             note.normal.textColor = new Color(0.72f, 0.75f, 0.78f);
             GUI.Label(new Rect(rect.x, rect.y + 248f, rect.width, 22f), "창고에 넣었다", note);
 

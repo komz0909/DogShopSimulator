@@ -164,6 +164,8 @@ namespace DogShop.Shop
 
         // ---- 화면 ----
 
+        GUIStyle statusStyle;
+
         void OnGUI()
         {
             if (TimeManager.Instance == null || TimeManager.Instance.IsDayOver) return;
@@ -172,7 +174,9 @@ namespace DogShop.Shop
 
             // 버튼은 없다 — 상태 한 줄만. 넉넉한 칸에 가운데로 찍는다(글자 폭에 칸을 맞추면 줄바꿈으로 뭉갠다)
             string text = Time.unscaledTime < noticeUntil ? notice : StatusText;
-            GUI.Label(new Rect((Screen.width - 520f) * 0.5f, 22f, 520f, 22f), text, UiSkin.Caption);
+            if (statusStyle == null || statusStyle.font != UiSkin.Font)
+                statusStyle = new GUIStyle(UiSkin.Caption) { fontSize = 20 };   // 밝은 거리 위에서 16 은 잘 안 읽혔다
+            GUI.Label(new Rect((Screen.width - 640f) * 0.5f, 20f, 640f, 28f), text, statusStyle);
         }
     }
 }

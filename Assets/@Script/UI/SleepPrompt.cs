@@ -15,8 +15,8 @@ namespace DogShop.UI
         public const float WarnHour = 20.5f;
         public const float SleepHour = TimeManager.LastHour;
 
-        const float Width = 380f;
-        const float RowHeight = 30f;
+        const float Width = 430f;
+        const float RowHeight = 34f;
         const float Pad = 14f;
 
         public bool IsOpen { get; private set; }

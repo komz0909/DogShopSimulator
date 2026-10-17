@@ -247,8 +247,9 @@ namespace DogShop.Shop
         {
             get
             {
-                float fit = Mathf.Min(1f, MaxWindowHeight / HeightFor(RowsMost()));
-                return Mathf.Min(Screen.width / 1920f, Screen.height / 1080f) * fit;
+                // UiSkin.Boost 배로 키우되 창 전체(가장 큰 탭 기준)가 화면 안(높이는 1020/1080 = 94%)에 들어가게
+                float width = SideInset * 2f + ProductsWidth + Gap + CartWidth;
+                return UiSkin.ScaleFor(width, HeightFor(RowsMost()), MaxWindowHeight / 1080f);
             }
         }
 

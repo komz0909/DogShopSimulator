@@ -61,7 +61,7 @@ namespace DogShop.UI
             Styles();
 
             Matrix4x4 keep = GUI.matrix;
-            float s = Mathf.Min(Screen.width / 1920f, Screen.height / 1080f);
+            float s = UiSkin.ScreenScale;
             GUI.matrix = Matrix4x4.Scale(new Vector3(s, s, 1f));
 
             int day = Mathf.Clamp(GameManager.Instance.Day, 1, Exhibition.Days);

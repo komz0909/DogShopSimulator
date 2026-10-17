@@ -191,7 +191,7 @@ namespace DogShop.Show
 
             if (textStyle == null)
             {
-                textStyle = new GUIStyle(UiSkin.Title) { fontSize = 24, wordWrap = true, alignment = TextAnchor.MiddleCenter };
+                textStyle = new GUIStyle(UiSkin.Title) { fontSize = 28, wordWrap = true, alignment = TextAnchor.MiddleCenter };
                 textStyle.normal.textColor = Color.white;
                 hintStyle = new GUIStyle(UiSkin.Caption) { alignment = TextAnchor.MiddleRight };
             }

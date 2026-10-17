@@ -35,6 +35,21 @@ namespace DogShop.UI
         /// </summary>
         public static Font Font { get; set; }
 
+        /// <summary>
+        /// 게임 전체 UI 배율. 1080p 설계 크기보다 이만큼 크게 그린다 — "글자가 작다"는 피드백(2026-10-17).
+        /// 창은 <see cref="ScaleFor"/> 로 화면 안에 들어가는 만큼만 키우므로 화면 밖으로 나가지 않는다.
+        /// </summary>
+        public const float Boost = 1.15f;
+
+        /// <summary>화면 비율 배율(1080p = 1) x <see cref="Boost"/>. 화면 가장자리에 붙여 배치하는 HUD·메뉴용.</summary>
+        public static float ScreenScale => Mathf.Min(Screen.width / 1920f, Screen.height / 1080f) * Boost;
+
+        /// <summary>
+        /// 설계 크기(designW x designH) 창을 그릴 배율. <see cref="ScreenScale"/> 로 키우되 창이 화면의 margin 비율 안에 들어가게 줄인다.
+        /// </summary>
+        public static float ScaleFor(float designW, float designH, float margin = 0.96f) =>
+            Mathf.Min(ScreenScale, Screen.width * margin / designW, Screen.height * margin / designH);
+
         static readonly System.Collections.Generic.Dictionary<int, GUIStyle> buttons =
             new System.Collections.Generic.Dictionary<int, GUIStyle>();
         static readonly System.Collections.Generic.Dictionary<int, GUIStyle> tags =
@@ -89,7 +104,7 @@ namespace DogShop.UI
                 border = new RectOffset(Radius, Radius, Radius, Radius),
                 padding = new RectOffset(14, 14, 8, 10),
                 alignment = TextAnchor.MiddleCenter,
-                fontSize = 15,
+                fontSize = 17,   // 15 -> 17 (글자 키움, 2026-10-17)
                 font = Font,
                 wordWrap = false
             };
@@ -128,7 +143,7 @@ namespace DogShop.UI
                 border = new RectOffset(Radius, Radius, Radius, Radius),
                 padding = new RectOffset(6, 6, 2, 3),
                 alignment = TextAnchor.MiddleCenter,
-                fontSize = 14,
+                fontSize = 16,   // 14 -> 16
                 font = Font,
                 wordWrap = false
             };
@@ -234,7 +249,7 @@ namespace DogShop.UI
             get
             {
                 if (title != null && title.font == Font) return title;
-                title = new GUIStyle { fontSize = 16, fontStyle = FontStyle.Bold, font = Font };
+                title = new GUIStyle { fontSize = 18, fontStyle = FontStyle.Bold, font = Font };
                 title.normal.textColor = new Color(1f, 0.89f, 0.55f);
                 return title;
             }
@@ -245,7 +260,7 @@ namespace DogShop.UI
             get
             {
                 if (label != null && label.font == Font) return label;
-                label = new GUIStyle { fontSize = 14, wordWrap = true, font = Font };
+                label = new GUIStyle { fontSize = 16, wordWrap = true, font = Font };
                 label.normal.textColor = new Color(0.82f, 0.85f, 0.87f);
                 return label;
             }
@@ -259,7 +274,7 @@ namespace DogShop.UI
                 if (caption != null && caption.font == Font) return caption;
                 caption = new GUIStyle
                 {
-                    fontSize = 14,
+                    fontSize = 16,
                     wordWrap = false,
                     alignment = TextAnchor.MiddleCenter,
                     font = Font
