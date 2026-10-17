@@ -76,17 +76,20 @@ namespace DogShop.UI
             var body = new GUIStyle(UiSkin.Label) { alignment = TextAnchor.MiddleCenter };
             GUI.Label(new Rect(x, y, w, RowHeight), time.ClockText + ", 잠자러 갈 시간이다", title);
             y += RowHeight;
-            GUI.Label(new Rect(x, y, w, RowHeight), "오늘 하루 수고했다. 내일 09:00 에 일어난다", body);
+            string reason;
+            bool showDay = Exhibition.ShowPending, canEnter = Exhibition.CanEnterShow(out reason);
+            GUI.Label(new Rect(x, y, w, RowHeight), showDay && !canEnter ? reason : "오늘 하루 수고했다. 내일 09:00 에 일어난다", body);
             y += RowHeight + Pad;
 
-            // 시연 3일차엔 잠 대신 도그쇼 — 쇼 없이 4일차로 넘어가지 않게
-            if (Exhibition.ShowPending)
+            // 도그쇼 날(시연 3일차, 본편 30일차)엔 잠 대신 도그쇼 — 쇼 없이 다음 날로 넘어가지 않게.
+            // 건강이 모자라면 쇼는 못 연다 — 그때만 출전을 포기하고 잔다
+            if (showDay && canEnter)
             {
                 if (UiSkin.Click(new Rect(x, y, w, RowHeight + 8f), "도그쇼 시작", UiSkin.Button(UiSkin.Green))) Exhibition.StartShow();
                 return;
             }
 
-            if (UiSkin.Click(new Rect(x, y, w, RowHeight + 8f), "잠자러 가기", UiSkin.Button(UiSkin.Green)))
+            if (UiSkin.Click(new Rect(x, y, w, RowHeight + 8f), showDay ? "출전 포기하고 잠자기" : "잠자러 가기", UiSkin.Button(UiSkin.Green)))
             {
                 Sound.Play(Sfx.Sleep);
                 time.EndDayNow();

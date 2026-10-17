@@ -24,6 +24,8 @@ namespace DogShop.Shop
         string headline = "";
         string detail = "";
         bool tooEarly;
+        /// <summary>도그쇼 날인데 건강이 모자라 나갈 수 없다. 이때 침대는 [출전 포기하고 잠자기] 가 된다.</summary>
+        bool cannotEnter;
 
         public bool IsOpen { get; private set; }
         public string DisplayName => displayName;
@@ -41,11 +43,20 @@ namespace DogShop.Shop
 
             // 잠은 19시(영업 종료)부터 — 낮에 자서 하루를 건너뛰지 않게
             // 시연 모드는 언제든 잔다 — 짧은 시연에서 저녁까지 기다리게 하지 않는다
-            tooEarly = !Exhibition.Active && !time.IsDayOver && time.CurrentHour < TimeManager.CloseHour;
-            if (Exhibition.ShowPending)
+            // 도그쇼 날(쇼 전)은 시간과 상관없이 연다 — 본편 30일차에 건강이 모자라 아침에 못 나간 경우도 여기서 쇼로 간다
+            bool showDay = Exhibition.ShowPending;
+            string reason;
+            cannotEnter = showDay && !Exhibition.CanEnterShow(out reason);
+            tooEarly = !showDay && !Exhibition.Active && !time.IsDayOver && time.CurrentHour < TimeManager.CloseHour;
+            if (showDay && cannotEnter)
+            {
+                headline = "건강이 모자라 출전할 수 없다";
+                detail = "건강 " + Show.ChampionshipManager.HealthGate + " 이상이어야 나간다. 밥, 약으로 올리고 다시 오자. 포기하고 자면 출전 못 한다.";
+            }
+            else if (showDay)
             {
                 headline = "도그쇼에 나갈까?";
-                detail = "오늘은 도그쇼 날이다. 밥·목욕·훈련으로 준비를 마쳤으면 무대로 가자.";
+                detail = "오늘은 도그쇼 날이다. 밥, 목욕, 훈련으로 준비를 마쳤으면 무대로 가자.";
             }
             else if (tooEarly)
             {
@@ -101,7 +112,7 @@ namespace DogShop.Shop
             Close();
 
             // 시연 3일차: 자는 대신 도그쇼로 간다(쇼가 끝나야 하루가 끝난다)
-            if (Exhibition.ShowPending) { Exhibition.StartShow(); return; }
+            if (Exhibition.ShowPending && !cannotEnter) { Exhibition.StartShow(); return; }
 
             // 21시 잠자러 가기(SleepPrompt)와 같은 경로. 마감 화면이 뜨고 거기서 다음 날로 넘어간다.
             Sound.Play(Sfx.Sleep);
@@ -131,7 +142,7 @@ namespace DogShop.Shop
             }
 
             float half = (w - Pad) * 0.5f;
-            if (UiSkin.Click(new Rect(x, y, half, RowHeight + 6f), Exhibition.ShowPending ? "도그쇼 시작" : "잠자기", UiSkin.Button(UiSkin.Green))) Sleep();
+            if (UiSkin.Click(new Rect(x, y, half, RowHeight + 6f), !Exhibition.ShowPending ? "잠자기" : cannotEnter ? "출전 포기하고 잠자기" : "도그쇼 시작", UiSkin.Button(UiSkin.Green))) Sleep();
             if (UiSkin.Click(new Rect(x + half + Pad, y, half, RowHeight + 6f), "취소", UiSkin.Button(UiSkin.Cream))) Close();
         }
     }

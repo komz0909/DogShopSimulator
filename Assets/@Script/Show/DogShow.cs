@@ -129,6 +129,7 @@ namespace DogShop.Show
         void CheckDay()
         {
             if (phase != Phase.None) return;
+            CheckNotice();
             GameManager g = GameManager.Instance;
             TimeManager t = TimeManager.Instance;
             if (g == null || t == null || t.IsDayOver) return;
@@ -140,7 +141,82 @@ namespace DogShop.Show
             // 무인 측정은 사람이 못 누르니 건너뛴다 — 배수 1(=스탯 그대로)로 하루를 마친다
             if (Debugging.MeasurementMode.Instance != null && Debugging.MeasurementMode.Instance.Active) return;
 
+            // 건강이 모자라면 아침에 바로 무대로 가지 않는다 — 돌볼 시간을 주고, 침대·21시 안내에서 쇼를 연다
+            string reason;
+            if (!Exhibition.CanEnterShow(out reason))
+            {
+                OpenNotice("오늘은 도그쇼 날", reason,
+                           "밥, 약으로 건강을 " + ChampionshipManager.HealthGate + " 이상 올린 뒤 침대에서 [도그쇼 시작]",
+                           "건강을 못 올리면 출전하지 못한 채 챔피언십이 끝난다");
+                return;
+            }
+
             Begin();
+        }
+
+        // ---- 도그쇼 참가 조건 안내 ----
+
+        /// <summary>본편에서 참가 조건을 미리 알려 주는 날. 쇼 날(30일차)까지 열흘 — 건강을 챙길 시간이 있다.</summary>
+        public const int NoticeDay = 20;
+
+        int noticeShownDay = -1;   // 같은 날 두 번 띄우지 않는다
+        string noticeTitle;
+        string[] noticeLines;
+        GUIStyle noticeTitleStyle, noticeBodyStyle;
+
+        void CheckNotice()
+        {
+            GameManager g = GameManager.Instance;
+            if (g == null || Exhibition.Active || g.Day != NoticeDay || noticeShownDay == g.Day) return;
+            if (Debugging.MeasurementMode.Instance != null && Debugging.MeasurementMode.Instance.Active) return;
+
+            Dogs.Dog hero = DogManager.Instance != null ? DogManager.Instance.Hero : null;
+            string now = hero != null ? "지금 " + hero.DisplayName + "의 건강은 " + hero.Stats.Health : null;
+            noticeShownDay = g.Day;
+            OpenNotice("도그쇼 참가 조건 안내",
+                       ChampionshipManager.FinalDay + "일차 도그쇼는 건강 " + ChampionshipManager.HealthGate + " 이상이어야 나갈 수 있다",
+                       now != null ? now + ". 밥, 약으로 미리 챙겨 두자" : "밥, 약으로 미리 챙겨 두자",
+                       "미모, 훈련도, 어질리티가 높을수록 도그쇼 종목이 쉬워진다");
+        }
+
+        void OpenNotice(string title, params string[] lines)
+        {
+            noticeTitle = title;
+            noticeLines = lines;
+            PointerMenus.SetOpen(this, true);
+        }
+
+        void CloseNotice()
+        {
+            noticeTitle = null;
+            noticeLines = null;
+            if (!Running) PointerMenus.SetOpen(this, false);
+        }
+
+        void DrawNotice()
+        {
+            if (noticeTitleStyle == null || noticeTitleStyle.font != UiSkin.Font)
+            {
+                noticeTitleStyle = new GUIStyle(UiSkin.Title) { fontSize = 26, alignment = TextAnchor.MiddleCenter };
+                noticeBodyStyle = new GUIStyle(UiSkin.Label) { fontSize = 18, alignment = TextAnchor.MiddleCenter, wordWrap = true };
+            }
+            GUI.depth = -60;
+            const float W = 720f, Pad = 24f, Line = 34f, Btn = 52f;
+            float h = Pad * 2f + 44f + noticeLines.Length * Line + 16f + Btn;
+            var panel = new Rect((SW - W) * 0.5f, (SH - h) * 0.42f, W, h);
+            GUI.Box(panel, GUIContent.none, UiSkin.Panel_);
+
+            float x = panel.x + Pad, w = W - Pad * 2f, y = panel.y + Pad;
+            GUI.Label(new Rect(x, y, w, 44f), noticeTitle, noticeTitleStyle);
+            y += 44f;
+            foreach (string line in noticeLines)
+            {
+                GUI.Label(new Rect(x, y, w, Line), line, noticeBodyStyle);
+                y += Line;
+            }
+            y += 16f;
+            if (UiSkin.Click(new Rect(panel.center.x - 120f, y, 240f, Btn), "확인", new GUIStyle(UiSkin.Button(UiSkin.Green)) { fontSize = 20 }))
+                CloseNotice();
         }
 
         // ---- 시작·정리 ----
@@ -1408,8 +1484,16 @@ namespace DogShop.Show
 
         void OnGUI()
         {
-            if (!Running) return;
+            if (!Running && noticeTitle == null) return;
             guiScale = UiSkin.ScreenScale;
+            if (!Running)
+            {
+                Matrix4x4 was = GUI.matrix;
+                GUI.matrix = Matrix4x4.Scale(new Vector3(guiScale, guiScale, 1f));
+                DrawNotice();
+                GUI.matrix = was;
+                return;
+            }
             Matrix4x4 keep = GUI.matrix;
             GUI.matrix = Matrix4x4.Scale(new Vector3(guiScale, guiScale, 1f));
             DrawGui();

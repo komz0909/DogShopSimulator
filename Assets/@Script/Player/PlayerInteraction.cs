@@ -27,6 +27,7 @@ namespace DogShop.Player
         /// <summary>조준선이 이만큼보다 더 카메라 쪽(주인공 등 뒤)에서 맞은 것은 무시한다.</summary>
         const float BehindMargin = 1f;
         const float LabelWidth = 200f;
+        readonly System.Collections.Generic.List<Rect> placedLabels = new System.Collections.Generic.List<Rect>();
         const float LabelRange = 6f;
 
         Camera cam;
@@ -649,6 +650,7 @@ namespace DogShop.Player
             if (cam == null) return;
 
             EnsureStyles();
+            placedLabels.Clear();
             DrawCustomerLabels();
             DrawSlotLabels();
             DrawCrateLabels();
@@ -687,7 +689,9 @@ namespace DogShop.Player
 
             if (hint.Length == 0) return;
 
-            GUI.Label(new Rect((Screen.width - 260f) * 0.5f, Screen.height - 92f, 260f, 28f), hint, hintStyle);
+            // 폭을 글자에 맞춘다 — 260 고정이라 "[E] 상자에 1개 담기   [R] 창고에 1개 내리기" 같은 두 줄 안내가 양옆이 잘렸다
+            float hw = Mathf.Min(Screen.width - 40f, Mathf.Max(260f, hintStyle.CalcSize(new GUIContent(hint)).x + 32f));
+            GUI.Label(new Rect((Screen.width - hw) * 0.5f, Screen.height - 92f, hw, 28f), hint, hintStyle);
         }
 
         void DrawCustomerLabels()
@@ -780,8 +784,20 @@ namespace DogShop.Player
             Vector3 screen = cam.WorldToScreenPoint(worldPosition);
             if (screen.z <= 0f) return;
 
-            GUI.Label(new Rect(screen.x - LabelWidth * 0.5f, Screen.height - screen.y - 24f, LabelWidth, 22f),
-                text, style);
+            // 글자 길이만큼만 넓히고, 먼저 놓인 이름표와 겹치면 한 줄씩 아래로 비킨다 —
+            // 창고 선반이 나란히 서 있으면 "기본 사료 11 (2칸)" 과 옆 선반 "목줄 10" 이 서로를 가렸다
+            float width = Mathf.Clamp(style.CalcSize(new GUIContent(text)).x + 16f, 80f, LabelWidth * 1.4f);
+            var rect = new Rect(screen.x - width * 0.5f, Screen.height - screen.y - 24f, width, 22f);
+            for (int tries = 0; tries < 4 && Overlaps(rect); tries++) rect.y += rect.height + 2f;
+            placedLabels.Add(rect);
+            GUI.Label(rect, text, style);
+        }
+
+        bool Overlaps(Rect rect)
+        {
+            for (int i = 0; i < placedLabels.Count; i++)
+                if (placedLabels[i].Overlaps(rect)) return true;
+            return false;
         }
     }
 }

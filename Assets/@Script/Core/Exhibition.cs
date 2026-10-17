@@ -76,23 +76,45 @@ namespace DogShop.Core
         /// 시연 3일차인데 아직 쇼를 치르지 않았다. 이때 잠자기 자리(침대·21시 안내)는 [도그쇼 시작]이 된다 —
         /// 쇼 없이 하루가 끝나 4일차로 넘어가는 길을 막는다.
         /// </summary>
+        /// 본편 30일차도 같다 — 아침에 건강이 모자라 쇼가 안 열렸으면, 돌본 뒤 같은 자리에서 쇼를 연다.
         public static bool ShowPending =>
-            GameManager.Instance != null && IsShowDay(GameManager.Instance.Day)
-            && Show.ChampionshipManager.Instance != null && !Show.ChampionshipManager.Instance.HasShowResult;
+            GameManager.Instance != null && Show.ChampionshipManager.Instance != null
+            && Show.ChampionshipManager.Instance.IsFinalDay(GameManager.Instance.Day)
+            && !Show.ChampionshipManager.Instance.HasShowResult
+            && !(Debugging.MeasurementMode.Instance != null && Debugging.MeasurementMode.Instance.Active);
+
+        /// <summary>지금 출전견이 도그쇼에 나갈 수 있나(건강 70 이상). 못 나가면 이유.</summary>
+        public static bool CanEnterShow(out string reason)
+        {
+            Show.ChampionshipManager champ = Show.ChampionshipManager.Instance;
+            Dogs.Dog hero = Dogs.DogManager.Instance != null ? Dogs.DogManager.Instance.Hero : null;
+            if (champ == null) { reason = null; return true; }
+            return champ.CanEnter(hero, out reason);
+        }
 
         /// <summary>
         /// 도그쇼 시작 화면을 연다(본편 30일차와 같은 화면). 열었으면 true.
-        /// 쇼가 이미 돌고 있거나 하루가 끝났으면 그냥 false. 그 밖의 이유(무대·출전견 없음)로 못 열면
+        /// 쇼가 이미 돌고 있거나 하루가 끝났으면 그냥 false. 건강이 70 아래면 이유를 알리고 false.
+        /// 그 밖의 이유(무대·출전견 없음)로 못 열면
         /// 알리고 하루를 끝낸다 — 침대·21시 안내가 쇼 시작으로만 바뀌어 있어 3일차에서 영영 못 넘어갔다.
         /// </summary>
         public static bool StartShow()
         {
             Show.DogShow show = Show.DogShow.Instance;
             if (show != null && Show.DogShow.Running) return false;
-            if (show != null && show.BeginExhibitionShow()) return true;
 
             TimeManager time = TimeManager.Instance;
             if (time == null || time.IsDayOver) return false;
+
+            // 건강이 모자라면 막는다 — 하루는 끝내지 않는다(돌보고 다시 오거나, 침대에서 출전을 포기하고 잔다)
+            string reason;
+            if (!CanEnterShow(out reason))
+            {
+                ActionRunner.Reject(reason + ". 밥, 약으로 건강을 올리고 다시 오자");
+                return false;
+            }
+            if (show != null && show.BeginExhibitionShow()) return true;
+
             ActionRunner.Reject("도그쇼를 열 수 없어 오늘을 마친다");
             time.EndDayNow();
             return false;
