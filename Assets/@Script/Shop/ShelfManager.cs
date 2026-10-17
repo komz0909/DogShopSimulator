@@ -327,9 +327,15 @@ namespace DogShop.Shop
             if (bestTable == null) return false;
 
             int product = bestTable.ProductAt(bestSlot);
-            int moved = 0;
-            while (bestTable.Take(bestSlot)) moved++;
-            if (moved > 0) inv.Store(product, moved);
+            // 등급째로 되돌린다 — 일반품 창고에 넣으면 S급(3배)은 1배로 떨어지고 F급(0.6배)은 1배로 올랐다
+            int guard = 0;
+            while (guard++ < 1000 && bestTable.CountAt(bestSlot) > 0)
+            {
+                ItemGrade grade = bestTable.BestGradeAt(bestSlot);
+                if (!bestTable.Take(bestSlot, grade)) break;
+                if (grade == ItemGrade.None) inv.Store(product);
+                else inv.StoreGraded(product, grade);
+            }
             return true;
         }
 

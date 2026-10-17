@@ -217,6 +217,17 @@ namespace DogShop.Player
                 CustomerManager.Instance.RefreshQueue();
         }
 
+        /// <summary>
+        /// 저장할 때 쓴다. 그 가구를 들고 있으면 집어 들기 전 자리를 준다 —
+        /// 들고 있는 가구는 커서를 따라다니므로 그대로 저장하면 겹친 자리나 벽 속이 들어갔다.
+        /// </summary>
+        public bool TryGetHome(PlaceableFurniture target, out Vector3 position, out Quaternion rotation)
+        {
+            position = restorePosition;
+            rotation = restoreRotation;
+            return held != null && held == target;
+        }
+
         void Cancel()
         {
             if (held == null) return;

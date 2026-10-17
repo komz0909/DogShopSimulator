@@ -188,23 +188,91 @@ namespace DogShop.Shop
         {
             data.furnitureOrdered = ordered.ToArray();
 
+            Player.FurniturePlacer placer = FindAnyObjectByType<Player.FurniturePlacer>();
+
             List<FurnitureSave> placed = new List<FurnitureSave>();
             foreach (BoughtFurniture bought in FindObjectsByType<BoughtFurniture>(FindObjectsInactive.Include, FindObjectsSortMode.None))
             {
+                Vector3 position;
+                Quaternion rotation;
+                SpotOf(bought.GetComponent<PlaceableFurniture>(), bought.transform, placer, out position, out rotation);
                 placed.Add(new FurnitureSave
                 {
                     catalogIndex = bought.CatalogIndex,
-                    position = bought.transform.position,
-                    rotation = bought.transform.eulerAngles
+                    position = position,
+                    rotation = rotation.eulerAngles
                 });
             }
             data.furniturePlaced = placed.ToArray();
+
+            // 씬에 원래 있던 가구(계산대 등)는 자리만 남긴다
+            List<SceneFurnitureSave> scene = new List<SceneFurnitureSave>();
+            foreach (PlaceableFurniture furniture in FindObjectsByType<PlaceableFurniture>(FindObjectsSortMode.None))
+            {
+                if (furniture.GetComponent<BoughtFurniture>() != null) continue;
+                Vector3 position;
+                Quaternion rotation;
+                SpotOf(furniture, furniture.transform, placer, out position, out rotation);
+                scene.Add(new SceneFurnitureSave { name = KeyOf(furniture.transform), position = position, rotation = rotation.eulerAngles });
+            }
+            data.sceneFurniture = scene.ToArray();
+        }
+
+        /// <summary>
+        /// 씬 가구를 찾는 열쇠 = 계층 경로(형제 순번 포함). 이름만으로는 기본 진열대처럼 같은 이름이 둘이면 구분이 안 된다.
+        /// 산 가구가 아니므로 계층은 씬 그대로라 매번 같은 값이 나온다.
+        /// </summary>
+        static string KeyOf(Transform t)
+        {
+            string key = t.name + "#" + t.GetSiblingIndex();
+            for (Transform p = t.parent; p != null; p = p.parent) key = p.name + "#" + p.GetSiblingIndex() + "/" + key;
+            return key;
+        }
+
+        /// <summary>저장할 자리. 들고 옮기는 중이면 집어 들기 전 자리다.</summary>
+        static void SpotOf(PlaceableFurniture furniture, Transform t, Player.FurniturePlacer placer, out Vector3 position, out Quaternion rotation)
+        {
+            if (placer != null && furniture != null && placer.TryGetHome(furniture, out position, out rotation)) return;
+            position = t.position;
+            rotation = t.rotation;
+        }
+
+        /// <summary>씬 가구를 저장된 자리로 되돌린다. 계산대를 옮겼으면 길찾기를 다시 굽고 줄을 다시 세운다.</summary>
+        static void RestoreSceneFurniture(SaveData data)
+        {
+            if (data.sceneFurniture == null || data.sceneFurniture.Length == 0) return;
+
+            bool counterMoved = false;
+            foreach (PlaceableFurniture furniture in FindObjectsByType<PlaceableFurniture>(FindObjectsSortMode.None))
+            {
+                if (furniture.GetComponent<BoughtFurniture>() != null) continue;
+                string key = KeyOf(furniture.transform);
+                for (int i = 0; i < data.sceneFurniture.Length; i++)
+                {
+                    SceneFurnitureSave saved = data.sceneFurniture[i];
+                    if (saved == null || saved.name != key) continue;
+
+                    Quaternion rotation = Quaternion.Euler(saved.rotation);
+                    if ((furniture.transform.position - saved.position).sqrMagnitude < 1e-4f
+                        && Quaternion.Angle(furniture.transform.rotation, rotation) < 0.5f) break;
+
+                    furniture.transform.SetPositionAndRotation(saved.position, rotation);
+                    if (ShelfManager.Instance != null) ShelfManager.Instance.RefreshApproach(furniture);
+                    if (furniture.GetComponent<ShopCounter>() != null) counterMoved = true;
+                    break;
+                }
+            }
+
+            if (!counterMoved) return;
+            if (ShopSpace.Instance != null) ShopSpace.Instance.Rebake();
+            if (CustomerManager.Instance != null) CustomerManager.Instance.RefreshQueue();
         }
 
         public void RestoreFrom(SaveData data)
         {
             ordered.Clear();
             if (data.furnitureOrdered != null) ordered.AddRange(data.furnitureOrdered);
+            RestoreSceneFurniture(data);
 
             // 지금 서 있는 산 가구를 걷어내고 세이브대로 다시 세운다.
             // 자리만 옮기면 개수가 다를 때 맞지 않는다.

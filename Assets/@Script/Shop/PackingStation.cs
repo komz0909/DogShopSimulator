@@ -180,6 +180,20 @@ namespace DogShop.Shop
         }
 
         /// <summary>봉한 상자(창고에서 이미 뺀 물건)를 창고로 되돌린다.</summary>
+        /// <summary>
+        /// 저장할 때만 쓴다. 봉한 상자의 물건은 창고에서 이미 빠졌는데 포장대 상태(봉함)는 저장되지 않는다 —
+        /// 그대로 두면 불러온 뒤 같은 주문을 처음부터 다시 담아 물건이 두 번 빠졌다. 저장본의 창고 수치에 되돌려 넣는다.
+        /// </summary>
+        public void AddPackedInto(int[] storage)
+        {
+            if (step != Step.Packed || current == null || storage == null) return;
+            for (int i = 0; i < current.products.Length; i++)
+            {
+                int p = current.products[i];
+                if (p >= 0 && p < storage.Length) storage[p] += current.quantities[i];
+            }
+        }
+
         void ReturnItems()
         {
             if (current == null) return;

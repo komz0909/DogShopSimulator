@@ -34,6 +34,15 @@ namespace DogShop.Core
         public Vector3 rotation;
     }
 
+    /// <summary>씬에 원래 있던 가구 하나의 자리. 이름으로 찾는다.</summary>
+    [Serializable]
+    public class SceneFurnitureSave
+    {
+        public string name;
+        public Vector3 position;
+        public Vector3 rotation;
+    }
+
     [Serializable]
     public class SaveData
     {
@@ -170,6 +179,12 @@ namespace DogShop.Core
         public int[] furnitureOrdered = new int[0];
         public FurnitureSave[] furniturePlaced = new FurnitureSave[0];
 
+        /// <summary>
+        /// 처음부터 씬에 있던 가구(계산대 등)를 옮긴 자리. 산 가구가 아니라 다시 세울 필요는 없고
+        /// 이름으로 찾아 자리만 되돌린다 — 안 남기면 이어하기 때 원래 자리로 돌아가 새로 놓은 가구와 겹쳤다.
+        /// </summary>
+        public SceneFurnitureSave[] sceneFurniture = new SceneFurnitureSave[0];
+
         public DogSave[] dogs = new DogSave[0];
     }
 
@@ -223,6 +238,7 @@ namespace DogShop.Core
         /// </summary>
         System.Collections.IEnumerator Start()
         {
+            if (TimeManager.Instance != null) TimeManager.Instance.OnDayStarted += AutoSaveSoon;
             if (!GameStart.FromMenu || !GameStart.Continue) yield break;
 
             yield return null;   // 모든 Start 가 끝난 뒤
@@ -231,7 +247,29 @@ namespace DogShop.Core
 
         void OnDestroy()
         {
+            if (TimeManager.Instance != null) TimeManager.Instance.OnDayStarted -= AutoSaveSoon;
             if (Instance == this) Instance = null;
+        }
+
+        // ---- 자동 저장 ----
+
+        /// <summary>
+        /// 새 하루가 시작되면 저장한다 — 예전엔 ESC 종료·F5 때만 저장해서 게임이 튕기면 그날까지 진행이 다 날아갔다.
+        /// 한 프레임 미룬다: 아침 처리(입고·하루 초기화 등)가 OnDayStarted 의 다른 구독자에서 끝난 뒤의 상태를 남긴다.
+        /// 시연 모드(Save 가 막는다)와 무인 측정(사용자 세이브를 덮으면 안 된다)은 건너뛴다.
+        /// </summary>
+        void AutoSaveSoon()
+        {
+            if (Exhibition.Active) return;
+            if (Debugging.MeasurementMode.Instance != null && Debugging.MeasurementMode.Instance.Active) return;
+            StartCoroutine(AutoSaveNextFrame());
+        }
+
+        System.Collections.IEnumerator AutoSaveNextFrame()
+        {
+            yield return null;
+            if (TimeManager.Instance == null || TimeManager.Instance.IsDayOver) yield break;
+            Save();
         }
 
         public void Save()

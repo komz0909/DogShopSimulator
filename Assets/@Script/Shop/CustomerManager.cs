@@ -645,6 +645,11 @@ namespace DogShop.Shop
             VisitorsToday = data.visitorsToday;
             ReputationToday = data.reputationToday;
             RevenueToday = data.dailyRevenue;
+
+            // 도착 누적의 기준 시각도 저장된 시각으로 — 안 맞추면 Start 에서 잡은 09:00 부터
+            // 불러온 시각(예 15:00)까지 여섯 시간치 손님이 한 프레임에 문 앞에 몰렸다(명성·매출 이중)
+            lastClockHour = Mathf.Clamp(data.currentHour, TimeManager.DayStartHour, TimeManager.LastHour);
+            pending = 0f;
         }
     }
 }

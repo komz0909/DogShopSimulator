@@ -650,6 +650,9 @@ namespace DogShop.Shop
         public void CaptureInto(SaveData data)
         {
             data.storage = (int[])storage.Clone();
+            // 포장대에서 봉해 둔 상자 몫은 창고로 되돌려 저장한다 — 불러오면 그 주문을 다시 담는다
+            foreach (PackingStation packing in FindObjectsByType<PackingStation>(FindObjectsSortMode.None))
+                packing.AddPackedInto(data.storage);
             ShelfManager.Instance?.CaptureInto(data);
             data.incoming = (int[])incoming.Clone();
             data.delivered = (int[])delivered.Clone();
