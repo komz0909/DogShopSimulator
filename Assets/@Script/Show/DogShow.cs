@@ -1309,13 +1309,37 @@ namespace DogShop.Show
             return dogSize = Mathf.Max(b.size.x, b.size.y, b.size.z);
         }
 
+        /// <summary>
+        /// 부딪힌 허들이 진행 방향으로 휘청였다가 다시 선다. 예전엔 옆으로 28도 기운 채 남아
+        /// 한쪽 다리가 바닥에 박혀 버그처럼 보였다 — 앞쪽 바닥 모서리를 축으로 흔들고 제자리로 돌린다.
+        /// </summary>
         void KnockHurdle(Transform hurdle)
         {
-            // 허들을 진행 방향으로 기울여 넘어뜨린다. 다음 판이 없으니 되돌리지 않는다
             Transform model = hurdle.Find("Model");
-            if (model != null) model.localRotation = Quaternion.Euler(0f, 0f, -28f) * model.localRotation;
-            Transform bar = hurdle.Find("Bar");
-            if (bar != null) bar.localRotation = Quaternion.Euler(0f, 0f, 35f);
+            if (model == null || hero == null) return;
+            Vector3 forward = Flat(hero.transform.forward);
+            if (forward.sqrMagnitude < 1e-4f) return;
+            StartCoroutine(WobbleHurdle(model, forward.normalized));
+        }
+
+        IEnumerator WobbleHurdle(Transform model, Vector3 forward)
+        {
+            Vector3 homePos = model.position;
+            Quaternion homeRot = model.rotation;
+            Vector3 pivot = homePos + forward * 0.12f;          // 앞쪽 다리 바닥
+            Vector3 axis = Vector3.Cross(Vector3.up, forward);  // 위가 진행 방향으로 넘어간다
+            const float Duration = 0.9f, MaxAngle = 24f;
+            for (float t = 0f; t < Duration; t += Time.deltaTime)
+            {
+                if (model == null) yield break;
+                float k = t / Duration;
+                // 한 번 크게 넘어갔다가 줄어들며 흔들린다. 뒤로는 넘어가지 않는다(바닥을 뚫지 않게)
+                float angle = MaxAngle * Mathf.Abs(Mathf.Sin(k * Mathf.PI * 2.5f)) * (1f - k);
+                model.SetPositionAndRotation(homePos, homeRot);
+                model.RotateAround(pivot, axis, angle);
+                yield return null;
+            }
+            if (model != null) model.SetPositionAndRotation(homePos, homeRot);
         }
 
         void Flash(string text, Color color)
