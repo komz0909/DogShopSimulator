@@ -30,7 +30,7 @@ namespace DogShop.Shop
             if (Instance != null && Instance != this) { Destroy(this); return; }
             Instance = this;
 
-            // 시연 모드는 Exhibition.StartLevel(Lv 6) 에서 시작한다(상품·훈련이 고르게 열린 가게). Start 의 ApplyFloor 가 넓이를 맞춘다
+            // 시연 모드는 Exhibition.StartLevel(Lv 7) 에서 시작한다(훈련이 다 열린 가게, Lv 8 레벨업 직전). Start 의 ApplyFloor 가 넓이를 맞춘다
             if (Exhibition.Active) Level = Exhibition.StartLevel;
         }
 
@@ -109,6 +109,7 @@ namespace DogShop.Shop
             ApplyFloor();
 
             OnLevelUp?.Invoke(Level);
+            GameEvents.RaiseShopLeveledUp();
             return true;
         }
 

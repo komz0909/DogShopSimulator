@@ -21,6 +21,14 @@ namespace DogShop.Core
         public static event Action<int> OnlineOrderShipped;
         /// <summary>강아지 훈련 한 번을 끝냈다(돈을 내고 스탯이 올랐다).</summary>
         public static event Action DogTrained;
+        /// <summary>계산대에서 손님 한 명을 계산했다.</summary>
+        public static event Action CustomerCheckedOut;
+        /// <summary>강아지에게 밥·목욕·약 중 하나를 해 줬다(창고 물건을 썼다).</summary>
+        public static event Action DogCared;
+        /// <summary>강아지 운동 한 번을 끝냈다.</summary>
+        public static event Action DogExercised;
+        /// <summary>플레이어가 비용을 내고 가게 레벨을 올렸다(세이브 복원은 빼고).</summary>
+        public static event Action ShopLeveledUp;
 
         // 도메인 리로드를 끈 에디터에서 지난 플레이의 구독자가 남지 않게
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
@@ -31,12 +39,20 @@ namespace DogShop.Core
             StockOrdered = null;
             OnlineOrderShipped = null;
             DogTrained = null;
+            CustomerCheckedOut = null;
+            DogCared = null;
+            DogExercised = null;
+            ShopLeveledUp = null;
         }
 
         public static void RaiseStorageToCrate() => StorageToCrate?.Invoke();
         public static void RaiseItemDisplayed() => ItemDisplayed?.Invoke();
         public static void RaiseStockOrdered() => StockOrdered?.Invoke();
         public static void RaiseOnlineOrderShipped(int orderId) => OnlineOrderShipped?.Invoke(orderId);
-        public static void RaiseDogTrained() => DogTrained?.Invoke();
+        public static void RaiseDogTrained() { Exhibition.RecordTraining(); DogTrained?.Invoke(); }
+        public static void RaiseCustomerCheckedOut() => CustomerCheckedOut?.Invoke();
+        public static void RaiseDogCared() => DogCared?.Invoke();
+        public static void RaiseDogExercised() { Exhibition.RecordExercise(); DogExercised?.Invoke(); }
+        public static void RaiseShopLeveledUp() => ShopLeveledUp?.Invoke();
     }
 }

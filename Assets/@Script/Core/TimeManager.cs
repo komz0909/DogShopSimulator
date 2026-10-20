@@ -50,6 +50,12 @@ namespace DogShop.Core
         public float RemainingHours =>
             Mathf.Max(0f, Shop.ShopHours.LastCustomerHour - CurrentHour);
         public bool IsDayOver { get; private set; }
+
+        /// <summary>오늘 시계를 붙잡아 둔 동안 흘렀을 시간(시연 모드만, 본편은 늘 0).</summary>
+        public float HeldHours { get; private set; }
+
+        /// <summary>붙잡힌 시간까지 쳐서 계속 흐르는 시계. 손님 도착처럼 "흐른 만큼" 쌓이는 것은 이걸 본다. 본편에서는 <see cref="CurrentHour"/> 와 같다.</summary>
+        public float FlowHour => CurrentHour + HeldHours;
         public int SpeedMultiplier { get; private set; } = 1;
 
         public event Action<int> OnWholeHourChanged;
@@ -77,7 +83,17 @@ namespace DogShop.Core
             float secondsPerHour = Exhibition.Active && GameManager.Instance != null
                 ? Exhibition.SecondsPerGameHour(GameManager.Instance.Day)
                 : RealSecondsPerGameHour;
-            CurrentHour += Time.deltaTime * SpeedMultiplier / secondsPerHour;
+            float step = Time.deltaTime * SpeedMultiplier / secondsPerHour;
+            CurrentHour += step;
+
+            // 시연: 오늘 할 일이 남았으면 영업 마감 전에서 시계를 붙잡는다 — 처음 해 보는 사람이 다 못 끝냈는데
+            // 문이 닫혀 손님 계산·온라인 주문을 못 하는 일이 없게. 멈춘 동안 흐른 몫은 HeldHours 로 쌓아
+            // 손님 도착(FlowHour)은 계속 흐른다
+            if (Exhibition.HoldsClock && CurrentHour > Exhibition.HoldHour)
+            {
+                HeldHours += CurrentHour - Mathf.Max(Exhibition.HoldHour, CurrentHour - step);
+                CurrentHour = Mathf.Max(Exhibition.HoldHour, CurrentHour - step);
+            }
 
             int whole = Mathf.FloorToInt(CurrentHour);
             if (whole != lastWholeHour)
@@ -108,6 +124,7 @@ namespace DogShop.Core
         public void StartNewDay()
         {
             CurrentHour = DayStartHour;
+            HeldHours = 0f;
             lastWholeHour = (int)DayStartHour;
             IsDayOver = false;
             OnDayStarted?.Invoke();

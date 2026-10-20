@@ -215,6 +215,7 @@ namespace DogShop.Dogs
             if (dog == null) { reason = "대상 없음"; return false; }
             if (!IsExerciseUnlocked(index)) { reason = "Lv " + Exercises[Mathf.Clamp(index, 0, Exercises.Length - 1)].unlockLevel + " 해금"; return false; }
             if (ExercisedToday) { reason = "오늘 운동 끝, 내일 다시"; return false; }
+            if (TutorialQuestManager.DemoLocked(TutorialQuestManager.Goal.Exercise, out reason)) return false;
             if (dog.Stats.GrowthBlocked)
             {
                 reason = "유지 스탯 부족: 청결 " + dog.Stats.Cleanliness + " / 건강 " + dog.Stats.Health;
@@ -247,6 +248,7 @@ namespace DogShop.Dogs
 
             OnSlotsChanged?.Invoke();
             OnExercised?.Invoke(dog, index, gained);
+            GameEvents.RaiseDogExercised();
             return true;
         }
 
@@ -358,6 +360,7 @@ namespace DogShop.Dogs
             if (!IsUnlocked(index)) { reason = "미해금 훈련"; return false; }
             if (IsUpgrading(index)) { reason = "강화 중: " + UpgradeDaysLeft(index) + "일 남음"; return false; }
             if (UsedToday(index)) { reason = "오늘 이미 했다, 내일 다시"; return false; }
+            if (TutorialQuestManager.DemoLocked(TutorialQuestManager.Goal.Train, out reason)) return false;
             if (SlotsLeft <= 0) { reason = "훈련 슬롯 소진: " + SlotsUsed + "/" + SlotsTotal; return false; }
 
             if (dog.Stats.GrowthBlocked)

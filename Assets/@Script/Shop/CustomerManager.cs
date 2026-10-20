@@ -134,7 +134,7 @@ namespace DogShop.Shop
         {
             MeasureGroundOffset();
             TimeManager.Instance.OnDayStarted += ResetDaily;
-            lastClockHour = TimeManager.Instance.CurrentHour;
+            lastClockHour = TimeManager.Instance.FlowHour;
         }
 
         void MeasureGroundOffset()
@@ -170,7 +170,7 @@ namespace DogShop.Shop
             ReputationToday = 0;
             RevenueToday = 0;
             pending = 0f;
-            if (TimeManager.Instance != null) lastClockHour = TimeManager.Instance.CurrentHour;
+            if (TimeManager.Instance != null) lastClockHour = TimeManager.Instance.FlowHour;
         }
 
         /// <summary>
@@ -186,7 +186,7 @@ namespace DogShop.Shop
             TimeManager time = TimeManager.Instance;
             if (time == null) return;
 
-            float now = time.CurrentHour;
+            float now = time.FlowHour;
             float elapsed = now - lastClockHour;
             lastClockHour = now;
 
@@ -604,6 +604,7 @@ namespace DogShop.Shop
             SoldToday++;
             GameManager.Instance.RegisterSale(paid);
             OnSale?.Invoke(paid);
+            GameEvents.RaiseCustomerCheckedOut();
             Sound.Play(Sfx.Checkout);
 
             int penalty = ReputationPenaltyOf(c);

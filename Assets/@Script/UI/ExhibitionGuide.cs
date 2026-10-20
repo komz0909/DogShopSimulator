@@ -6,7 +6,7 @@ namespace DogShop.UI
 {
     /// <summary>
     /// 시연 모드 안내판(왼쪽, 시계 아래). 오늘이 3일 중 며칠째인지, 오늘 할 일 두 줄, 버튼 하나.
-    ///   1·2일차: [오늘 마치기] — 짧은 시연에서 저녁까지 기다리지 않게(한 번 더 눌러야 마친다, 실수 방지)
+    ///   1·2일차: 오늘 할 일을 다 하면 3초 뒤 저절로 다음 날로. 할 일이 남았을 때의 [오늘 마치기]는 스태프용(한 번 더 눌러야 마친다)
     ///   3일차:   [도그쇼 시작] (G) — 본편 30일차와 같은 도그쇼 시작 화면을 연다
     /// 본편에서는 아무것도 그리지 않는다. 창(강아지 상태창·상점 등)이 열려 있거나 쇼·컷신·마감 중에도 숨는다.
     /// </summary>
@@ -25,21 +25,41 @@ namespace DogShop.UI
         static readonly string[][] Goals =
         {
             new[] { "가게 운영",
-                    "오른쪽 위 튜토리얼을 따라 진열하고 손님을 받아 보자",
+                    "오른쪽 위 '오늘 할 일'을 하나씩 따라 하자",
                     "강아지를 클릭하면 상태창(돌보기, 훈련)이 열린다" },
-            new[] { "강아지 돌보기, 훈련",
-                    "강아지를 클릭해 밥, 목욕, 훈련, 운동을 해 보자",
-                    "청결이나 건강이 40 아래면 훈련해도 자라지 않는다" },
+            new[] { "마스코트 키우기",
+                    "오른쪽 위 '오늘 할 일'을 하나씩 따라 하자",
+                    "자란 강아지는 손님을 반겨 명성을 올려 준다" },
             new[] { "도그쇼 날",
-                    "마지막으로 밥, 목욕, 훈련을 하고 도그쇼에 나가자",
+                    "오른쪽 위 '오늘 할 일'을 마치고 도그쇼에 나가자",
                     "능력치가 높을수록 종목이 쉬워진다 (건강 70 이상)" },
         };
 
+        /// <summary>오늘 할 일을 다 끝낸 뒤 저절로 다음 날로 넘어가는 시각(unscaled). 음수면 기다리는 중이 아니다.</summary>
+        float autoAt = -1f;
+
+        /// <summary>할 일을 다 끝내고 다음 날로 넘어가기까지 기다리는 시간(초). 완료 알림을 읽을 틈.</summary>
+        const float AutoNextSeconds = 3f;
+
         void Update()
         {
-            if (!Visible) return;
+            // 창(강아지 상태창 등)이 열려 있으면 기다림을 멈춘다 — 운동 창을 닫기도 전에 정산이 뜨지 않게.
+            // 창을 닫으면 처음부터 다시 센다
+            if (!Visible) { autoAt = -1f; return; }
             Keyboard keyboard = Keyboard.current;
             if (keyboard != null && keyboard.gKey.wasPressedThisFrame && Exhibition.ShowPending) Exhibition.StartShow();
+            TickAutoNext();
+        }
+
+        /// <summary>시간이 아니라 할 일로 하루가 끝난다 — 1·2일차 할 일을 다 하면 잠깐 뒤 다음 날로.</summary>
+        void TickAutoNext()
+        {
+            Shop.TutorialQuestManager quests = Shop.TutorialQuestManager.Instance;
+            bool done = quests != null && quests.IsComplete
+                        && GameManager.Instance != null && GameManager.Instance.Day < Exhibition.Days && !Exhibition.ShowPending;
+            if (!done) { autoAt = -1f; return; }
+            if (autoAt < 0f) autoAt = Time.unscaledTime + AutoNextSeconds;
+            else if (Time.unscaledTime >= autoAt) { autoAt = -1f; EndToday(); }
         }
 
         static bool Visible
@@ -88,11 +108,16 @@ namespace DogShop.UI
             }
             else if (day < Exhibition.Days)
             {
+                // 오늘 할 일을 다 끝냈으면 한 번에 넘어간다 — 확인은 할 일이 남았을 때 실수로 넘기지 않게 하려는 것이다
+                Shop.TutorialQuestManager quests = Shop.TutorialQuestManager.Instance;
+                bool done = quests != null && quests.IsComplete;
                 bool confirming = Time.unscaledTime < confirmUntil;
-                string label = confirming ? "한 번 더 누르면 " + (day + 1) + "일차로" : "오늘 마치기";
+                int left = autoAt > 0f ? Mathf.Max(1, Mathf.CeilToInt(autoAt - Time.unscaledTime)) : (int)AutoNextSeconds;
+                string label = done ? left + "초 뒤 다음 날로  (바로 가기)"
+                    : confirming ? "한 번 더 누르면 " + (day + 1) + "일차로" : "오늘 마치기";
                 if (UiSkin.Click(btn, label, button))
                 {
-                    if (confirming) EndToday();
+                    if (done || confirming) EndToday();
                     else confirmUntil = Time.unscaledTime + ConfirmSeconds;
                 }
             }

@@ -310,7 +310,8 @@ namespace DogShop.UI
 
             bool finishedBanner = quests != null && quests.IsComplete && quests.FinishedAt >= 0f
                                   && Time.unscaledTime - quests.FinishedAt < QuestFinishedSeconds;
-            bool show = quests != null && (!quests.IsComplete || finishedBanner);
+            // 시연 할 일은 다 끝내도 "오늘 할 일 완료"를 날이 바뀔 때까지 띄워 둔다 — 다음에 뭘 할지 알려 주는 자리라서
+            bool show = quests != null && (!quests.IsComplete || finishedBanner || TutorialQuestManager.Demo);
             if (questPanel.gameObject.activeSelf != show) questPanel.gameObject.SetActive(show);
             if (!show) return;
 
@@ -349,17 +350,25 @@ namespace DogShop.UI
             float height = QuestRowHeight;
             if (quests.IsComplete)
             {
-                questHeader.text = "튜토리얼";
-                questObjective.text = "튜토리얼 완료!";
+                questHeader.text = quests.Header;
+                questObjective.text = quests.CompleteText;
                 questObjective.color = MoneyColor;
                 questToggle.gameObject.SetActive(false);
-                questDetail.gameObject.SetActive(false);
                 questClaim.gameObject.SetActive(false);
+                string next = quests.CompleteDetail;
+                questDetail.gameObject.SetActive(next != null);
+                if (next != null)
+                {
+                    questDetail.text = next;
+                    float textHeight = Mathf.Ceil(questDetail.preferredHeight);
+                    questDetail.rectTransform.sizeDelta = new Vector2(QuestWidth - 28f, textHeight);
+                    height += textHeight + 12f;
+                }
             }
             else if (quests.ReadyToClaim)
             {
                 TutorialQuestManager.Quest q = quests.Current;
-                questHeader.text = "튜토리얼 " + (quests.Step + 1) + "/" + quests.QuestCount + "   달성!";
+                questHeader.text = quests.Header;
                 questObjective.text = q.objective + " (" + quests.Progress + "/" + q.target + ")";
                 questObjective.color = MoneyColor;
                 questToggle.gameObject.SetActive(false);
@@ -370,7 +379,7 @@ namespace DogShop.UI
             else
             {
                 TutorialQuestManager.Quest q = quests.Current;
-                questHeader.text = "튜토리얼 " + (quests.Step + 1) + "/" + quests.QuestCount + "   +" + TutorialQuestManager.Reward + "원";
+                questHeader.text = quests.Header;
                 questObjective.text = q.objective + " (" + quests.Progress + "/" + q.target + ")";
                 questObjective.color = TextColor;
                 questClaim.gameObject.SetActive(false);

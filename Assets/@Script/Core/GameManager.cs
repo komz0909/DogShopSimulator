@@ -45,6 +45,7 @@ namespace DogShop.Core
             if (Instance != null && Instance != this) { Destroy(this); return; }
             Instance = this;
             Money = Exhibition.Active ? Exhibition.StartMoney : startingMoney;   // 시연 모드는 넉넉히 시작한다
+            if (Exhibition.Active) Reputation = Exhibition.StartReputation;     // 시연은 다음 레벨 문턱 바로 아래에서
             ReputationAtDayStart = Reputation;
         }
 
@@ -96,6 +97,7 @@ namespace DogShop.Core
             if (retail <= 0) return;
             Money += retail;
             DailyRevenue += retail;
+            Exhibition.RecordSale(retail);
             OnMoneyChanged?.Invoke(Money);
         }
 

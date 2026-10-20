@@ -26,13 +26,21 @@ namespace DogShop.Core
         public const int Days = 3;
 
         /// <summary>
-        /// 가게 Lv 6 에서 시작한다. Lv 1 은 상품이 사료·샴푸 두 가지뿐이라 가게를 맛보기엔 너무 비었다.
-        /// Lv 6 이면 상품 13종, 훈련 7종 전부, 운동 3종, 하루 훈련 3번이 열리고 가게도 한 번 넓어진(9.5m) 모습이다.
+        /// 가게 Lv 7 에서 시작한다. Lv 1 은 상품이 사료·샴푸 두 가지뿐이라 가게를 맛보기엔 너무 비었다.
+        /// Lv 7 이면 상품 16종, 훈련 7종 전부, 운동 3종, 하루 훈련 3번이 열리고 가게도 두 번 넓어진(11m) 모습이다.
+        ///
+        /// Lv 8 바로 아래에서 시작하는 게 핵심이다 — Lv 8 레벨업은 마스코트 "스타 강아지"(능력치 합 260)가 있어야 한다.
+        /// 2일차에 훈련으로 승급 → 그 등급으로 가게 레벨업을 시연 안에서 직접 겪게 한다(강아지가 가게를 키운다).
+        /// 명성(<see cref="StartReputation"/>)과 능력치(<see cref="StartGrowthStat"/>)도 그 문턱 바로 아래로 맞춘다.
+        /// 예전엔 Lv 5·인기 강아지(150) 문턱이었는데, 3일차에 바로 쇼에 나가기엔 능력치(49)가 낮아 한 단계 올렸다.
         /// </summary>
-        public const int StartLevel = 6;
+        public const int StartLevel = 7;
+
+        /// <summary>시작 명성. Lv 8 문턱(433) 바로 아래 — 1일차 손님 몇 명이면 넘는다.</summary>
+        public const int StartReputation = 428;
 
         /// <summary>
-        /// 기본 창고 선반(4개, 12단)에 더해 뒷벽에 세우는 선반 수. Lv 6 상품 13종이 한 단씩 다 들어가고 남는다.
+        /// 기본 창고 선반(4개, 12단)에 더해 뒷벽에 세우는 선반 수. Lv 7 상품 16종이 한 단씩 다 들어가고 남는다.
         /// 자리는 <see cref="Shop.StorageManager"/> 가 정한다(창고 뒷벽 x 3.5~7.4).
         /// </summary>
         public const int ExtraStorageRacks = 4;
@@ -46,12 +54,14 @@ namespace DogShop.Core
         /// <summary>
         /// 시작 능력치(미모·훈련도·어질리티). 0 에서 3일 만에 쇼에 나가면 네 종목이 전부 최저 난이도에 묶인다.
         /// "어느 정도 자란 강아지를 데려왔다"는 출발점이다. 만점 기준은 240(<c>DogShow.StatFull</c>).
+        /// 셋을 합치면 258 — "스타 강아지"(260) 바로 아래라 2일차에 어떤 훈련이든 한 번 하면 승급한다(가장 싼 훈련이 +5).
+        /// 셋 다 손님 반응이 열리는 70(<see cref="Dogs.MascotGreeter.Unlock"/>)을 넘어 1일차부터 반응 세 가지가 다 나온다.
         /// </summary>
-        public const int StartGrowthStat = 40;
+        public const int StartGrowthStat = 86;
 
         /// <summary>
         /// 훈련·운동 성장 배율. 본편 하루치 성장을 시연 하루에 몰아 준다.
-        /// 사흘 동안 빠짐없이 훈련하면 미모·훈련도 ~100, 어질리티 ~130 — 만점의 절반쯤이고, 훈련을 건너뛰면 40 그대로다.
+        /// 시작값(86)에 훈련을 더한 만큼 쇼가 쉬워진다. 훈련을 건너뛰면 시작값 그대로다.
         /// 다 채워 주지는 않는다 — 돌보고 훈련한 만큼만 쇼가 쉬워진다.
         /// </summary>
         public const int GrowthMultiplier = 5;
@@ -67,6 +77,36 @@ namespace DogShop.Core
         {
             float full = DaySeconds[Mathf.Clamp(day - 1, 0, DaySeconds.Length - 1)];
             return full / (TimeManager.LastHour - TimeManager.DayStartHour);
+        }
+
+        // ---- 키운 결과 기록 (도그쇼 시작 화면에 보여 준다) ----
+
+        /// <summary>시연 동안 번 돈(매장·온라인 매출 합).</summary>
+        public static int Earned { get; private set; }
+        /// <summary>시연 동안 시킨 훈련·운동 횟수.</summary>
+        public static int Trainings { get; private set; }
+        public static int Exercises { get; private set; }
+
+        public static void ResetRecord() { Earned = 0; Trainings = 0; Exercises = 0; }
+        public static void RecordSale(int paid) { if (Active) Earned += paid; }
+        public static void RecordTraining() { if (Active) Trainings++; }
+        public static void RecordExercise() { if (Active) Exercises++; }
+
+        /// <summary>오늘 할 일이 남았을 때 시계를 붙잡아 두는 시각. 영업 마감(19:30)보다 앞이라 손님이 계속 온다.</summary>
+        public const float HoldHour = 18f;
+
+        /// <summary>
+        /// 지금 시계를 붙잡아야 하나 — 시연 중이고 오늘 할 일(<see cref="Shop.TutorialQuestManager"/>)이 남았다.
+        /// 시간이 아니라 <b>할 일로</b> 하루가 끝나게 하려는 것이다. 다 끝내면 시계가 다시 흐르고 곧 다음 날로 넘어간다.
+        /// </summary>
+        public static bool HoldsClock
+        {
+            get
+            {
+                if (!Active) return false;
+                Shop.TutorialQuestManager quests = Shop.TutorialQuestManager.Instance;
+                return quests != null && !quests.IsComplete;
+            }
         }
 
         /// <summary>시연 마지막 날(도그쇼 날)인가.</summary>

@@ -61,6 +61,7 @@ namespace DogShop.Core
         {
             NewGame(breedIndex, dogName);
             Exhibition = true;
+            Core.Exhibition.ResetRecord();
         }
 
         public static void Resume()

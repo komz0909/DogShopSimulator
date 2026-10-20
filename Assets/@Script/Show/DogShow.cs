@@ -53,9 +53,10 @@ namespace DogShop.Show
         /// <summary>스탯을 0~1 로 펼 때 쓰는 기준. 46차 측정에서 30일 최적 플레이가 미모·훈련도 각 220 안팎이었다.</summary>
         const float StatFull = 240f;
 
-        const int PoseRounds = 5;
-        /// <summary>물어오기 판 수. 한 판이 강아지가 다녀오는 데 10초 넘게 걸려 5판은 늘어졌다 — 3판으로.</summary>
-        const int FetchRounds = 3;
+        /// <summary>미모 심사 판 수. 시연은 쇼만 3분 가까이 걸려 체험 시간의 절반을 먹었다 — 종목 넷은 그대로 두고 판 수만 줄인다.</summary>
+        static int PoseRounds => Exhibition.Active ? 3 : 5;
+        /// <summary>물어오기 판 수. 한 판이 강아지가 다녀오는 데 10초 넘게 걸려 5판은 늘어졌다 — 3판으로(시연은 2판).</summary>
+        static int FetchRounds => Exhibition.Active ? 2 : 3;
 
         public static DogShow Instance { get; private set; }
 
@@ -350,7 +351,7 @@ namespace DogShop.Show
                 "가는 안쪽 띠 = PERFECT(100점), 그 바깥 띠 = GOOD(60점), 놓치면 MISS",
                 "뒤로 갈수록 링이 빨라진다",
                 "미모가 높을수록 띠가 넓어진다  (지금 미모 " + hero.Stats.Beauty + ")",
-                "다섯 번의 평균이 점수, 총점의 20%");
+                PoseRounds + "번의 평균이 점수, 총점의 20%");
         }
 
         /// <summary>
@@ -1625,13 +1626,85 @@ namespace DogShop.Show
             GUI.DrawTexture(new Rect(0f, 0f, SW, SH), Texture2D.whiteTexture);
             GUI.color = Color.white;
 
-            GUI.Label(new Rect(0f, SH * 0.32f, SW, 44f), headline, bigStyle);
-            GUI.Label(new Rect(0f, SH * 0.32f + 46f, SW, 30f), subline, smallStyle);
+            // 시연은 쇼 직전에 "사흘 동안 키운 결과"를 한 장 보여 준다 — 가게에서 번 돈 → 훈련 → 능력치 → 쉬워진 종목으로 이어지는 걸 눈으로
+            bool recap = Exhibition.Active && hero != null;
+            float top = recap ? SH * 0.1f : SH * 0.32f;
+            GUI.Label(new Rect(0f, top, SW, 44f), headline, bigStyle);
+            GUI.Label(new Rect(0f, top + 46f, SW, 30f), subline, smallStyle);
 
-            var r = new Rect((SW - 300f) * 0.5f, SH * 0.5f, 300f, 64f);
+            float buttonY = SH * 0.5f;
+            if (recap) buttonY = DrawRecap(top + 92f) + 20f;
+
+            var r = new Rect((SW - 300f) * 0.5f, buttonY, 300f, 64f);
             if (UiSkin.Click(r, "도그쇼 시작", new GUIStyle(UiSkin.Button(UiSkin.Green)) { fontSize = 24 }))
                 StartCoroutine(RunShow());
         }
+
+        GUIStyle recapTitle, recapRow, recapValue, recapNote;
+
+        /// <summary>
+        /// 시연 쇼 시작 화면의 "키운 결과" 판. 번 돈·훈련 횟수 → 능력치 변화 → 마스코트 등급 → 종목이 얼마나 쉬워졌나.
+        /// 아래 끝 y 를 돌려준다(그 밑에 시작 버튼).
+        /// </summary>
+        float DrawRecap(float y)
+        {
+            if (recapTitle == null || recapTitle.font != UiSkin.Font)
+            {
+                recapTitle = new GUIStyle(UiSkin.Title) { fontSize = 24, alignment = TextAnchor.MiddleCenter };
+                recapRow = new GUIStyle(UiSkin.Label) { fontSize = 19, alignment = TextAnchor.MiddleLeft };
+                recapValue = new GUIStyle(UiSkin.Title) { fontSize = 20, alignment = TextAnchor.MiddleRight };
+                recapNote = new GUIStyle(UiSkin.Label) { fontSize = 17, alignment = TextAnchor.MiddleCenter, wordWrap = true };
+            }
+
+            DogStats st = hero.Stats;
+            int start = Exhibition.StartGrowthStat;
+            const float W = 520f, RowH = 32f, Pad = 22f;
+            float h = Pad * 2f + 36f + RowH * 5f + 12f + 56f + 50f;
+            var panel = new Rect((SW - W) * 0.5f, y, W, h);
+            GUI.Box(panel, GUIContent.none, UiSkin.Panel_);
+
+            float x = panel.x + Pad, w = W - Pad * 2f, cy = panel.y + Pad;
+            GUI.Label(new Rect(x, cy, w, 36f), Exhibition.Days + "일 동안 키운 결과", recapTitle);
+            cy += 36f;
+
+            Row(x, ref cy, w, RowH, "가게에서 번 돈", Exhibition.Earned.ToString("N0") + "원", Color.white);
+            Row(x, ref cy, w, RowH, "훈련 " + Exhibition.Trainings + "번  운동 " + Exhibition.Exercises + "번", "", Color.white);
+            Row(x, ref cy, w, RowH, "미모", start + "  >  " + st.Beauty + Gain(st.Beauty - start), new Color(1f, 0.6f, 0.8f));
+            Row(x, ref cy, w, RowH, "훈련도", start + "  >  " + st.Training + Gain(st.Training - start), new Color(0.55f, 0.75f, 1f));
+            Row(x, ref cy, w, RowH, "어질리티", start + "  >  " + st.Agility + Gain(st.Agility - start), new Color(1f, 0.72f, 0.4f));
+            cy += 12f;
+
+            // 마스코트 등급(배지 + 이름)
+            int grade = MascotGrade.GradeOf(st.MascotTotal);
+            Texture2D badge = MascotGrade.Badge(grade);
+            float bx = x + w * 0.5f - 130f;
+            if (badge != null) GUI.DrawTexture(new Rect(bx, cy, 52f, 52f), badge, ScaleMode.ScaleToFit);
+            var gradeStyle = new GUIStyle(recapTitle) { alignment = TextAnchor.MiddleLeft };
+            gradeStyle.normal.textColor = MascotGrade.Colors[grade];
+            GUI.Label(new Rect(bx + 62f, cy, 260f, 52f), "마스코트 " + MascotGrade.Names[grade], gradeStyle);
+            cy += 56f;
+
+            // 키운 만큼 쉬워진 것 — 미모 심사 PERFECT 띠(미모가 정한다)가 시작 때보다 얼마나 넓어졌나
+            float before = Mathf.Lerp(0.012f, 0.045f, Mathf.Clamp01(start / StatFull));
+            float now = Mathf.Lerp(0.012f, 0.045f, Mathf.Clamp01(st.Beauty / StatFull));
+            int wider = Mathf.RoundToInt((now / before - 1f) * 100f);
+            string note = wider > 0
+                ? "미모 심사 PERFECT 띠가 처음보다 " + wider + "% 넓어졌다\n키운 만큼 종목이 쉬워진다"
+                : "능력치가 높을수록 종목이 쉬워진다\n다음엔 훈련을 더 해 보자";
+            GUI.Label(new Rect(x, cy, w, 50f), note, recapNote);
+
+            return panel.yMax;
+        }
+
+        void Row(float x, ref float y, float w, float h, string label, string value, Color tint)
+        {
+            recapRow.normal.textColor = tint;
+            GUI.Label(new Rect(x, y, w, h), label, recapRow);
+            GUI.Label(new Rect(x, y, w, h), value, recapValue);
+            y += h;
+        }
+
+        static string Gain(int d) => d > 0 ? "  (+" + d + ")" : "";
 
         void DrawRing()
         {

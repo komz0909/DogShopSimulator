@@ -169,7 +169,7 @@ namespace DogShop.Shop
             delivered = new int[catalog.Count];
             graded = new int[catalog.Count * ItemGrades.Count];
 
-            // 시연 모드는 시작 레벨(Lv 3)까지 열린 상품을 모두 깔아 둔다 — 첫날 발주 없이도 바로 진열·판매해 볼 수 있게
+            // 시연 모드는 시작 레벨(Exhibition.StartLevel)까지 열린 상품을 모두 깔아 둔다 — 첫날 발주 없이도 바로 진열·판매해 볼 수 있게
             int stockedLevel = Exhibition.Active ? Exhibition.StartLevel : 1;
             int stockEach = Exhibition.Active ? Exhibition.StartStockPerProduct : startingStoragePerProduct;
             for (int i = 0; i < catalog.Count; i++)
