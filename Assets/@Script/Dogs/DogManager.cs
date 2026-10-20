@@ -41,6 +41,7 @@ namespace DogShop.Dogs
         void Start()
         {
             TimeManager.Instance.OnDayStarted += HandleDayStarted;
+            if (GetComponent<MascotGreeter>() == null) gameObject.AddComponent<MascotGreeter>();   // 손님 반응(마스코트)
 
             // 메인 화면에서 고른 견종이 있으면 그쪽이 이긴다. 이어하기면 여기서 무엇을 내든
             // 곧바로 SaveManager 가 세이브의 견종으로 다시 생성한다.
@@ -103,10 +104,30 @@ namespace DogShop.Dogs
             Hero.SyncMood();
         }
 
+        /// <summary>지난번에 본 마스코트 등급. 오르는 순간을 알리려고 들고 있는다(-1 = 아직 모름, 처음엔 알리지 않는다).</summary>
+        int lastMascotGrade = -1;
+
         void PushHeroStatToLevelGate()
         {
             if (Hero == null || ShopLevelManager.Instance == null) return;
-            ShopLevelManager.Instance.HeroGrowthStat = Hero.Stats.GrowthTotal;
+            ShopLevelManager.Instance.HeroGrowthStat = Hero.Stats.MascotTotal;
+
+            // 마스코트 등급이 오르면 손님 반응으로 알린다. 다음 가게 레벨업이 이 등급을 기다리고 있었으면 그것도
+            int grade = MascotGrade.GradeOf(Hero.Stats.MascotTotal);
+            if (lastMascotGrade >= 0 && grade > lastMascotGrade && !Core.SaveManager.IsRestoring)
+            {
+                Sound.Play(Sfx.LevelUp);
+                var hud = FindAnyObjectByType<UI.GameHud>();
+                if (hud != null)
+                {
+                    string line = Hero.DisplayName + ", " + MascotGrade.Names[grade] + "가 되었다! " + MascotGrade.PromoteLines[grade];
+                    var next = ShopLevelManager.Instance.Next;
+                    if (next != null && next.heroStatGate > 0 && Hero.Stats.MascotTotal >= next.heroStatGate)
+                        line += ". 이제 가게를 넓힐 수 있다";
+                    hud.Toast(line, MascotGrade.Colors[grade]);
+                }
+            }
+            lastMascotGrade = grade;
         }
 
         public void CaptureInto(SaveData data)

@@ -247,6 +247,7 @@ namespace DogShop.Debugging
             if (!SavingForUpgrade())
             {
                 TrainHero();
+                ExerciseHero();
 
                 // 단계상승은 훈련 <b>뒤</b>다. 강화를 걸면 그 훈련을 못 쓰는데,
                 // 오늘 이미 쓴 뒤라면 어차피 쿨타임이라 잃는 슬롯이 없다
@@ -706,12 +707,33 @@ namespace DogShop.Debugging
         /// 9일차부터 30일차까지 Lv3에 멈췄다(52차도 같은 꼴).
         /// 끝없이 쉬면 강아지가 안 자라므로 최대 <see cref="MaxSavingDays"/>일만 쉬고 하루는 훈련한다.
         /// </summary>
+        /// <summary>
+        /// 하루 한 번 운동 — 해금된 것 중 하한선 위 잉여로 살 수 있는 가장 비싼 것. 어질리티가 마스코트 등급(가게 레벨 조건)에 들어가서
+        /// 봇도 운동을 해야 레벨이 막히지 않는다. 훈련과 같은 하한선(이틀치 소진액)을 지킨다.
+        /// </summary>
+        void ExerciseHero()
+        {
+            TrainingManager tm = TrainingManager.Instance;
+            Dog hero = DogManager.Instance.Hero;
+            if (tm == null || hero == null || tm.ExercisedToday) return;
+            int floor = InventoryManager.Instance.DailyConsumptionCost(ShopLevelManager.Instance.Level, ShopLevelManager.Instance.Current.customersPerDay) * 2;
+            for (int i = TrainingManager.Exercises.Length - 1; i >= 0; i--)
+            {
+                string why;
+                if (!tm.CanExercise(hero, i, out why)) continue;
+                if (GameManager.Instance.Money - TrainingManager.Exercises[i].cost < floor) continue;
+                tm.Exercise(hero, i);
+                return;
+            }
+        }
+
         bool SavingForUpgrade()
         {
             ShopLevelManager level = ShopLevelManager.Instance;
             bool want = level != null && !level.IsMaxLevel
                         && !(stopUpgradingAt > 0 && level.Level >= stopUpgradingAt)
                         && GameManager.Instance.Reputation >= level.Next.requiredReputation
+                        && !(level.Next.heroStatGate > 0 && level.HeroGrowthStat < level.Next.heroStatGate)   // 마스코트 등급이 모자라면 모아 봐야 못 오른다 — 키운다
                         && GameManager.Instance.Money < level.Next.upgradeCost + UpgradeReserve();
             if (!want) { savingDays = 0; return false; }
             if (savingDays >= MaxSavingDays) { savingDays = 0; return false; }

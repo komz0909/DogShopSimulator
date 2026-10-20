@@ -71,7 +71,7 @@ namespace DogShop.Shop
             }
             if (next.heroStatGate > 0 && HeroGrowthStat < next.heroStatGate)
             {
-                reason = "주인공견 성장 스탯 부족: " + HeroGrowthStat + " / " + next.heroStatGate;
+                reason = "마스코트 등급 부족: " + Dogs.MascotGrade.NameForThreshold(next.heroStatGate) + " 필요 (능력치 합 " + HeroGrowthStat + " / " + next.heroStatGate + ")";
                 return false;
             }
             if (gm.Money < next.upgradeCost)

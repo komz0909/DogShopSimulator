@@ -333,11 +333,29 @@ namespace DogShop.Dogs
             if (face != null) GUI.DrawTexture(new Rect(pic.x + 4f, pic.y + 4f, 88f, 88f), face, ScaleMode.ScaleToFit);
 
             float tx = pic.xMax + 12f, tw = r.xMax - tx;
-            GUI.Label(new Rect(tx, r.y + 6f, tw, 26f), "상태", sectionStyle);
             string mood = blocked ? "성장 정지" : Mathf.Min(clean, health) >= 70 ? "컨디션 좋음" : "돌봐 줄 때가 됐다";
-            GUI.Box(new Rect(tx, r.y + 38f, tw, 26f), mood,
+            GUI.Box(new Rect(tx, r.y + 2f, tw, 26f), mood,
                     UI.UiSkin.Tag(blocked ? UI.UiSkin.Coral : Mathf.Min(clean, health) >= 70 ? UI.UiSkin.Green : UI.UiSkin.Cream));
-            if (blocked) GUI.Label(new Rect(tx, r.y + 68f, tw, 20f), "청결/건강을 40 이상으로", warnSmall);
+
+            // 마스코트 등급 — 강아지가 가게의 얼굴이다. 총합이 오르면 등급이 오르고 가게 레벨업 조건이 풀린다
+            int total = beauty + training + agility;
+            int grade = MascotGrade.GradeOf(total);
+            Texture2D badgeArt = MascotGrade.Badge(grade);
+            float bx = badgeArt != null ? tx + 46f : tx;   // 배지 그림이 있으면 왼쪽에 두고 띠·막대를 오른쪽으로
+            if (badgeArt != null) GUI.DrawTexture(new Rect(tx - 2f, r.y + 30f, 46f, 46f), badgeArt, ScaleMode.ScaleToFit);
+            var badge = new Rect(bx, r.y + 34f, r.xMax - bx, 28f);
+            Color gc = MascotGrade.Colors[grade];
+            GUI.DrawTexture(badge, Texture2D.whiteTexture, ScaleMode.StretchToFill, false, 0f, new Color(gc.r, gc.g, gc.b, 0.9f), 0f, 14f);
+            GUI.Label(badge, MascotGrade.Names[grade], mascotStyle);
+            if (MascotGrade.IsMax(grade))
+                GUI.Label(new Rect(bx, r.y + 64f, r.xMax - bx, 18f), "최고 등급", mascotSmall);
+            else
+            {
+                int lo = MascotGrade.Thresholds[grade], hi = MascotGrade.Thresholds[grade + 1];
+                Bar(new Rect(bx, r.y + 68f, r.xMax - bx, 8f), Mathf.Clamp01((total - lo) / (float)(hi - lo)), gc);
+                GUI.Label(new Rect(tx, r.y + 78f, tw, 18f), MascotGrade.Names[grade + 1] + "까지 " + total + "/" + hi, mascotSmall);
+            }
+            if (blocked) GUI.Label(new Rect(r.x, r.y + 98f, r.width, 18f), "청결/건강을 40 이상으로 (성장 정지)", warnSmall);
 
             // 스탯 다섯 줄: 아이콘 / 이름 / 수치, 그 아래 막대. 성장 스탯은 견종 보정을 이름 옆에
             float y = r.y + 112f;
@@ -597,7 +615,7 @@ namespace DogShop.Dogs
             GUI.color = Color.white;
         }
 
-        static GUIStyle roundBox, sectionStyle, rightStyle, rightSmall, warnSmall, traitStyle;
+        static GUIStyle roundBox, sectionStyle, rightStyle, rightSmall, warnSmall, traitStyle, mascotStyle, mascotSmall;
         static GUIStyle bonusUp, bonusDown, btnName, btnLine, popupTitle, popupLine, exerciseCount, exerciseDone;
         static GUIStyle rowName, rowNameOff, rowLocked, rowCost, rowWarn, trainBtnStyle, trainBtnOff;
 
@@ -626,6 +644,9 @@ namespace DogShop.Dogs
             rightStyle = new GUIStyle(labelStyle) { alignment = TextAnchor.MiddleRight, fontSize = 15 };
             rightSmall = new GUIStyle(smallStyle) { alignment = TextAnchor.MiddleRight };
             traitStyle = new GUIStyle(smallStyle) { fontSize = 13, wordWrap = true, alignment = TextAnchor.UpperLeft };
+            mascotStyle = new GUIStyle(UI.UiSkin.Title) { fontSize = 17, alignment = TextAnchor.MiddleCenter };
+            mascotStyle.normal.textColor = new Color(0.22f, 0.13f, 0.06f);
+            mascotSmall = new GUIStyle(smallStyle) { fontSize = 12, alignment = TextAnchor.MiddleLeft };
 
             starStyle = new GUIStyle(UI.UiSkin.Label) { fontSize = 13, alignment = TextAnchor.MiddleCenter };
             starStyle.normal.textColor = new Color(0.92f, 0.66f, 0.12f);

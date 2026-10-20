@@ -253,7 +253,7 @@ namespace DogShop.Shop
             }
             else
             {
-                customer.MoveTo(shelf.ApproachPoint);
+                BeginBrowse(customer, shelf);
                 active.Add(customer);
             }
 
@@ -373,7 +373,7 @@ namespace DogShop.Shop
                     }
                 }
 
-                if (c.State == CustomerState.ToShelf) TickToShelf(c);
+                if (c.State == CustomerState.ToShelf) TickToShelf(c, step);
                 else if (c.State == CustomerState.ToCounter) TickToCounter(c);
                 else if (c.State == CustomerState.Waiting) TickWaiting(c, step);
                 else if (c.State == CustomerState.ToExit && c.Arrived) finished.Add(c);
@@ -382,9 +382,23 @@ namespace DogShop.Shop
             for (int i = 0; i < finished.Count; i++) Despawn(finished[i]);
         }
 
-        void TickToShelf(Customer c)
+        void TickToShelf(Customer c, float step)
         {
-            if (!c.Arrived) return;
+            if (!c.Arrived || c.Holding) return;
+
+            // 둘러보는 중 — 들른 곳에서 잠깐 구경하고 다음 곳으로, 다 보면 원하는 진열대로
+            if (c.BrowseLeft > 0 || c.BrowseLinger > 0f)
+            {
+                if (c.BrowseLinger > 0f) { c.BrowseLinger -= step; return; }
+                if (c.BrowseLeft > 0) { c.BrowseLeft--; GoBrowse(c); return; }
+            }
+            if (c.BrowseLinger <= 0f && c.BrowseLeft == 0 && (c.transform.position - c.ShelfTarget).sqrMagnitude > 1f && c.ShelfTarget != Vector3.zero)
+            {
+                Vector3 target = c.ShelfTarget;
+                c.ShelfTarget = Vector3.zero;
+                c.MoveTo(FreeSpot(target, c));
+                return;
+            }
 
             InventoryManager inv = InventoryManager.Instance;
             ItemGrade picked;
@@ -408,6 +422,78 @@ namespace DogShop.Shop
                 OnLostSale?.Invoke(c.WantedProduct);
                 SendHome(c);
             }
+        }
+
+        /// <summary>둘러볼 곳 수(게임). 들어온 손님이 진열대로 가기 전 가게를 한두 군데 구경한다 — 강아지가 다가갈 시간이 생긴다.</summary>
+        static readonly Vector2Int BrowseStops = new Vector2Int(1, 3);   // 1~2곳
+        /// <summary>한 곳에서 구경하는 게임 시간(초).</summary>
+        static readonly Vector2 BrowseLingerRange = new Vector2(3f, 6f);
+
+        /// <summary>서 있는 손님끼리 이만큼은 떨어진다(m). 몸 반지름 0.28 두 개 + 여유.</summary>
+        const float StandGap = 0.62f;
+
+        /// <summary>
+        /// <paramref name="p"/> 근처에서 다른 손님이 서 있거나 가려는 자리와 겹치지 않는 곳. 손님끼리 통과하게 바꿨으니
+        /// 멈춰 서는 자리만큼은 나눠 줘야 한 점에 여러 명이 포개져 선다. 다 차 있으면 가장 덜 붐비는 후보.
+        /// </summary>
+        Vector3 FreeSpot(Vector3 p, Customer self)
+        {
+            if (IsFree(p, self)) return p;
+            Vector3 best = p;
+            for (int ring = 1; ring <= 3; ring++)
+            {
+                float r = StandGap * ring;
+                for (int k = 0; k < 8; k++)
+                {
+                    float a = k * Mathf.PI / 4f + ring * 0.4f;
+                    Vector3 cand = p + new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)) * r;
+                    NavMeshHit hit;
+                    if (!NavMesh.SamplePosition(cand, out hit, 0.3f, Customer.WalkableAreas)) continue;
+                    if (IsFree(hit.position, self)) return hit.position;
+                }
+            }
+            return best;
+        }
+
+        bool IsFree(Vector3 p, Customer self)
+        {
+            for (int i = 0; i < active.Count; i++)
+            {
+                Customer o = active[i];
+                if (o == self || o.State == CustomerState.ToExit) continue;
+                Vector3 d = o.Destination - p; d.y = 0f;
+                if (d.sqrMagnitude < StandGap * StandGap) return false;
+            }
+            return true;
+        }
+
+        void BeginBrowse(Customer c, ShelfTable shelf)
+        {
+            c.ShelfTarget = shelf.ApproachPoint;
+            c.BrowseLeft = UnityEngine.Random.Range(BrowseStops.x, BrowseStops.y);
+            c.BrowseLinger = 0f;
+            c.BrowseLeft--;
+            GoBrowse(c);
+        }
+
+        /// <summary>다른 진열대 앞 한 곳을 골라 걸어가 구경한다. 갈 데가 없으면 바로 원하는 진열대로.</summary>
+        void GoBrowse(Customer c)
+        {
+            ShelfManager sm = ShelfManager.Instance;
+            Vector3 pick = c.ShelfTarget;
+            if (sm != null && sm.Count > 0)
+            {
+                for (int tries = 0; tries < 6; tries++)
+                {
+                    ShelfTable t = sm.Get(UnityEngine.Random.Range(0, sm.Count));
+                    if (t == null || !t.CustomersCanReach) continue;
+                    if ((t.ApproachPoint - c.ShelfTarget).sqrMagnitude < 0.25f && sm.Count > 1) continue;
+                    pick = t.ApproachPoint + new Vector3(UnityEngine.Random.Range(-0.5f, 0.5f), 0f, UnityEngine.Random.Range(-0.3f, 0.3f));
+                    break;
+                }
+            }
+            c.MoveTo(FreeSpot(pick, c));
+            c.BrowseLinger = UnityEngine.Random.Range(BrowseLingerRange.x, BrowseLingerRange.y);
         }
 
         void TickToCounter(Customer c)
@@ -529,6 +615,9 @@ namespace DogShop.Shop
             return true;
         }
 
+        /// <summary>가게 안 손님(줄 선 손님 포함). 강아지 반응이 고를 대상.</summary>
+        public Customer ActiveAt(int index) => index >= 0 && index < active.Count ? active[index] : null;
+
         public Customer QueuedAt(int index) => index >= 0 && index < queue.Count ? queue[index] : null;
 
         void SendHome(Customer c)
@@ -585,7 +674,7 @@ namespace DogShop.Shop
             }
 
             customer.ApplySpeed(TimeManager.Instance.SpeedMultiplier);
-            customer.MoveTo(shelf.ApproachPoint);
+            BeginBrowse(customer, shelf);
             active.Add(customer);
         }
 

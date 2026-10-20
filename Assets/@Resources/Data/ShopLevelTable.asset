@@ -48,7 +48,7 @@ MonoBehaviour:
     basketPriceTarget: 83
     trainingSlots: 3
     crateSlots: 10
-    heroStatGate: 0
+    heroStatGate: 40
     floorWidth: 9.5
     unlockKo: "\uAC04\uC2DD/\uC7A5\uB09C\uAC10 / \uB180\uC544\uC8FC\uAE30 \uD574\uAE08
       / \uB9E4\uC7A5 \uD655\uC7A5"
@@ -87,7 +87,7 @@ MonoBehaviour:
     basketPriceTarget: 123
     trainingSlots: 3
     crateSlots: 12
-    heroStatGate: 0
+    heroStatGate: 260
     floorWidth: 11
     unlockKo: "\uACE0\uAE09 \uAC04\uC2DD \uC138\uD2B8 / \uACE0\uAE09 \uCE68\uB300
       / \uC9C4\uB4DC\uAE30 \uD1F4\uCE58\uC81C"
@@ -97,7 +97,7 @@ MonoBehaviour:
     basketPriceTarget: 123
     trainingSlots: 3
     crateSlots: 12
-    heroStatGate: 400
+    heroStatGate: 0
     floorWidth: 12
     unlockKo: "\uB2E8\uACE8 \uD655\uB300: \uC190\uB2D8 +3 / \uC218\uC785 \uC0AC\uB8CC/\uD504\uB9AC\uBBF8\uC5C4
       \uBBF8\uC6A9\uD0A4\uD2B8 / \uB9E4\uC7A5 \uD655\uC7A5"
@@ -107,6 +107,6 @@ MonoBehaviour:
     basketPriceTarget: 123
     trainingSlots: 3
     crateSlots: 12
-    heroStatGate: 0
+    heroStatGate: 400
     floorWidth: 12
     unlockKo: "\uB300\uC6A9\uB7C9 \uD1B5\uC870\uB9BC / \uC190\uB2D8 +3"

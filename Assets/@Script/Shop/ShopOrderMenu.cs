@@ -424,7 +424,7 @@ namespace DogShop.Shop
                     ? "Lv" + (levels.Level + 1) + " 레벨업  명성 " + rep + "/" + next.requiredReputation
                     : "Lv" + (levels.Level + 1) + " 레벨업  " + next.upgradeCost.ToString("N0") + "원 (부족)";
             if (!can && rep >= next.requiredReputation && next.heroStatGate > 0 && levels.HeroGrowthStat < next.heroStatGate)
-                label = "Lv" + (levels.Level + 1) + " 레벨업  강아지 성장 " + levels.HeroGrowthStat + "/" + next.heroStatGate;
+                label = "Lv" + (levels.Level + 1) + " 레벨업  " + Dogs.MascotGrade.NameForThreshold(next.heroStatGate) + " 필요";
 
             // 조건이 안 돼도 글자는 또렷하게 — GUI.enabled 로 끄면 무엇이 모자란지가 흐려서 안 읽혔다.
             // 대신 눌러도 오르지 않고 사유만 알린다(ActionRunner 가 거절 사유를 띄운다)

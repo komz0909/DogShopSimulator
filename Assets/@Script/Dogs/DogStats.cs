@@ -28,8 +28,11 @@ namespace DogShop.Dogs
         public float TrainingCarry { get; private set; }
         public float AgilityCarry { get; private set; }
 
-        /// <summary>가게 레벨 조건에 쓰는 성장 합. 어질리티는 넣지 않는다 — 넣으면 레벨이 지금보다 빨리 열린다.</summary>
+        /// <summary>미모+훈련도. 측정 기록(EconomyLog)용으로 남긴다. 가게 레벨 조건은 <see cref="MascotTotal"/>을 쓴다.</summary>
         public int GrowthTotal => Beauty + Training;
+
+        /// <summary>마스코트 등급(<see cref="MascotGrade"/>)과 가게 레벨 조건에 쓰는 성장 합 — 어질리티까지 넣는다. 운동도 가게를 키운다.</summary>
+        public int MascotTotal => Beauty + Training + Agility;
         public int UpkeepAverage => (Cleanliness + Health) / 2;
         public bool GrowthBlocked => Cleanliness < GrowthBlockThreshold || Health < GrowthBlockThreshold;
 

@@ -201,12 +201,13 @@ namespace DogShop.Dogs
             bodyClearance = dogRadius + ownerRadius + 0.05f;
         }
 
-        /// <summary>주인을 향해 부드럽게 돈다. 획 돌아서면 목이 꺾인 것처럼 보인다.</summary>
+        /// <summary>주인을 향해 부드럽게 돈다. 획 돌아서면 목이 꺾인 것처럼 보인다. 손님 반응 중엔 그 손님을 본다.</summary>
         void TurnToOwner()
         {
-            if (owner == null) return;
+            Transform look = faceOverride != null ? faceOverride : owner;
+            if (look == null) return;
 
-            Vector3 toward = owner.position - transform.position;
+            Vector3 toward = look.position - transform.position;
             toward.y = 0f;
             if (toward.sqrMagnitude < 0.0004f) return;
 
@@ -265,6 +266,15 @@ namespace DogShop.Dogs
         /// 주인을 보며 <paramref name="anim"/>을 <paramref name="seconds"/>초 동안 한다.
         /// 훈련·상호작용 연출용 — 그동안은 걷지도 목적지를 고르지도 않는다.
         /// </summary>
+        /// <summary>연출 동안 주인 대신 바라볼 대상(손님 반응). 연출이 끝나면 비운다.</summary>
+        Transform faceOverride;
+
+        public void Show(DogAnim anim, float seconds, Transform lookAt)
+        {
+            Show(anim, seconds);
+            faceOverride = lookAt;
+        }
+
         public void Show(DogAnim anim, float seconds)
         {
             bool wasIdle = showTimer <= 0f;
@@ -299,13 +309,68 @@ namespace DogShop.Dogs
             Show(DogAnim.Idle, seconds);
         }
 
+        // ---- 손님 주위 한 바퀴(어질리티 반응) ----
+
+        Transform circleCenter;
+        float circleTimer, circleAngle;
+        const float CircleRadius = 1.1f;
+
+        /// <summary>
+        /// 손님 둘레를 <paramref name="seconds"/>초 동안 뛰어 돈다. 끝나면 그 손님을 보며 꼬리를 흔든다.
+        /// 연출(<see cref="Show"/>)보다 먼저 돈다 — 도는 동안엔 걷기·배회를 하지 않는다.
+        /// </summary>
+        public void RunAround(Transform center, float seconds)
+        {
+            if (center == null || agent == null || !agent.isOnNavMesh) return;
+            circleCenter = center;
+            circleTimer = seconds;
+            Vector3 from = transform.position - center.position;
+            circleAngle = Mathf.Atan2(from.z, from.x);
+            agent.acceleration = 20f;
+            showTimer = 0f;
+            agent.isStopped = false;
+        }
+
+        bool TickCircle()
+        {
+            if (circleTimer <= 0f) return false;
+            circleTimer -= Time.deltaTime;
+            if (circleCenter == null || circleTimer <= 0f)
+            {
+                Transform who = circleCenter;
+                circleCenter = null;
+                circleTimer = 0f;
+                agent.speed = walkSpeed;
+                agent.autoBraking = true;
+                agent.acceleration = 8f;
+                Show(DogAnim.WagTail, 1.2f, who);
+                return true;
+            }
+
+            // 앞서 달리는 점을 쫓게 한다 — 한 바퀴 남짓을 정해진 시간에
+            circleAngle += (runSpeed * 1.3f / CircleRadius) * Time.deltaTime;   // 달리는 속도에 맞춰 각도를 민다(작은 견종은 덜 돈다)
+            // 목표를 반 바퀴 가까이 앞에 둔다 — 가까우면 자동 감속(autoBraking)에 걸려 기어가듯 돈다
+            Vector3 ahead = circleCenter.position + new Vector3(Mathf.Cos(circleAngle + 1.4f), 0f, Mathf.Sin(circleAngle + 1.4f)) * CircleRadius;
+            agent.autoBraking = false;
+            NavMeshHit hit;
+            if (NavMesh.SamplePosition(ahead, out hit, 0.8f, NavMesh.AllAreas)) agent.SetDestination(hit.position);
+            agent.isStopped = false;
+            agent.speed = runSpeed * 1.3f;
+            StickToGround();
+            Animate();
+            return true;
+        }
+
         void Update()
         {
             if (agent == null || !agent.isOnNavMesh) return;
 
+            if (TickCircle()) return;
+
             if (showTimer > 0f)
             {
                 showTimer -= Time.deltaTime;
+                if (showTimer <= 0f) faceOverride = null;
 
                 agent.isStopped = true;
                 agent.velocity = Vector3.zero;
@@ -330,6 +395,13 @@ namespace DogShop.Dogs
             {
                 called = false;
                 if (owner != null) { Show(DogAnim.WagTail, 1.6f); DogShop.Core.Sound.Play(DogShop.Core.Sfx.DogBark); return; }
+            }
+
+            // 손님에게 인사하러 가는 중 — 주인이 멀어지면(따라가야 하면) 그만둔다
+            if (greetTarget != null)
+            {
+                if (toOwner > FollowRange || Time.time > greetGiveUpAt) { greetTarget = null; greetArrived = null; }
+                else { TickGreet(); StickToGround(); Animate(); return; }
             }
 
             // 주인이 멀어지면 하던 일을 멈추고 붙는다. 가게 밖으로 나가도 이 규칙 하나로 따라온다.
@@ -390,6 +462,58 @@ namespace DogShop.Dogs
             if (!NavMesh.SamplePosition(transform.position, out nav, 1f, NavMesh.AllAreas)) return;
 
             agent.baseOffset = floorY - nav.position.y;
+        }
+
+        // ---- 손님 반응(마스코트) ----
+
+        Transform greetTarget;
+        System.Action greetArrived;
+        float greetGiveUpAt;
+
+        /// <summary>손님 앞에서 멈출 거리. 몸이 겹치면 손님이 떠밀린다.</summary>
+        const float GreetReach = 0.95f;
+
+        /// <summary>다른 일(연출·부르기·따라가기·인사) 중이라 인사를 시작할 수 없다.</summary>
+        public bool Busy => showTimer > 0f || circleTimer > 0f || called || following || greetTarget != null;
+
+        /// <summary>
+        /// 손님에게 뛰어가 인사한다. 앞에 닿으면 손님을 보며 꼬리를 흔들고 <paramref name="arrived"/>를 부른다.
+        /// <paramref name="giveUpAfter"/>초 안에 못 닿으면 그만둔다(길이 막히거나 손님이 가 버린 경우).
+        /// </summary>
+        public bool Greet(Transform target, System.Action arrived, float giveUpAfter)
+        {
+            if (target == null || Busy || agent == null || !agent.isOnNavMesh) return false;
+            greetTarget = target;
+            greetArrived = arrived;
+            greetGiveUpAt = Time.time + giveUpAfter;
+            agent.isStopped = false;
+            agent.speed = runSpeed;
+            return true;
+        }
+
+        void TickGreet()
+        {
+            Vector3 toDog = transform.position - greetTarget.position;
+            toDog.y = 0f;
+            if (toDog.magnitude <= GreetReach + 0.6f)   // 붐비는 진열대 앞에선 딱 붙지 못한다 — 한 걸음 남짓이면 닿은 걸로
+            {
+                Transform who = greetTarget;
+                System.Action done = greetArrived;
+                greetTarget = null;
+                greetArrived = null;
+                agent.speed = walkSpeed;
+                Show(DogAnim.WagTail, 2.2f, who);
+                pauseTimer = Random.Range(PauseRange.x, PauseRange.y);
+                if (done != null) done();
+                return;
+            }
+
+            // 손님 몸이 아니라 손님 앞(강아지 쪽) 한 걸음 자리로 간다
+            Vector3 spot = greetTarget.position + (toDog.sqrMagnitude > 0.01f ? toDog.normalized : greetTarget.forward) * GreetReach;
+            NavMeshHit hit;
+            if (NavMesh.SamplePosition(spot, out hit, 1f, NavMesh.AllAreas)) agent.SetDestination(hit.position);
+            agent.isStopped = false;
+            agent.speed = runSpeed;
         }
 
         void Follow(float toOwner)

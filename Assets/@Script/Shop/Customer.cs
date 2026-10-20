@@ -83,6 +83,9 @@ namespace DogShop.Shop
         {
             agent = GetComponent<NavMeshAgent>();
             agent.areaMask = WalkableAreas;
+            // 손님끼리는 걸을 때 서로 피하지 않고 통과한다. 피하려다 계산 줄과 들어오는 손님이 입구에서 엉켜
+            // 가게 전체가 막혔다(동맥경화). 서 있는 자리는 CustomerManager 가 겹치지 않게 나눠 준다(FreeSpot·줄 자리)
+            agent.obstacleAvoidanceType = ObstacleAvoidanceType.NoObstacleAvoidance;
             baseSpeed = agent.speed;
             baseAcceleration = agent.acceleration;
             baseAngularSpeed = agent.angularSpeed;
@@ -163,8 +166,57 @@ namespace DogShop.Shop
             facing = direction.normalized;
         }
 
+        // ---- 둘러보기 ----
+
+        /// <summary>진열대로 가기 전에 들를 곳이 몇 군데 남았나. 들어오자마자 진열대로 직행하면 가게가 휑하고 강아지가 다가갈 틈이 없다.</summary>
+        public int BrowseLeft { get; set; }
+
+        /// <summary>지금 들른 곳에서 구경하며 머무를 게임 시간(초). 0 이하면 다음으로 간다.</summary>
+        public float BrowseLinger { get; set; }
+
+        /// <summary>마지막에 갈 진열대 자리(원하는 물건이 있는 곳).</summary>
+        public Vector3 ShelfTarget { get; set; }
+
+        // ---- 강아지 반응 ----
+
+        float holdUntil = -1f;
+        Transform holdLook;
+
+        /// <summary>지금 강아지를 보느라 멈춰 서 있다.</summary>
+        public bool Holding => holdUntil > Time.time;
+
+        /// <summary>이번 방문에 강아지가 이미 인사했다(손님당 한 번).</summary>
+        public bool Greeted { get; set; }
+
+        /// <summary>
+        /// 가던 길에 멈춰 <paramref name="look"/>(강아지)를 본다. 시간이 다 되면 하던 길을 다시 간다.
+        /// 목적지는 그대로 두고 에이전트만 세운다 — CustomerManager 의 상태는 건드리지 않는다.
+        /// </summary>
+        public void HoldFor(float seconds, Transform look)
+        {
+            holdUntil = Time.time + seconds;
+            holdLook = look;
+            if (agent != null && agent.isOnNavMesh) { agent.isStopped = true; agent.velocity = Vector3.zero; }
+        }
+
         void Update()
         {
+            if (holdUntil > 0f)
+            {
+                if (Time.time < holdUntil && holdLook != null)
+                {
+                    if (agent != null && agent.isOnNavMesh) agent.isStopped = true;
+                    Vector3 d = holdLook.position - transform.position;
+                    d.y = 0f;
+                    if (d.sqrMagnitude > 0.01f)
+                        transform.rotation = Quaternion.RotateTowards(transform.rotation, Quaternion.LookRotation(d), TurnSpeed * Time.deltaTime);
+                    return;
+                }
+                holdUntil = -1f;
+                holdLook = null;
+                if (agent != null && agent.isOnNavMesh) agent.isStopped = false;
+            }
+
             if (facing.sqrMagnitude < 0.01f) return;
             transform.rotation = Quaternion.RotateTowards(transform.rotation, Quaternion.LookRotation(facing), TurnSpeed * Time.deltaTime);
         }
@@ -180,6 +232,9 @@ namespace DogShop.Shop
             agent.obstacleAvoidanceType = ObstacleAvoidanceType.NoObstacleAvoidance;
             agent.avoidancePriority = 99;
         }
+
+        /// <summary>지금 가고 있는(또는 서 있는) 목적지. 다른 손님이 같은 자리에 서지 않게 비교한다.</summary>
+        public Vector3 Destination => destination;
 
         public void MoveTo(Vector3 target)
         {
