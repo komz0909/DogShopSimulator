@@ -387,9 +387,21 @@ namespace DogShop.Shop
             if (!c.Arrived || c.Holding) return;
 
             // 둘러보는 중 — 들른 곳에서 잠깐 구경하고 다음 곳으로, 다 보면 원하는 진열대로
-            if (c.BrowseLeft > 0 || c.BrowseLinger > 0f)
+            if (c.BrowseLeft > 0 || c.BrowseLinger > 0f || c.BrowsePeeks > 0)
             {
-                if (c.BrowseLinger > 0f) { c.BrowseLinger -= step; return; }
+                if (c.BrowseLinger > 0f)
+                {
+                    // 서 있는 동안엔 구경하는 진열대를 본다. 도착 판정(0.6m) 뒤에도 몇 걸음 더 걷는데,
+                    // 그동안 몸을 돌리면 옆걸음질로 미끄러져 보여 거의 멈춘 뒤에 돌린다
+                    Vector3 left = c.Destination - c.transform.position;
+                    left.y = 0f;
+                    Vector3 look = c.BrowseLook - c.transform.position;
+                    look.y = 0f;
+                    if (left.sqrMagnitude < 0.2f * 0.2f && look.sqrMagnitude > 0.04f) c.FaceDirection(look);
+                    c.BrowseLinger -= step;
+                    return;
+                }
+                if (c.BrowsePeeks > 0) { c.BrowsePeeks--; Peek(c); return; }
                 if (c.BrowseLeft > 0) { c.BrowseLeft--; GoBrowse(c); return; }
             }
             if (c.BrowseLinger <= 0f && c.BrowseLeft == 0 && (c.transform.position - c.ShelfTarget).sqrMagnitude > 1f && c.ShelfTarget != Vector3.zero)
@@ -425,9 +437,15 @@ namespace DogShop.Shop
         }
 
         /// <summary>둘러볼 곳 수(게임). 들어온 손님이 진열대로 가기 전 가게를 한두 군데 구경한다 — 강아지가 다가갈 시간이 생긴다.</summary>
-        static readonly Vector2Int BrowseStops = new Vector2Int(1, 3);   // 1~2곳
-        /// <summary>한 곳에서 구경하는 게임 시간(초).</summary>
-        static readonly Vector2 BrowseLingerRange = new Vector2(3f, 6f);
+        static readonly Vector2Int BrowseStops = new Vector2Int(2, 4);   // 2~3곳
+        /// <summary>
+        /// 한 곳에서 멈춰 구경하는 게임 시간(초). 예전엔 3~6초 가만히 서 있어 멍해 보였다 —
+        /// 짧게 서고 자주 움직인다(옆으로 몇 걸음 <see cref="Peek"/>, 다음 진열대). 둘러보는 전체 시간은 예전과 비슷하다.
+        /// </summary>
+        static readonly Vector2 BrowseLingerRange = new Vector2(1.2f, 2.5f);
+        /// <summary>한 진열대 앞에서 옆으로 옮겨 더 볼 때 걷는 거리(m)와 그 자리에서 서 있는 시간(초).</summary>
+        static readonly Vector2 PeekStepRange = new Vector2(0.6f, 1.1f);
+        static readonly Vector2 PeekLingerRange = new Vector2(1f, 2f);
 
         /// <summary>서 있는 손님끼리 이만큼은 떨어진다(m). 몸 반지름 0.28 두 개 + 여유.</summary>
         const float StandGap = 0.62f;
@@ -481,6 +499,7 @@ namespace DogShop.Shop
         {
             ShelfManager sm = ShelfManager.Instance;
             Vector3 pick = c.ShelfTarget;
+            Vector3 look = c.ShelfTarget;
             if (sm != null && sm.Count > 0)
             {
                 for (int tries = 0; tries < 6; tries++)
@@ -489,11 +508,39 @@ namespace DogShop.Shop
                     if (t == null || !t.CustomersCanReach) continue;
                     if ((t.ApproachPoint - c.ShelfTarget).sqrMagnitude < 0.25f && sm.Count > 1) continue;
                     pick = t.ApproachPoint + new Vector3(UnityEngine.Random.Range(-0.5f, 0.5f), 0f, UnityEngine.Random.Range(-0.3f, 0.3f));
+                    look = t.transform.position;
                     break;
                 }
             }
             c.MoveTo(FreeSpot(pick, c));
+            c.BrowseLook = look;
+            c.BrowsePeeks = UnityEngine.Random.Range(0, 2);   // 절반쯤은 옆으로 한 번 더 옮겨 본다
             c.BrowseLinger = UnityEngine.Random.Range(BrowseLingerRange.x, BrowseLingerRange.y);
+        }
+
+        /// <summary>
+        /// 같은 진열대 앞에서 옆으로 몇 걸음 옮겨 다시 구경한다 — 진열대를 따라 훑어보는 느낌.
+        /// 진열대를 바라본 방향의 옆(좌우 무작위)으로 걷고, 막히면 반대쪽, 그래도 막히면 제자리에서 조금 더 본다.
+        /// </summary>
+        void Peek(Customer c)
+        {
+            Vector3 face = c.BrowseLook - c.transform.position;
+            face.y = 0f;
+            if (face.sqrMagnitude < 0.01f) face = c.transform.forward;
+            face.Normalize();
+            Vector3 side = new Vector3(-face.z, 0f, face.x) * (UnityEngine.Random.value < 0.5f ? -1f : 1f);
+            float dist = UnityEngine.Random.Range(PeekStepRange.x, PeekStepRange.y);
+
+            for (int k = 0; k < 2; k++, side = -side)
+            {
+                NavMeshHit hit;
+                Vector3 cand = c.transform.position + side * dist;
+                if (!NavMesh.SamplePosition(cand, out hit, 0.3f, Customer.WalkableAreas)) continue;
+                if (!IsFree(hit.position, c)) continue;
+                c.MoveTo(hit.position);
+                break;
+            }
+            c.BrowseLinger = UnityEngine.Random.Range(PeekLingerRange.x, PeekLingerRange.y);
         }
 
         void TickToCounter(Customer c)
@@ -580,18 +627,69 @@ namespace DogShop.Shop
         {
             ShopCounter counter = ShopCounter.Instance;
 
+            // 줄은 계산대 앞에서 곧게 뻗다가
+            //   입구 통로에 걸리는 자리는 건너뛴다 — 줄이 문 바로 안쪽을 가로질러 들어오는 손님이 줄을 뚫고 지나갔다
+            //   벽·가구에 막히면 가게 안쪽으로 꺾어 이어 간다 — 예전엔 막힌 자리들이 NavMesh 위 한 점으로 끌려와 여럿이 겹쳐 섰다
+            Vector3 dir = counter != null ? counter.CustomerSide : Vector3.left;
+            dir.y = 0f;
+            dir.Normalize();
+            Vector3 p = counter != null ? counter.QueueSlot(0) : FallbackQueue;
+            Vector3 prev = p;
+            bool turned = false;
+
             for (int i = 0; i < queue.Count; i++)
             {
-                Vector3 slot = counter != null
-                    ? counter.QueueSlot(i)
-                    : FallbackQueue + Vector3.left * (0.7f * i);
+                for (int guard = 0; guard < 6 && InDoorway(p); guard++) p += dir * QueueSpacing;
 
-                // 옮긴 계산대 앞이 벽이나 가구에 막혀 있을 수 있다. NavMesh 위로 끌어다 놓는다
-                NavMeshHit hit;
-                if (NavMesh.SamplePosition(slot, out hit, 2f, Customer.WalkableAreas)) slot = hit.position;
+                Vector3 slot = p;
+                bool placed = TrySlot(ref slot);
+                if (!placed && i > 0 && !turned)
+                {
+                    // 막혔다 — 직전 자리에서 직각으로 꺾는다. 두 방향 중 문에서 먼 쪽(가게 안쪽)
+                    turned = true;
+                    Vector3 side = new Vector3(-dir.z, 0f, dir.x);
+                    if ((prev + side).z < (prev - side).z) side = -side;
+                    dir = side;
+                    p = prev + dir * QueueSpacing;
+                    slot = p;
+                    placed = TrySlot(ref slot);
+                }
+                if (!placed)
+                {
+                    // 그래도 막히면 예전처럼 가까운 NavMesh 위로
+                    NavMeshHit hit;
+                    if (NavMesh.SamplePosition(p, out hit, 2f, Customer.WalkableAreas)) slot = hit.position;
+                }
 
                 queue[i].MoveTo(slot);
+                prev = p;
+                p += dir * QueueSpacing;
             }
+        }
+
+        /// <summary>줄 간격(<see cref="ShopCounter"/> 와 같다).</summary>
+        const float QueueSpacing = 0.70f;
+
+        /// <summary>그 자리가 NavMesh 위 제자리에 잡히나. 많이 끌려가면(벽·가구 안) 못 선 것으로 본다.</summary>
+        static bool TrySlot(ref Vector3 slot)
+        {
+            NavMeshHit hit;
+            if (!NavMesh.SamplePosition(slot, out hit, 2f, Customer.WalkableAreas)) return false;
+            Vector3 d = hit.position - slot;
+            d.y = 0f;
+            if (d.sqrMagnitude > 0.3f * 0.3f) return false;
+            slot = hit.position;
+            return true;
+        }
+
+        /// <summary>입구 통로(문에서 안쪽으로 곧게)의 반폭과 깊이(m). 줄이 여기 서지 않는다.</summary>
+        const float DoorwayHalfWidth = 0.75f;
+        const float DoorwayDepth = 2.6f;
+
+        /// <summary>그 자리가 입구 통로 안인가 — 문(<see cref="Door"/>)에서 가게 안쪽(+z)으로 뻗은 띠.</summary>
+        static bool InDoorway(Vector3 p)
+        {
+            return Mathf.Abs(p.x - Door.x) < DoorwayHalfWidth && p.z > Door.z - 0.5f && p.z < Door.z + DoorwayDepth;
         }
 
         /// <summary>계산 처리. CheckoutPicker가 손님을 클릭하면 호출된다.</summary>

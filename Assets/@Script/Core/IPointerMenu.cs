@@ -27,6 +27,9 @@ namespace DogShop.Core
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         static void Clear() => openMenus.Clear();
 
+        /// <summary>장면을 통째로 버릴 때(스태프 초기화) 열린 채 사라질 메뉴들을 잊는다 — 남아 있으면 다음 판에서 카메라가 멈춘다.</summary>
+        public static void ForgetAll() => openMenus.Clear();
+
         public static void SetOpen(object menu, bool isOpen)
         {
             if (isOpen) openMenus.Add(menu);

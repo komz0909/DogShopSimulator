@@ -48,6 +48,9 @@ namespace DogShop.Show
         /// <summary>넘기기 입력을 이 시간(실시간 초) 동안 무시한다 — 연타로 장을 건너뛰지 않게.</summary>
         const float MinShow = 0.35f;
 
+        /// <summary>시연 엔딩 그림 한 장을 띄워 두는 시간(초). 누르면 더 빨리 넘어간다.</summary>
+        const float ExhibitionEndingSeconds = 6f;
+
         const float Pad = 24f;
 
         public static Cutscene Instance { get; private set; }
@@ -101,7 +104,13 @@ namespace DogShop.Show
             notWon = all.TryGetValue("won", out string won) && won != "1";
             Sound.PlayBgm(notWon ? Bgm.EndingOther : Bgm.EndingFirst);
 
-            Play(ending, all, () => { Sound.StopBgm(); UnityEngine.SceneManagement.SceneManager.LoadScene(titleScene); });
+            // 시연은 엔딩 뒤 첫 화면을 건너뛰고 견종 고르기로 — 다음 체험자가 바로 시작한다
+            Play(ending, all, () =>
+            {
+                Sound.StopBgm();
+                if (Exhibition.Active) Exhibition.ReturnToPicker = true;
+                UnityEngine.SceneManagement.SceneManager.LoadScene(titleScene);
+            });
         }
 
         static Dictionary<string, string> BreedTokens()
@@ -155,6 +164,9 @@ namespace DogShop.Show
 
             Keyboard kb = Keyboard.current;
             if (kb != null && (kb.spaceKey.wasPressedThisFrame || kb.enterKey.wasPressedThisFrame || kb.eKey.wasPressedThisFrame))
+                Next();
+            // 시연 엔딩은 아무도 안 눌러도 한 장씩 넘어간다(끝나면 견종 고르기로)
+            else if (Exhibition.Active && playing == ending && Time.unscaledTime - shownAt >= ExhibitionEndingSeconds)
                 Next();
         }
 

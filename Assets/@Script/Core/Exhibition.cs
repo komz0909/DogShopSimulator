@@ -79,6 +79,12 @@ namespace DogShop.Core
             return full / (TimeManager.LastHour - TimeManager.DayStartHour);
         }
 
+        /// <summary>
+        /// 메인 화면이 열리면 곧바로 시연 견종 고르기로 들어간다(한 번 쓰고 끈다).
+        /// 엔딩이 끝났을 때와 스태프 초기화(F12, <see cref="StaffKeys"/>) 때 켠다 — 다음 체험자가 바로 시작하게.
+        /// </summary>
+        public static bool ReturnToPicker;
+
         // ---- 키운 결과 기록 (도그쇼 시작 화면에 보여 준다) ----
 
         /// <summary>시연 동안 번 돈(매장·온라인 매출 합).</summary>

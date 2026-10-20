@@ -93,6 +93,14 @@ namespace DogShop.UI
         {
             if (uiFont != null) UiSkin.Font = uiFont;
             SettingsPanel.ApplyFps();
+
+            // 시연이 끝났거나 스태프가 초기화했다 — 첫 화면을 건너뛰고 시연 견종 고르기로
+            if (Exhibition.ReturnToPicker)
+            {
+                Exhibition.ReturnToPicker = false;
+                exhibitionPick = true;
+                page = Page.Breeds;
+            }
         }
 
         // 메인 화면도 가게와 같은 배경음. 이어하기로 가게에 들어가면 곡이 끊기지 않고 이어진다(같은 곡이면 다시 틀지 않는다)

@@ -177,6 +177,12 @@ namespace DogShop.Shop
         /// <summary>마지막에 갈 진열대 자리(원하는 물건이 있는 곳).</summary>
         public Vector3 ShelfTarget { get; set; }
 
+        /// <summary>지금 구경하는 진열대 가운데. 서 있는 동안 이쪽을 본다 — 엉뚱한 데를 보고 멍하니 서 있지 않게.</summary>
+        public Vector3 BrowseLook { get; set; }
+
+        /// <summary>지금 들른 진열대에서 옆으로 몇 걸음 옮겨 더 볼 횟수. 한자리에 박혀 서 있지 않게.</summary>
+        public int BrowsePeeks { get; set; }
+
         // ---- 강아지 반응 ----
 
         float holdUntil = -1f;

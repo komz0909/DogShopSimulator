@@ -1224,7 +1224,12 @@ namespace DogShop.Show
             boardShownAt = Time.time;
             Sound.Play(Sfx.Ranking);
             resultReady = true;
-            while (resultReady) yield return null;
+            while (resultReady)
+            {
+                // 시연은 아무도 안 눌러도 순위표를 잠시 보여 준 뒤 엔딩으로 — 부스에서 다음 사람이 바로 받을 수 있게
+                if (Exhibition.Active && Time.time - boardShownAt > ExhibitionBoardSeconds) resultReady = false;
+                yield return null;
+            }
 
             // 결과 발표는 마감 화면이 한다 — 같은 경로로 랭크·엔딩까지 이어진다
             Running = false;
@@ -1235,6 +1240,8 @@ namespace DogShop.Show
         }
 
         bool resultReady;
+        /// <summary>시연에서 순위표를 띄워 두는 시간(초). 그 안에 누르면 바로 넘어간다.</summary>
+        const float ExhibitionBoardSeconds = 20f;
         float specShownAt;
         string countdown = "";
         float countdownUntil;
