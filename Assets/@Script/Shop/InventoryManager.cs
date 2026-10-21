@@ -202,6 +202,19 @@ namespace DogShop.Shop
 
         public bool IsRecommendedToday(int product) => product >= 0 && product == RecommendedToday;
 
+        /// <summary>
+        /// 내일 가게를 여나 — 도그쇼 날(본편 30일차, 시연 3일차)은 가게를 열지 않으니 내일 추천을 보여 줄 까닭이 없다.
+        /// 정산의 "내일 추천"과 발주 카드의 "추천" 표시는 이게 참일 때만.
+        /// </summary>
+        public static bool ShopOpensTomorrow =>
+            GameManager.Instance == null || !Show.ChampionshipManager.Instance
+            || !Show.ChampionshipManager.Instance.IsFinalDay(GameManager.Instance.Day + 1);
+
+        /// <summary>오늘 가게를 여나(도그쇼 날이 아닌가).</summary>
+        static bool ShopOpensToday =>
+            GameManager.Instance == null || !Show.ChampionshipManager.Instance
+            || !Show.ChampionshipManager.Instance.IsFinalDay(GameManager.Instance.Day);
+
         /// <summary>추천 보너스를 얹은 판매가. 추천이 아니면 그대로.</summary>
         public int WithRecommendBonus(int product, int price) =>
             IsRecommendedToday(product) ? Mathf.Max(price + 1, Mathf.RoundToInt(price * (1f + RecommendBonus))) : price;
@@ -221,7 +234,7 @@ namespace DogShop.Shop
         {
             RecommendedToday = RecommendedTomorrow >= 0 && RecommendedTomorrow < catalog.Count ? RecommendedTomorrow : PickRecommendation(RecommendedToday);
             RecommendedTomorrow = PickRecommendation(RecommendedToday);
-            if (RecommendedToday < 0) return;
+            if (RecommendedToday < 0 || !ShopOpensToday) return;   // 도그쇼 날엔 알리지 않는다
             var hud = FindAnyObjectByType<UI.GameHud>();
             if (hud != null)
                 hud.Toast("오늘의 추천 상품: " + catalog.Get(RecommendedToday).nameKo + "  판매가 +" + Mathf.RoundToInt(RecommendBonus * 100f) + "%",

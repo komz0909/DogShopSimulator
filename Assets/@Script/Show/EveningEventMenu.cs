@@ -271,7 +271,7 @@ namespace DogShop.Show
             Row(ref y, x, w, iconCustomers, "다녀간 손님", (c != null ? c.VisitorsToday : 0) + "명", Ink, custSub);
 
             // 내일의 추천 상품 — 오늘 밤 발주로 넉넉히 들여 둘지 정하게
-            if (!isFinal && inv != null && inv.RecommendedTomorrow >= 0)
+            if (!isFinal && inv != null && inv.RecommendedTomorrow >= 0 && InventoryManager.ShopOpensTomorrow)
             {
                 string pick = "내일 추천 상품: " + inv.Catalog.Get(inv.RecommendedTomorrow).nameKo
                             + "  (판매가 +" + Mathf.RoundToInt(InventoryManager.RecommendBonus * 100f) + "%)";

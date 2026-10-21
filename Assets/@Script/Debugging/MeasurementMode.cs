@@ -536,8 +536,27 @@ namespace DogShop.Debugging
             float spanZ = Mathf.Abs(x.z) + Mathf.Abs(z.z);
 
             Rect footprint = new Rect(center.x - spanX, center.z - spanZ, spanX * 2f, spanZ * 2f);
-            return footprint.Overlaps(Doorway);
+            return footprint.Overlaps(Doorway) || footprint.Overlaps(QueueLane());
         }
+
+        /// <summary>
+        /// 계산 줄이 서는 띠(계산대 앞에서 손님 쪽으로 <see cref="QueueLaneSlots"/> 자리, 폭 ±0.6m).
+        /// 봇은 입구에서 가까운 빈자리부터 진열대를 놓는데, 그게 하필 줄 자리였다 —
+        /// 57차 측정에서 Lv7 에 산 진열대 둘이 줄 위에 서서 25일차부터 하루 손님 27명 중 26명을 놓쳤다(56차에도 이틀).
+        /// </summary>
+        static Rect QueueLane()
+        {
+            ShopCounter counter = ShopCounter.Instance;
+            if (counter == null) return Rect.zero;
+            Vector3 a = counter.QueueSlot(0), b = counter.QueueSlot(QueueLaneSlots - 1);
+            const float Half = 0.6f;
+            float xMin = Mathf.Min(a.x, b.x) - Half, xMax = Mathf.Max(a.x, b.x) + Half;
+            float zMin = Mathf.Min(a.z, b.z) - Half, zMax = Mathf.Max(a.z, b.z) + Half;
+            return Rect.MinMaxRect(xMin, zMin, xMax, zMax);
+        }
+
+        /// <summary>비워 둘 줄 자리 수. 하루 손님이 가장 많을 때(Lv10 36명) 한꺼번에 서는 줄이 이 정도다.</summary>
+        const int QueueLaneSlots = 8;
 
         /// <summary>진열대 하나의 칸을 부피 조건별로 더한다.</summary>
         static void CountSlots(ShelfTable table, ref int any, ref int small, ref int bulky)
