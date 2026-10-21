@@ -179,10 +179,58 @@ namespace DogShop.Shop
         void Start()
         {
             TimeManager.Instance.OnDayStarted += StartDay;
+            // 첫날(세이브가 있으면 RestoreFrom 이 덮어쓴다)
+            if (RecommendedToday < 0) RecommendedToday = PickRecommendation(-1);
+            if (RecommendedTomorrow < 0) RecommendedTomorrow = PickRecommendation(RecommendedToday);
+        }
+
+        // ---- 오늘의 추천 상품 ----
+        //
+        // 매일 상품 하나가 "추천"이 되어 그날만 판매가가 조금 오른다. 전날 마감 정산에서 내일 것을 미리 알려 주고,
+        // 상점(발주) 카드에도 "추천" 표를 붙인다 — 내일 아침 도착할 물건이니 내일 추천을 미리 넉넉히 시킬지가 매일의 작은 선택이 된다.
+        //
+        // 손님이 원하는 물건(수요)은 건드리지 않는다. 그래서 늘어나는 매출은 그 상품의 수요 몫 × 보너스로 묶인다 —
+        // 16종 중 하나(약 6~15%) × 10% ≈ 전체 매출 +1% 안팎. 매출 버프 상한(약 1.4%, 훈련 경제 규칙) 안쪽이다.
+
+        /// <summary>추천 상품의 판매가 보너스 비율.</summary>
+        public const float RecommendBonus = 0.10f;
+
+        /// <summary>오늘 판매가가 오른 상품. -1 이면 없음.</summary>
+        public int RecommendedToday { get; private set; } = -1;
+        /// <summary>내일 추천 상품(정산·발주 창에 미리 보여 준다).</summary>
+        public int RecommendedTomorrow { get; private set; } = -1;
+
+        public bool IsRecommendedToday(int product) => product >= 0 && product == RecommendedToday;
+
+        /// <summary>추천 보너스를 얹은 판매가. 추천이 아니면 그대로.</summary>
+        public int WithRecommendBonus(int product, int price) =>
+            IsRecommendedToday(product) ? Mathf.Max(price + 1, Mathf.RoundToInt(price * (1f + RecommendBonus))) : price;
+
+        /// <summary>지금 레벨에 열린 상품 하나를 고른다(<paramref name="exclude"/> 는 빼고 — 이틀 연속 같은 추천이 되지 않게).</summary>
+        int PickRecommendation(int exclude)
+        {
+            var open = new List<int>();
+            for (int i = 0; i < catalog.Count; i++)
+                if (IsLevelUnlocked(i) && i != exclude) open.Add(i);
+            if (open.Count == 0) return exclude;
+            return open[UnityEngine.Random.Range(0, open.Count)];
+        }
+
+        /// <summary>아침 — 어제 알려 준 내일 추천이 오늘 추천이 되고, 내일 것을 새로 고른다.</summary>
+        void AdvanceRecommendation()
+        {
+            RecommendedToday = RecommendedTomorrow >= 0 && RecommendedTomorrow < catalog.Count ? RecommendedTomorrow : PickRecommendation(RecommendedToday);
+            RecommendedTomorrow = PickRecommendation(RecommendedToday);
+            if (RecommendedToday < 0) return;
+            var hud = FindAnyObjectByType<UI.GameHud>();
+            if (hud != null)
+                hud.Toast("오늘의 추천 상품: " + catalog.Get(RecommendedToday).nameKo + "  판매가 +" + Mathf.RoundToInt(RecommendBonus * 100f) + "%",
+                          new Color(1f, 0.84f, 0.38f));
         }
 
         void StartDay()
         {
+            AdvanceRecommendation();
             rushDelivery = false;   // 특급 입고는 승급한 그 하루로 끝난다
 
             // 밤을 넘긴 긴급 발주는 아침 트럭에 같이 실려 온다. 돈은 이미 받았으므로
@@ -658,6 +706,8 @@ namespace DogShop.Shop
             data.delivered = (int[])delivered.Clone();
             data.graded = (int[])graded.Clone();
             data.rushDelivery = rushDelivery;
+            data.recommendToday = RecommendedToday;
+            data.recommendTomorrow = RecommendedTomorrow;
 
             // 긴급 발주는 <b>대금은 냈는데 아직 안 온</b> 물건이다. 안 남기면 영구 유실된다 —
             // 운반 상자를 저장하는 것과 같은 이유다
@@ -692,6 +742,10 @@ namespace DogShop.Shop
             // 창고(등급품 포함)를 다 채운 뒤에 진열 칸 — 짝 없는 진열대의 물건은 창고로 되돌리는데, 앞에 두면 덮어써졌다
             ShelfManager.Instance?.RestoreFrom(data);
             rushDelivery = data.rushDelivery;
+
+            // 추천 상품 — 이 기능 전 세이브(-1)거나 상품이 없어졌으면 새로 고른다
+            RecommendedToday = data.recommendToday >= 0 && data.recommendToday < catalog.Count ? data.recommendToday : PickRecommendation(-1);
+            RecommendedTomorrow = data.recommendTomorrow >= 0 && data.recommendTomorrow < catalog.Count ? data.recommendTomorrow : PickRecommendation(RecommendedToday);
 
             ExpressUsedToday = data.expressUsedToday;
 

@@ -39,7 +39,7 @@ namespace DogShop.Show
         [SerializeField] Texture2D iconReputation; // 별
         [SerializeField] Texture2D iconCustomers;  // 손님 얼굴
 
-        GUIStyle titleStyle, labelStyle, valueStyle, subStyle, noteStyle, netStyle;
+        GUIStyle titleStyle, labelStyle, valueStyle, subStyle, noteStyle, netStyle, recommendStyle;
 
         void Start()
         {
@@ -269,6 +269,15 @@ namespace DogShop.Show
             // ---- 손님 ----
             string custSub = c != null ? "판매 " + c.SoldToday + "건  /  놓친 손님 " + c.LostToday + "명" : "";
             Row(ref y, x, w, iconCustomers, "다녀간 손님", (c != null ? c.VisitorsToday : 0) + "명", Ink, custSub);
+
+            // 내일의 추천 상품 — 오늘 밤 발주로 넉넉히 들여 둘지 정하게
+            if (!isFinal && inv != null && inv.RecommendedTomorrow >= 0)
+            {
+                string pick = "내일 추천 상품: " + inv.Catalog.Get(inv.RecommendedTomorrow).nameKo
+                            + "  (판매가 +" + Mathf.RoundToInt(InventoryManager.RecommendBonus * 100f) + "%)";
+                GUI.Label(new Rect(x, y, w, 30f), pick, recommendStyle ?? (recommendStyle = new GUIStyle(noteStyle) { fontSize = noteStyle.fontSize + 4, fontStyle = FontStyle.Bold, normal = { textColor = Gold } }));
+                y += 34f;
+            }
 
             if (mockLine.Length > 0)
             {

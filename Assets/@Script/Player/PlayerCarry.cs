@@ -17,12 +17,13 @@ namespace DogShop.Player
         const float LoadedSpeedFactor = 0.82f;
 
         /// <summary>
-        /// 상자 자리(몸 기준). 손으로 잡게 하지는 않는다(IK 로 해 봤더니 손이 뒤집혀 두 번 뺐다).
-        /// 대신 걷는 동안 흔들리는 손보다 위, 몸 앞쪽으로 띄워 팔이 상자를 뚫고 지나가지 않게 한다.
-        /// 상자 피벗은 바닥 가운데라 y 는 상자 밑면 — 0.72 면 상자(높이 0.32) 가운데가 가슴(Spine2 ≈ 0.96) 바로 아래,
-        /// z 0.45 면 상자 뒷면이 배에서 한 뼘 앞 — 0.38 은 너무 붙었고 0.55 는 30cm 떠 보였다.
+        /// 상자 자리(몸 기준). 상자 피벗은 바닥 가운데라 y 는 상자 밑면.
+        /// 손은 IK 로 맞추지 않는다(해 봤더니 손이 뒤집혀 두 번 뺐다). 대신 <b>들고 있는 자세 클립</b>(Owner_Carry, 팔만 덮는
+        /// Carry 층 — <see cref="CharacterAnimatorDriver"/>)이 양손을 상자 옆면 아래쪽에 고정해 두고, 상자를 그 손 사이에 놓는다.
+        /// 자세는 이 자리에 맞춰 구운 것이라 둘을 같이 옮겨야 한다. 팔이 짧아(어깨→손 약 0.41m) 예전 자리 (0, 0.72, 0.45)는
+        /// 손이 닿지 않아 상자가 떠 보였다.
         /// </summary>
-        [SerializeField] Vector3 holdOffset = new Vector3(0f, 0.72f, 0.45f);
+        [SerializeField] Vector3 holdOffset = new Vector3(0f, 0.58f, 0.36f);
 
         Transform holdAnchor;
         CharacterController controller;
@@ -42,6 +43,55 @@ namespace DogShop.Player
             anchor.transform.SetParent(transform, false);
             anchor.transform.localPosition = holdOffset;
             holdAnchor = anchor.transform;
+        }
+
+        // ---- 상자가 가슴을 따라간다 ----
+        //
+        // 걷기 클립은 상체를 좌우로 비튼다. 손(들기 자세)은 어깨에 달려 그 비틀림을 따라가는데 상자는 몸통(캡슐)에 고정돼 있어,
+        // 걸음마다 손이 상자 옆면 안으로 3cm 파묻혔다가 5cm 떨어졌다. 상자 자리를 가슴 뼈 기준으로 옮겨 손과 같이 움직이게 한다.
+        // 가슴 뼈에 직접 붙이지 않는 건 뼈 배율(173)이 상자 크기까지 키우기 때문이다 — 자리만 매 프레임 따라간다.
+
+        Animator animator;
+        Transform chest, leftHand, rightHand;
+        int carryLayer = -1;
+        Vector3 chestOffsetPos;
+        Quaternion chestOffsetRot = Quaternion.identity;
+        /// <summary>두 손 사이에 상자를 맞춰 가슴 기준 자리를 잡았나. 들기 자세는 가슴에 대해 고정이라 한 번이면 된다.</summary>
+        bool calibrated;
+
+        /// <summary>손이 상자 밑면보다 이만큼 위, 상자 가운데보다 이만큼 뒤를 받친다(들기 자세를 구울 때의 자리).</summary>
+        const float HandAboveBottom = 0.14f;
+        const float HandBehindCenter = 0.11f;
+
+        void Start()
+        {
+            animator = GetComponentInChildren<Animator>();
+            if (animator == null || !animator.isHuman) return;
+            chest = animator.GetBoneTransform(HumanBodyBones.UpperChest);
+            if (chest == null) chest = animator.GetBoneTransform(HumanBodyBones.Chest);
+            leftHand = animator.GetBoneTransform(HumanBodyBones.LeftHand);
+            rightHand = animator.GetBoneTransform(HumanBodyBones.RightHand);
+            carryLayer = animator.GetLayerIndex("Carry");
+        }
+
+        void LateUpdate()
+        {
+            if (chest == null || !IsHolding) return;
+            if (!calibrated)
+            {
+                // 들기 자세가 다 들어간 첫 프레임에 두 손 사이 가운데로 상자를 맞추고, 그 자리를 가슴 기준으로 기억한다
+                if (carryLayer < 0 || leftHand == null || rightHand == null || animator.GetLayerWeight(carryLayer) < 0.999f) return;
+                Vector3 across = rightHand.position - leftHand.position;
+                across.y = 0f;
+                if (across.sqrMagnitude < 0.0001f) return;
+                Vector3 forward = Vector3.Cross(across.normalized, Vector3.up);
+                Vector3 mid = (leftHand.position + rightHand.position) * 0.5f;
+                Vector3 bottom = mid + forward * HandBehindCenter - Vector3.up * HandAboveBottom;
+                chestOffsetPos = chest.InverseTransformPoint(bottom);
+                chestOffsetRot = Quaternion.Inverse(chest.rotation) * Quaternion.LookRotation(forward, Vector3.up);
+                calibrated = true;
+            }
+            holdAnchor.SetPositionAndRotation(chest.TransformPoint(chestOffsetPos), chest.rotation * chestOffsetRot);
         }
 
 

@@ -32,12 +32,14 @@ namespace DogShop.Shop
 
         void Awake()
         {
+            PlayerHoldingTape = false;   // 정적이라 지난 판(시연 초기화 등)의 값이 남지 않게
             if (tape != null)
             {
                 tapeHome = new GameObject("TapeHome").transform;
                 tapeHome.SetParent(tape.parent, false);
                 tapeHome.localPosition = tape.localPosition;
                 tapeHome.localRotation = tape.localRotation;
+                tapeScale = tape.localScale;
             }
             Show(false, false);
         }
@@ -203,24 +205,59 @@ namespace DogShop.Shop
 
         // ---- 테이프 ----
 
+        /// <summary>
+        /// 주인이 테이프를 들고 있나 — 오른팔을 "가슴 앞에 든" 자세(Owner_HoldTape, Tape 층)로 바꾸는 신호.
+        /// 포장대는 하나뿐이라 정적으로 둔다.
+        /// </summary>
+        public static bool PlayerHoldingTape { get; private set; }
+
+        /// <summary>
+        /// 테이프를 오른손 뼈에 붙이는 자리(손 뼈 기준). 손바닥 가운데쯤 — 들고 있는 자세에서 실측해 맞췄다.
+        /// 예전엔 몸 앞 허공(0.28, 0.95, 0.38)에 띄워 손과 따로 놀았다.
+        /// </summary>
+        /// 손 뼈의 배율이 173 이라(모델 배율 × 뼈대 cm 단위) 값이 아주 작다. 크기는 손 배율로 나눠 원래 크기를 지킨다.
+        static readonly Vector3 TapeInHand = new Vector3(-0.00049f, -0.00029f, 0.00019f);
+        static readonly Vector3 TapeInHandEuler = new Vector3(311.0f, 314.7f, 304.9f);
+
+        /// <summary>테이프의 원래 크기(포장대 위). 손에 붙일 때 손 배율로 나누고, 돌려놓을 때 되돌린다.</summary>
+        Vector3 tapeScale = Vector3.one;
+
         void HoldTape()
         {
             Transform player = FindPlayer();
             if (player == null || tape == null) return;
             holdingTape = true;
+            PlayerHoldingTape = true;
             foreach (Collider c in tape.GetComponentsInChildren<Collider>()) c.enabled = false;
-            tape.SetParent(player, false);
-            tape.localPosition = new Vector3(0.28f, 0.95f, 0.38f);   // 오른손 앞쯤
-            tape.localRotation = Quaternion.Euler(0f, -90f, 0f);
+
+            Animator animator = player.GetComponentInChildren<Animator>();
+            Transform hand = animator != null && animator.isHuman ? animator.GetBoneTransform(HumanBodyBones.RightHand) : null;
+            if (hand != null)
+            {
+                Vector3 world = Vector3.Scale(tapeHome.parent.lossyScale, tapeScale);   // 포장대 위에서의 실제 크기
+                tape.SetParent(hand, false);
+                tape.localPosition = TapeInHand;
+                tape.localRotation = Quaternion.Euler(TapeInHandEuler);
+                Vector3 h = hand.lossyScale;
+                tape.localScale = new Vector3(world.x / h.x, world.y / h.y, world.z / h.z);
+            }
+            else
+            {
+                tape.SetParent(player, false);
+                tape.localPosition = new Vector3(0.28f, 0.95f, 0.38f);   // 손 뼈를 못 찾으면 예전처럼 오른손 앞쯤
+                tape.localRotation = Quaternion.Euler(0f, -90f, 0f);
+            }
         }
 
         void ReturnTape()
         {
             if (tape == null || tapeHome == null) return;
             holdingTape = false;
+            PlayerHoldingTape = false;
             tape.SetParent(tapeHome.parent, false);
             tape.localPosition = tapeHome.localPosition;
             tape.localRotation = tapeHome.localRotation;
+            tape.localScale = tapeScale;
             foreach (Collider c in tape.GetComponentsInChildren<Collider>()) c.enabled = true;
         }
 

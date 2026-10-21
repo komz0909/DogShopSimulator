@@ -722,6 +722,13 @@ namespace DogShop.Shop
                     && UiSkin.Click(new Rect(card.xMax - 38f, card.y + 10f, 28f, 28f),
                                   "X", Styles.Remove))
                     cart[index] = 0;
+
+                // 내일 추천 상품 — 시킨 물건은 내일 아침 오니 내일 것을 표시한다(오른쪽 위, 담은 X 가 있으면 그 옆)
+                if (index == inv.RecommendedTomorrow)
+                {
+                    float bx = cart[index] > 0 ? card.xMax - 38f - 50f : card.xMax - 56f;
+                    GUI.Label(new Rect(bx, card.y + 10f, 46f, 24f), "추천", UiSkin.Tag(UiSkin.Coral));
+                }
             }
         }
 

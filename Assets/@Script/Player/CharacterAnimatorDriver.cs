@@ -41,6 +41,41 @@ namespace DogShop.Player
             // 캡슐 기준으로 붙는 운반 상자가 몸 한가운데나 등 뒤에 보였다. 씬·셋업 툴이 다시 켜도 여기서 끈다
             if (animator != null) animator.applyRootMotion = false;
             lastPosition = transform.position;
+
+            // 상자 드는 자세 층(주인만 있다). 손님 컨트롤러엔 없어 -1 이다
+            carry = GetComponentInParent<PlayerCarry>();
+            carryLayer = animator != null ? animator.GetLayerIndex(CarryLayerName) : -1;
+            tapeLayer = animator != null ? animator.GetLayerIndex(TapeLayerName) : -1;
+        }
+
+        const string CarryLayerName = "Carry";
+        const string TapeLayerName = "Tape";
+        int tapeLayer = -1;
+        float tapeWeight;
+        /// <summary>상자를 들고 놓을 때 팔이 자세로 옮겨 가는 빠르기(초당 가중치). 0.15초쯤에 다 들어간다.</summary>
+        const float CarryBlendSpeed = 7f;
+
+        PlayerCarry carry;
+        int carryLayer = -1;
+        float carryWeight;
+
+        /// <summary>상자를 들고 있으면 팔만 "두 손으로 받친" 자세로 덮는다(걷기 다리는 그대로).</summary>
+        void UpdateCarryPose()
+        {
+            if (carry == null) return;   // 주인만
+            if (carryLayer >= 0)
+            {
+                float want = carry.IsHolding ? 1f : 0f;
+                carryWeight = Mathf.MoveTowards(carryWeight, want, CarryBlendSpeed * Time.deltaTime);
+                animator.SetLayerWeight(carryLayer, carryWeight);
+            }
+            // 포장대에서 테이프를 들면 오른팔을 가슴 앞으로(테이프는 오른손 뼈에 붙어 따라온다)
+            if (tapeLayer >= 0)
+            {
+                float want = Shop.PackingStation.PlayerHoldingTape ? 1f : 0f;
+                tapeWeight = Mathf.MoveTowards(tapeWeight, want, CarryBlendSpeed * Time.deltaTime);
+                animator.SetLayerWeight(tapeLayer, tapeWeight);
+            }
         }
 
         void Update()
@@ -56,6 +91,7 @@ namespace DogShop.Player
             speed = Mathf.Lerp(speed, raw, Time.deltaTime * Smoothing);
 
             animator.SetFloat(SpeedHash, speed);
+            UpdateCarryPose();
         }
     }
 }

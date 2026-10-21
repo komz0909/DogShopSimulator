@@ -165,6 +165,10 @@ namespace DogShop.Core
         /// <summary>승급 당일 특급 입고가 켜져 있는가. 없던 시절 세이브는 false 로 복원되고 그게 맞다.</summary>
         public bool rushDelivery;
 
+        /// <summary>오늘·내일 추천 상품 번호. 없던 시절 세이브는 -1 로 남아 불러올 때 새로 고른다.</summary>
+        public int recommendToday = -1;
+        public int recommendTomorrow = -1;
+
         /// <summary>영업 단계(0 준비중 / 1 영업중 / 2 마감). 없던 시절 세이브는 준비중으로 복원된다.</summary>
         public int shopPhase;
 

@@ -420,8 +420,9 @@ namespace DogShop.Shop
                 c.HasItem = true;
                 c.PickedGrade = picked;
 
-                int price = ItemGrades.PriceOf(p.retail, picked);
-                c.Label = (picked == ItemGrade.None ? "" : "[" + ItemGrades.NameOf(picked) + "] ")
+                int price = inv.WithRecommendBonus(c.WantedProduct, ItemGrades.PriceOf(p.retail, picked));
+                c.Label = (inv.IsRecommendedToday(c.WantedProduct) ? "[추천] " : "")
+                        + (picked == ItemGrade.None ? "" : "[" + ItemGrades.NameOf(picked) + "] ")
                         + p.nameKo + "  " + price + "원";
 
                 c.State = CustomerState.ToCounter;
@@ -568,6 +569,7 @@ namespace DogShop.Shop
             // 등급이 붙은 물건은 그 배수로 판다. 정가는 카탈로그가, 등급 배수는 ItemGrades 가 갖는다
             int retail = ItemGrades.PriceOf(
                 InventoryManager.Instance.Catalog.Get(c.WantedProduct).retail, c.PickedGrade);
+            retail = InventoryManager.Instance.WithRecommendBonus(c.WantedProduct, retail);   // 오늘의 추천 상품
 
             if (c.Overtime <= 0f) return retail;
 
