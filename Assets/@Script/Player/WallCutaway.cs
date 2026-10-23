@@ -23,8 +23,17 @@ namespace DogShop.Player
         /// <summary>카메라에서 이만큼 안의 벽도 숨긴다 — 카메라가 벽에 반쯤 박힌 채 면이 화면을 덮지 않게.</summary>
         const float NearCamera = 0.8f;
         const float RefreshEvery = 2f;
+        /// <summary>가게 건물 가운데(대략)와, 벽으로 칠 거리. 가게가 가장 넓어져도(12m) 이 안이다.</summary>
+        static readonly Vector3 ShopCenter = new Vector3(4f, 0f, 4f);
+        const float NearShop = 20f;
 
         static readonly HashSet<Collider> hiddenColliders = new HashSet<Collider>();
+
+        /// <summary>지금 플레이어가 건물 안에 있나, 그리고 건물(벽) 범위. 카메라(<see cref="ThirdPersonCamera"/>)가 실내에 머무르는 데 쓴다.</summary>
+        public static bool PlayerInside { get; private set; }
+        public static Bounds Building { get; private set; }
+
+        void Awake() => PlayerInside = false;
 
         /// <summary>카메라 충돌에서 빼야 하는 벽인가(지금 숨긴 벽).</summary>
         public static bool Ignores(Collider c) => c != null && hiddenColliders.Contains(c);
@@ -73,6 +82,9 @@ namespace DogShop.Player
                 if (n.IndexOf("Wall", System.StringComparison.OrdinalIgnoreCase) < 0) continue;
                 if (n.IndexOf("Shelf", System.StringComparison.OrdinalIgnoreCase) >= 0) continue;
                 if (r.bounds.size.y < 2f) continue;   // 낮은 칸막이·장식은 그대로
+                // 멀리 떨어진 도그쇼 무대(x 390~410)의 벽까지 건물로 잡혀 범위가 400m 로 부풀었다 — 가게 근처만
+                Vector3 c = r.bounds.center;
+                if (Mathf.Abs(c.x - ShopCenter.x) > NearShop || Mathf.Abs(c.z - ShopCenter.z) > NearShop) continue;
                 walls.Add(r);
                 if (!any) { building = r.bounds; any = true; } else building.Encapsulate(r.bounds);
             }
@@ -104,6 +116,8 @@ namespace DogShop.Player
             bool inside = walls.Count > 0
                 && p.x > building.min.x + InsideMargin && p.x < building.max.x - InsideMargin
                 && p.z > building.min.z + InsideMargin && p.z < building.max.z - InsideMargin;
+            PlayerInside = inside;
+            Building = building;
 
             Vector3 eye = cam.transform.position;
             Vector3 target = p + Vector3.up * 1.2f;
@@ -150,6 +164,7 @@ namespace DogShop.Player
 
         void OnDisable()
         {
+            PlayerInside = false;
             foreach (Renderer r in hidden) if (r != null) r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
             hidden.Clear();
             hiddenColliders.Clear();

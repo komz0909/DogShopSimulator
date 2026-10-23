@@ -132,7 +132,44 @@ namespace DogShop.Player
                 applied = Mathf.Min(applied, Mathf.Max(minDistance, hit.distance - 0.1f));
             }
 
+            // 가게 안에서는 카메라가 건물 밖·천장 위로 나가지 않는다 — 벽 너머로 마을이 보이거나,
+            // 벽에 붙어 서면 카메라가 벽을 뚫고 나가 바깥이 보였다. 상자(건물 범위, 천장 아래) 밖으로 나가기 전에서 멈춘다
+            if (WallCutaway.PlayerInside) applied = Mathf.Min(applied, Mathf.Max(minDistance * 0.5f, DistanceInside(pivot, dir)));
+
             camT.position = pivot + dir * applied;
+
+            // 벽에 붙어 서서 카메라가 머리 바로 뒤까지 당겨지면 머리가 화면을 덮는다 — 그동안 몸을 숨긴다(상자·테이프는 남는다)
+            bool tooClose = applied < HideBodyDistance;
+            if (tooClose != bodyHiddenClose)
+            {
+                bodyHiddenClose = tooClose;
+                for (int i = 0; i < body.Length; i++)
+                    if (body[i] != null) body[i].forceRenderingOff = tooClose;
+            }
+        }
+
+        /// <summary>카메라가 이보다 가까우면 몸을 숨긴다(m).</summary>
+        const float HideBodyDistance = 1.2f;
+        bool bodyHiddenClose;
+
+        /// <summary>실내 카메라가 벽에서 떨어져 있을 거리, 천장 아래 높이.</summary>
+        const float IndoorWallGap = 0.35f;
+        const float IndoorMaxY = 2.75f;
+
+        /// <summary>pivot(건물 안)에서 dir 로 갈 때 실내 상자를 벗어나기 전까지의 거리.</summary>
+        static float DistanceInside(Vector3 pivot, Vector3 dir)
+        {
+            Bounds b = WallCutaway.Building;
+            Vector3 min = new Vector3(b.min.x + IndoorWallGap, -10f, b.min.z + IndoorWallGap);
+            Vector3 max = new Vector3(b.max.x - IndoorWallGap, IndoorMaxY, b.max.z - IndoorWallGap);
+            float t = float.MaxValue;
+            for (int i = 0; i < 3; i++)
+            {
+                if (Mathf.Abs(dir[i]) < 1e-5f) continue;
+                float edge = dir[i] > 0f ? max[i] : min[i];
+                t = Mathf.Min(t, (edge - pivot[i]) / dir[i]);
+            }
+            return Mathf.Max(0f, t);
         }
 
         /// <summary>시점을 바꿀 때만 하는 일 — 시야각, 몸통 표시, 피치 재클램프.</summary>
