@@ -144,13 +144,13 @@ MonoBehaviour:
     volume: 0.8
   - id: CoinJingle
     clip: {fileID: 8300000, guid: 20eb81d51aa876b4ab0738c4478ea00b, type: 3}
-    volume: 0.6
+    volume: 0.9
   - id: ItemTok
     clip: {fileID: 8300000, guid: 8b859513f2097ec4697c2a84070f77a8, type: 3}
     volume: 0.6
   - id: Sparkle
     clip: {fileID: 8300000, guid: c77c9e6e8a435824895f60d78f46e5f7, type: 3}
-    volume: 1
+    volume: 0.7
   bgm:
   - id: DogShow
     clip: {fileID: 8300000, guid: 94b27d92d7eac244aaccf03deb6babd1, type: 3}
