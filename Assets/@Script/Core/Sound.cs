@@ -15,6 +15,8 @@ namespace DogShop.Core
         LevelUp, Train, Warning, BoxOpen, Settlement, Feed, Bath, Medicine,
         CratePut, CrateTake, CustomerLost, ShopOpen, ShopClose, Click,
         Countdown, Go, CarMove,
+        // 손맛 피드백(2026-10). 클립은 나중에 SoundLibrary 칸에 넣는다 — 비어 있으면 조용하다
+        CoinJingle, ItemTok, Sparkle, Fanfare,
     }
 
     /// <summary>배경음. 한 번에 하나만 흐른다.</summary>

@@ -15,8 +15,8 @@ namespace DogShop.Shop
     {
         [SerializeField] GameObject cratePrefab;
 
-        /// <summary>창고 문 안쪽. 문틈(x 3.2~4.8) 중앙을 막지 않게 살짝 안쪽에 둔다.</summary>
-        [SerializeField] Vector3 spawnPosition = new Vector3(4f, 0f, 7.6f);
+        /// <summary>계산대 옆(가게 안쪽 끝 바로 앞). 손님 줄(계산대 앞 −x 쪽)과 겹치지 않는다.</summary>
+        [SerializeField] Vector3 spawnPosition = new Vector3(6.2f, 0f, 2.4f);
 
         public static CrateManager Instance { get; private set; }
 

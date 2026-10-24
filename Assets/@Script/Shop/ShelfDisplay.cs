@@ -40,6 +40,9 @@ namespace DogShop.Shop
 
         readonly List<GameObject> spawned = new List<GameObject>();
 
+        /// <summary>지난번에 그린 칸별 개수. 늘어난 칸의 맨 끝 물건을 "톡" 튕긴다 — 손님이 집어 가 줄어들 때는 가만히 둔다.</summary>
+        Dictionary<int, int> lastCounts;
+
         ShelfTable table;
         bool dirty;
 
@@ -82,6 +85,8 @@ namespace DogShop.Shop
             if (table == null || InventoryManager.Instance == null) return;
 
             ProductCatalog catalog = InventoryManager.Instance.Catalog;
+            // 처음 그릴 때(장면·세이브 불러오기)는 튕기지 않는다
+            var counts = new Dictionary<int, int>();
 
             for (int slot = 0; slot < table.SlotCount; slot++)
             {
@@ -91,8 +96,17 @@ namespace DogShop.Shop
                 GameObject prefab = catalog.Get(index).propPrefab;
                 if (prefab == null) continue;
 
-                BuildSlot(slot, index, prefab, table.CountAt(slot));
+                int count = table.CountAt(slot);
+                int before = spawned.Count;
+                BuildSlot(slot, index, prefab, count);
+
+                int previous;
+                if (lastCounts != null && spawned.Count > before && (!lastCounts.TryGetValue(slot, out previous) || count > previous))
+                    UI.JuiceFx.Punch(spawned[spawned.Count - 1].transform);
+                counts[slot] = count;
             }
+
+            lastCounts = counts;
         }
 
         void BuildSlot(int slot, int index, GameObject prefab, int count)

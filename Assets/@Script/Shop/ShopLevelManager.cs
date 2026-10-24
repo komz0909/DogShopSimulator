@@ -84,6 +84,17 @@ namespace DogShop.Shop
             return true;
         }
 
+        /// <summary>레벨업 축하 화면 — 이번 레벨에 열린 상품 이름을 모아 띄운다. 세이브 불러오기(RestoreFrom)에서는 부르지 않는다.</summary>
+        void ShowCelebration()
+        {
+            var names = new System.Collections.Generic.List<string>();
+            ProductCatalog catalog = InventoryManager.Instance != null ? InventoryManager.Instance.Catalog : null;
+            if (catalog != null)
+                for (int i = 0; i < catalog.Count; i++)
+                    if (catalog.Get(i).unlockLevel == Level) names.Add(catalog.Get(i).nameKo);
+            UI.JuiceFx.LevelUp(Level, Current.unlockKo, names);
+        }
+
         public bool TryLevelUp()
         {
             string reason;
@@ -92,6 +103,7 @@ namespace DogShop.Shop
 
             Level++;
             Sound.Play(Sfx.LevelUp);
+            ShowCelebration();
 
             // 승급 당일은 리드타임을 없앤다. 손님이 한 번에 늘고 카테고리가 열리는 날인데
             // 하루를 기다리면 그 수요를 받을 재고가 존재할 수 없다.

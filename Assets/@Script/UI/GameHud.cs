@@ -59,6 +59,8 @@ namespace DogShop.UI
         Text clockText;
         Text speedText;
         Text moneyText;
+        float shownMoney = -1f;
+        float moneyPulse;
         Text levelText;
         Text reputationText;
         Text mascotText;
@@ -98,14 +100,12 @@ namespace DogShop.UI
         void Start()
         {
             ActionRunner.OnRejected += HandleRejected;
-            ShopLevelManager.Instance.OnLevelUp += HandleLevelUp;
             Refresh();
         }
 
         void OnDestroy()
         {
             ActionRunner.OnRejected -= HandleRejected;
-            if (ShopLevelManager.Instance != null) ShopLevelManager.Instance.OnLevelUp -= HandleLevelUp;
         }
 
         void Update()
@@ -116,6 +116,7 @@ namespace DogShop.UI
                 if (toastTimer <= 0f) toastText.text = "";
             }
 
+            UpdateMoney();
             UpdateQuest();
             UpdateOrderAlert();
 
@@ -141,7 +142,6 @@ namespace DogShop.UI
             speedText.text = "x" + t.SpeedMultiplier;
             speedText.color = t.SpeedMultiplier > 1 ? MoneyColor : CalmColor;
 
-            moneyText.text = g.Money.ToString("N0") + "원";
             levelText.text = "가게 Lv " + s.Level;
 
             ShopLevelDef next = s.Next;
@@ -200,8 +200,26 @@ namespace DogShop.UI
 
         void HandleRejected(IPlayerAction action, string reason) => Toast(reason, WarnColor);
 
-        void HandleLevelUp(int level) =>
-            Toast("가게 레벨 " + level + ": " + ShopLevelManager.Instance.Current.unlockKo, MoneyColor);
+        /// <summary>
+        /// 돈 숫자를 실제 값까지 촤라락 세어 올린다(손맛 피드백). 늘 때는 잠깐 커지고 밝아진다.
+        /// 레벨업 화면은 <see cref="JuiceFx"/> 가 띄우므로 여기서 토스트를 따로 내지 않는다.
+        /// </summary>
+        void UpdateMoney()
+        {
+            GameManager g = GameManager.Instance;
+            if (g == null) return;
+
+            if (shownMoney < 0f) shownMoney = g.Money;   // 처음엔 세지 않고 바로
+            float gap = g.Money - shownMoney;
+            if (gap > 0.5f) moneyPulse = 1f;
+            // 차이가 커도 0.4초 안팎에 따라잡는다
+            shownMoney = Mathf.Abs(gap) < 1f ? g.Money : shownMoney + gap * Mathf.Min(1f, Time.unscaledDeltaTime * 8f);
+            moneyText.text = Mathf.RoundToInt(shownMoney).ToString("N0") + "원";
+
+            moneyPulse = Mathf.Max(0f, moneyPulse - Time.unscaledDeltaTime * 3f);
+            moneyText.rectTransform.localScale = Vector3.one * (1f + 0.18f * moneyPulse);
+            moneyText.color = Color.Lerp(MoneyColor, Color.white, moneyPulse * 0.6f);
+        }
 
         public void Toast(string message, Color color)
         {

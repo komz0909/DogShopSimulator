@@ -74,6 +74,8 @@ namespace DogShop.Shop
         /// <summary>출입문 오른쪽 기둥이 시작하는 x. 문틈(x 3~5)은 넓혀도 그대로 둔다.</summary>
         const float DoorRightEdge = 5f;
         const float DoorLeftEdge = 3f;
+        /// <summary>뒷벽 덧댐 판이 시작하는 x — 옆방 앞벽(x 8~12.4)의 왼끝. 창고 입구는 그 바로 왼쪽(x 6.4~8)이다.</summary>
+        const float BackRightCoverFrom = 8f;
 
         /// <summary>지붕이 벽 밖으로 나오는 처마 길이. 지붕을 세울 때 쓴 값과 같아야 한다.</summary>
         const float RoofOverhang = 0.35f;
@@ -251,7 +253,8 @@ namespace DogShop.Shop
             if (src == null) return;
 
             Bounds wall = src.bounds;
-            float from = wall.max.x, width = right - from;
+            // 옆방 앞벽이 시작하는 x 8 부터 덮는다. 뒷벽(Wall_Back_R) 끝에서 시작하면 그 사이 창고 입구(x 6.4~8)까지 막는다
+            float from = Mathf.Max(wall.max.x, BackRightCoverFrom), width = right - from;
             if (width <= 0.01f) return;
 
             if (backRightExtra == null)

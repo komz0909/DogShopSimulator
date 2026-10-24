@@ -127,7 +127,9 @@ namespace DogShop.Shop
                     0.02f,
                     UnityEngine.Random.Range(0.6f, 5.4f));
 
-                if (Overlaps(candidate, new Vector3(6.5f, 0f, 1.0f), 1.3f)) continue;
+                // 계산대 주변은 피한다 — 계산대를 옮겨도 따라가게 실제 자리를 쓴다
+                Vector3 counterSpot = ShopCounter.Instance != null ? ShopCounter.Instance.Origin : new Vector3(6.2f, 0f, 1.05f);
+                if (Overlaps(candidate, counterSpot, 1.3f)) continue;
 
                 bool blocked = false;
 
@@ -179,6 +181,7 @@ namespace DogShop.Shop
         public void Clean(DirtSpot spot)
         {
             if (spot == null || !spots.Remove(spot)) return;
+            UI.JuiceFx.Sparkle(spot.transform.position + Vector3.up * 0.1f);
 
             Destroy(spot.gameObject);
             OnChanged?.Invoke();

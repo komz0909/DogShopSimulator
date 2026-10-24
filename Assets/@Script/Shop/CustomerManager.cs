@@ -706,6 +706,8 @@ namespace DogShop.Shop
             OnSale?.Invoke(paid);
             GameEvents.RaiseCustomerCheckedOut();
             Sound.Play(Sfx.Checkout);
+            Sound.Play(Sfx.CoinJingle);
+            UI.JuiceFx.FloatText(c.transform.position + Vector3.up * (c.LabelHeight + 0.2f), "+" + paid.ToString("N0") + "원", new Color(1f, 0.85f, 0.3f));
 
             int penalty = ReputationPenaltyOf(c);
             if (penalty > 0) GameManager.Instance.AddReputation(-penalty);

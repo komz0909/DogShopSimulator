@@ -200,7 +200,6 @@ namespace DogShop.Player
                 if (!load) return;
                 if (!inRange) { Reject("너무 멀다, 가까이 갈 것"); return; }
                 CleanlinessManager.Instance.Clean(dirt);
-                Sound.Play(Sfx.CleanDone);
                 return;
             }
 
@@ -595,7 +594,7 @@ namespace DogShop.Player
                 // 창고에 남겨 두면 그만큼 늦게 팔린다
                 ItemGrade grade = carry.Held.BestGradeOf(productIndex);
                 if (!carry.Held.RemoveOne(productIndex, grade)) return;
-                Sound.Play(Sfx.CrateTake);
+                Sound.Play(Sfx.ItemTok);
 
                 table.Place(slot, productIndex, grade);
                 GameEvents.RaiseItemDisplayed();
