@@ -416,7 +416,7 @@ namespace DogShop.Show
                     if (posePressed && !judged)
                     {
                         float diff = Mathf.Abs(ringRadius - targetRadius);
-                        if (diff <= perfectHalf) { got = 1f; Flash("PERFECT!", PerfectColor); Sound.Play(Sfx.PosePerfect); }
+                        if (diff <= perfectHalf) { got = 1f; Flash("PERFECT!", PerfectColor); Sound.Play(Sfx.PosePerfect); UI.JuiceFx.Sparkle(hero.transform.position + Vector3.up * 0.4f, true); }
                         else if (diff <= goodHalf) { got = 0.6f; Flash("GOOD", GoodColor); Sound.Play(Sfx.PoseGood); }
                         else { Flash("MISS", new Color(1f, 0.55f, 0.5f)); Sound.Play(Sfx.PoseMiss); }
                         judged = true;
@@ -534,6 +534,7 @@ namespace DogShop.Show
                 {
                     got++;
                     Flash("정답!", new Color(0.6f, 1f, 0.75f));
+                    UI.JuiceFx.Sparkle(hero.transform.position + Vector3.up * 0.4f, true);
                     Sound.Play(Sfx.FetchSuccess);   // 2단계 성공음
                     Say("잘했어!", 1.4f);
                     hero.Animator.Play(DogAnim.WagTail);
@@ -781,7 +782,7 @@ namespace DogShop.Show
                     if (passed[i] || pos < TrackHurdleAt[i]) continue;
                     passed[i] = true;
                     // 바가 ~0.3m. 그 순간 그만큼 떠 있어야 넘는다
-                    if (h > 0.25f) { cleared++; Flash("CLEAR!", new Color(0.6f, 1f, 0.75f)); Sound.Play(Sfx.HurdleClear); }
+                    if (h > 0.25f) { cleared++; Flash("CLEAR!", new Color(0.6f, 1f, 0.75f)); Sound.Play(Sfx.HurdleClear); UI.JuiceFx.Sparkle(hero.transform.position + Vector3.up * 0.4f, true); }
                     else { Flash("쿵!", new Color(1f, 0.55f, 0.5f)); KnockHurdle(trackHurdles[i]); Sound.Play(Sfx.HurdleFail); }
                 }
 
@@ -789,7 +790,7 @@ namespace DogShop.Show
                 if (!hoopDone && pos >= TrackHoopAt)
                 {
                     hoopDone = true;
-                    if (h > (hoopModel != null ? HoopModelClear : HoopInnerBottom)) { cleared++; Flash("링 통과!", PerfectColor); Sound.Play(Sfx.HurdleClear); }
+                    if (h > (hoopModel != null ? HoopModelClear : HoopInnerBottom)) { cleared++; Flash("링 통과!", PerfectColor); Sound.Play(Sfx.HurdleClear); UI.JuiceFx.Sparkle(hero.transform.position + Vector3.up * 0.4f, true); }
                     else { Flash("링에 걸렸다", new Color(1f, 0.55f, 0.5f)); hoopWobble = 1f; Sound.Play(Sfx.HurdleFail); }
                 }
                 if (hoop != null && hoopWobble > 0f)

@@ -231,6 +231,21 @@ namespace DogShop.Dogs
             return true;
         }
 
+        static string GainText(string axis, int amount) => amount > 0 ? axis + " +" + amount + "  " : "";
+
+        /// <summary>
+        /// 오른 만큼 강아지 머리 위에 띄운다(손맛 피드백). 능력치 창을 열지 않아도 바로 보인다.
+        /// 하나도 안 올랐으면 이유를 띄운다 — 컨디션(청결·건강)이 낮으면 성장이 막히는데 돈만 나간 줄 안다.
+        /// </summary>
+        static void ShowGain(Dog dog, string text)
+        {
+            bool none = string.IsNullOrEmpty(text);
+            Vector3 head = dog.transform.position + Vector3.up * 0.9f;
+            UI.JuiceFx.FloatText(head, none ? "컨디션이 낮아 안 올랐다" : text.Trim(), none ? new Color(1f, 0.6f, 0.55f) : new Color(0.55f, 0.92f, 1f));
+            UI.JuiceFx.Punch(dog.transform, 0.2f, 0.35f);
+            if (!none) UI.JuiceFx.Sparkle(dog.transform.position + Vector3.up * 0.4f);
+        }
+
         public bool Exercise(Dog dog, int index)
         {
             if (!CanExercise(dog, index, out _)) return false;
@@ -240,6 +255,7 @@ namespace DogShop.Dogs
             dog.Stats.AddGrowth(GrowthAxis.Agility, ExerciseGainOf(index), out int gained);
             ExercisedToday = true;
             Sound.Play(Sfx.Train);
+            ShowGain(dog, GainText("어질리티", gained));
             SpentTodayAgility += def.cost;
 
             DogRoamer roamer = dog.GetComponent<DogRoamer>();
@@ -389,8 +405,10 @@ namespace DogShop.Dogs
             int cost = CostOf(index);
             if (!GameManager.Instance.TrySpend(cost, GameManager.SpendKind.Dog)) return false;
 
+            int beauty0 = dog.Stats.Beauty, training0 = dog.Stats.Training;
             dog.Stats.AddGrowth(def.axis, GainOf(index));
             Sound.Play(Sfx.Train);
+            ShowGain(dog, GainText("미모", dog.Stats.Beauty - beauty0) + GainText("훈련도", dog.Stats.Training - training0));
             ShowTraining(dog, def);
 
             SlotsUsed++;

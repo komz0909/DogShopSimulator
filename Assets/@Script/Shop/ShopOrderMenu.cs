@@ -639,8 +639,15 @@ namespace DogShop.Shop
             bool can = box.CanOpen(out reason);
 
             var rect = new Rect(left + inner - 210f, top - 5f, 210f, FooterHeight + 10f);
-            if (UiSkin.Click(rect, GUIContent.none, UiSkin.Button(can ? UiSkin.Coral : UiSkin.Cream)) && can)
-                box.Open();
+            if (UiSkin.Click(rect, GUIContent.none, UiSkin.Button(can ? UiSkin.Coral : UiSkin.Cream)) && can && box.Open())
+            {
+                // 손맛 피드백: 버튼에서 반짝이가 터지고 뽑힌 물건이 등급 색으로 떠오른다
+                Vector2 at = GUIUtility.GUIToScreenPoint(rect.center);
+                JuiceFx.SparkleScreen(at);
+                string grade = ItemGrades.NameOf(box.ResultGrade);
+                JuiceFx.FloatTextScreen(at - Vector2.up * 40f * UiSkin.ScreenScale,
+                    (grade.Length > 0 ? "[" + grade + "] " : "") + InventoryManager.Instance.Catalog.Get(box.ResultProduct).nameKo, ItemGrades.ColorOf(box.ResultGrade));
+            }
 
             // 상자 그림을 버튼 왼쪽에 얹는다. 글자만 있으면 발주 목록에 묻힌다
             if (boxIcon != null)

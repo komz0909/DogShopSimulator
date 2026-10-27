@@ -281,6 +281,7 @@ namespace DogShop.Shop
             Show(false, true);
             step = Step.Packed;
             Sound.Play(Sfx.Packing);
+            if (closedBox != null) JuiceFx.Punch(closedBox.transform, 0.35f, 0.3f);   // 봉한 상자가 "톡"
             return null;
         }
 

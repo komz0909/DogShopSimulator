@@ -85,6 +85,7 @@ namespace DogShop.UI
         Image questClaimImage;
         bool questExpanded = true;
         int questVersion = -1;
+        int lastQuestStep = -1;
 
         float refreshTimer;
         float toastTimer;
@@ -332,6 +333,18 @@ namespace DogShop.UI
             bool show = quests != null && (!quests.IsComplete || finishedBanner || TutorialQuestManager.Demo);
             if (questPanel.gameObject.activeSelf != show) questPanel.gameObject.SetActive(show);
             if (!show) return;
+
+            // 할 일을 하나 마치면 할 일 칸에서 반짝 — 효과음(딩동)은 퀘스트 쪽이 이미 낸다
+            if (quests.Step != lastQuestStep)
+            {
+                if (lastQuestStep >= 0 && quests.Step > lastQuestStep)
+                {
+                    var corners = new Vector3[4];
+                    questPanel.GetWorldCorners(corners);   // 오버레이 캔버스라 화면 픽셀(왼쪽 아래 0)
+                    JuiceFx.SparkleScreen(new Vector2((corners[0].x + corners[2].x) * 0.5f, Screen.height - (corners[0].y + corners[2].y) * 0.5f), true);
+                }
+                lastQuestStep = quests.Step;
+            }
 
             // 달성했으면 [퀘스트 완료]로 보상을 받고, 아니면 판을 눌러 설명을 접고 편다.
             // 1인칭에서 커서가 잠겨 있으면(화면 가운데 조준) 누른 게 아니다

@@ -1,5 +1,6 @@
 using DogShop.Core;
 using DogShop.Shop;
+using UnityEngine;
 
 namespace DogShop.Dogs
 {
@@ -85,8 +86,16 @@ namespace DogShop.Dogs
                 if (!InventoryManager.Instance.TryConsumeStorage(productIndex)) return;
                 Sound.Play(sound);
 
+                int before = isHealth ? dog.Stats.Health : dog.Stats.Cleanliness;
                 if (isHealth) dog.Stats.RecoverHealth(recovery);
                 else dog.Stats.RecoverCleanliness(recovery);
+                int up = (isHealth ? dog.Stats.Health : dog.Stats.Cleanliness) - before;
+
+                // 손맛 피드백: 오른 만큼 머리 위에. 목욕은 반짝이까지
+                UI.JuiceFx.FloatText(dog.transform.position + Vector3.up * 0.9f,
+                    (isHealth ? "건강 +" : "청결 +") + up, isHealth ? new Color(0.6f, 1f, 0.65f) : new Color(0.55f, 0.92f, 1f));
+                UI.JuiceFx.Punch(dog.transform, 0.2f, 0.35f);
+                if (!isHealth) UI.JuiceFx.Sparkle(dog.transform.position + Vector3.up * 0.4f);
 
                 dog.Animator.Play(isHealth ? DogAnim.Eat : DogAnim.Sit);
                 dog.SyncMood();

@@ -18,8 +18,9 @@ namespace DogShop.UI
         const float SparkleSeconds = 0.7f;
         const float LevelUpSeconds = 4.5f;
 
-        struct Floater { public Vector3 world; public string text; public Color color; public float born; }
-        struct Burst { public Vector3 world; public float born; }
+        // screen 이면 world 대신 sp(GUI 화면 좌표, 왼쪽 위 0)에 그린다 — 메뉴·HUD 위에 띄우는 것
+        struct Floater { public Vector3 world; public Vector2 sp; public bool screen; public string text; public Color color; public float born; }
+        struct Burst { public Vector3 world; public Vector2 sp; public bool screen; public float born; }
 
         static JuiceFx instance;
 
@@ -54,11 +55,33 @@ namespace DogShop.UI
             Get().StartCoroutine(PunchRoutine(target, amount, seconds));
         }
 
-        /// <summary>그 자리에 반짝이가 퍼지며 사라진다.</summary>
-        public static void Sparkle(Vector3 world)
+        /// <summary>그 자리에 반짝이가 퍼지며 사라진다. 이미 제 효과음이 있는 자리(도그쇼 판정)는 quiet 로 반짝 소리를 뺀다.</summary>
+        public static void Sparkle(Vector3 world, bool quiet = false)
         {
             Get().bursts.Add(new Burst { world = world, born = Time.unscaledTime });
-            Sound.Play(Sfx.Sparkle);
+            if (!quiet) Sound.Play(Sfx.Sparkle);
+        }
+
+        /// <summary>화면 좌표(GUI, 왼쪽 위 0) 버전 — 할 일 칸·발주 창처럼 화면에 붙은 것 위에 띄운다.</summary>
+        public static void SparkleScreen(Vector2 gui, bool quiet = false)
+        {
+            Get().bursts.Add(new Burst { sp = gui, screen = true, born = Time.unscaledTime });
+            if (!quiet) Sound.Play(Sfx.Sparkle);
+        }
+
+        public static void FloatTextScreen(Vector2 gui, string text, Color color) =>
+            Get().floaters.Add(new Floater { sp = gui, screen = true, text = text, color = color, born = Time.unscaledTime });
+
+        /// <summary>
+        /// 지금 화면을 그리는 카메라. 도그쇼는 Main 이 아닌 무대 카메라로 그리므로 Camera.main 만 보면 위치가 어긋난다 —
+        /// 켜져 있는 화면용 카메라 중 가장 위(depth)에 그리는 것을 쓴다.
+        /// </summary>
+        static Camera ViewCamera()
+        {
+            Camera best = null;
+            foreach (Camera c in Camera.allCameras)
+                if (c.targetTexture == null && (best == null || c.depth > best.depth)) best = c;
+            return best != null ? best : Camera.main;
         }
 
         /// <summary>레벨업 축하 화면. 새로 열린 상품 이름을 같이 띄운다.</summary>
@@ -101,6 +124,9 @@ namespace DogShop.UI
             get
             {
                 if (star != null) return star;
+                // 바르코로 뽑은 광택 별(2026-10). 없으면 아래에서 직접 굽는다
+                star = Resources.Load<Texture2D>("FX_Sparkle");
+                if (star != null) return star;
                 const int N = 32;
                 star = new Texture2D(N, N, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp, hideFlags = HideFlags.DontSave };
                 var px = new Color[N * N];
@@ -131,14 +157,11 @@ namespace DogShop.UI
             }
 
             Color keep = GUI.color;
-            Camera cam = Camera.main;
+            Camera cam = ViewCamera();
             float now = Time.unscaledTime;
 
-            if (cam != null)
-            {
-                DrawBursts(cam, now);
-                DrawFloaters(cam, now);
-            }
+            DrawBursts(cam, now);
+            DrawFloaters(cam, now);
 
             DrawLevelUp(now);
             GUI.color = keep;
@@ -153,14 +176,21 @@ namespace DogShop.UI
                 float t = now - f.born;
                 if (t > FloatSeconds) { floaters.RemoveAt(i); continue; }
 
-                Vector3 p = cam.WorldToScreenPoint(f.world + Vector3.up * (t * 0.6f));
-                if (p.z <= 0f) continue;
+                Vector2 gp;
+                if (f.screen) gp = f.sp - Vector2.up * (t * 50f * s);
+                else
+                {
+                    if (cam == null) continue;
+                    Vector3 p = cam.WorldToScreenPoint(f.world + Vector3.up * (t * 0.6f));
+                    if (p.z <= 0f) continue;
+                    gp = new Vector2(p.x, Screen.height - p.y);
+                }
 
                 float a = Mathf.Clamp01((FloatSeconds - t) / 0.4f);
                 // 처음 0.12초는 크게 튀어나왔다가 제 크기로
                 float pop = 1f + 0.5f * Mathf.Clamp01(1f - t / 0.12f);
                 floatStyle.fontSize = Mathf.RoundToInt(26f * s * pop);
-                var r = new Rect(p.x - 150f * s, Screen.height - p.y - 22f * s, 300f * s, 44f * s);
+                var r = new Rect(gp.x - 150f * s, gp.y - 22f * s, 300f * s, 44f * s);
                 Shadowed(r, f.text, floatStyle, new Color(f.color.r, f.color.g, f.color.b, a), a);
             }
         }
@@ -174,9 +204,15 @@ namespace DogShop.UI
                 float t = now - b.born;
                 if (t > SparkleSeconds) { bursts.RemoveAt(i); continue; }
 
-                Vector3 c = cam.WorldToScreenPoint(b.world);
-                if (c.z <= 0f) continue;
-                Vector2 center = new Vector2(c.x, Screen.height - c.y);
+                Vector2 center;
+                if (b.screen) center = b.sp;
+                else
+                {
+                    if (cam == null) continue;
+                    Vector3 c = cam.WorldToScreenPoint(b.world);
+                    if (c.z <= 0f) continue;
+                    center = new Vector2(c.x, Screen.height - c.y);
+                }
                 float k = t / SparkleSeconds;
 
                 // 바깥으로 퍼지는 큰 마름모 8개 + 그 사이 작은 점 8개. 크기는 솟았다가 줄어든다
@@ -188,7 +224,7 @@ namespace DogShop.UI
                     Vector2 p = center + new Vector2(Mathf.Cos(ang), Mathf.Sin(ang) * 0.55f) * r - Vector2.up * (k * 20f * s);
                     float size = (big ? 30f : 16f) * s * Mathf.Sin(Mathf.Min(1f, k * 1.3f) * Mathf.PI);
                     if (size <= 0.5f) continue;
-                    GUI.color = big ? new Color(1f, 0.97f, 0.6f, 1f - k * 0.5f) : new Color(1f, 1f, 1f, 1f - k);
+                    GUI.color = new Color(1f, 1f, 1f, big ? 1f - k * 0.5f : 1f - k);   // 그림이 이미 노랗다 — 알파만
                     GUI.DrawTexture(new Rect(p.x - size * 0.5f, p.y - size * 0.5f, size, size), Star);
                 }
             }
@@ -221,7 +257,7 @@ namespace DogShop.UI
                 float ang = i * Mathf.PI * 2f / 10f + t * 0.9f;
                 Vector2 p = new Vector2(Mathf.Cos(ang) * (W * 0.5f + 14f), Mathf.Sin(ang) * (H * 0.5f + 14f));
                 float size = 14f + 14f * Mathf.Abs(Mathf.Sin(t * 5f + i * 1.3f));
-                GUI.color = new Color(1f, 0.92f, 0.45f, a);
+                GUI.color = new Color(1f, 1f, 1f, a);
                 GUI.DrawTexture(new Rect(p.x - size * 0.5f, p.y - size * 0.5f, size, size), Star);
             }
 
