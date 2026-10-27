@@ -30,6 +30,10 @@ namespace DogShop.Player
         readonly System.Collections.Generic.List<Rect> placedLabels = new System.Collections.Generic.List<Rect>();
         const float LabelRange = 6f;
 
+        /// <summary>이름표 바로 앞 이만큼은 가려도 보인다. 창고 선반 이름표는 뒷벽에서 0.3m 뒤라 이보다 작아야 한다.</summary>
+        const float LabelOcclusionSlack = 0.1f;
+        static readonly RaycastHit[] occlusionHits = new RaycastHit[8];
+
         Camera cam;
         Transform player;
         PlayerCarry carry;
@@ -779,6 +783,8 @@ namespace DogShop.Player
         void DrawLabel(Vector3 worldPosition, string text, GUIStyle style, bool rangeLimited)
         {
             if (rangeLimited && Vector3.Distance(player.position, worldPosition) > LabelRange) return;
+            // 벽 너머 이름표는 그리지 않는다. 매장에 서면 창고 선반 이름표가 뒷벽 위에 떠 보였다(시연 1일차 첫 화면)
+            if (rangeLimited && BehindWall(worldPosition)) return;
 
             Vector3 screen = cam.WorldToScreenPoint(worldPosition);
             if (screen.z <= 0f) return;
@@ -790,6 +796,33 @@ namespace DogShop.Player
             for (int tries = 0; tries < 4 && Overlaps(rect); tries++) rect.y += rect.height + 2f;
             placedLabels.Add(rect);
             GUI.Label(rect, text, style);
+        }
+
+        /// <summary>
+        /// 카메라와 이름표 사이에 벽 같은 고정물이 있는가. 주인·강아지·손님처럼 움직이는 몸은 가림으로 치지 않는다 —
+        /// 3인칭 카메라는 늘 주인 등 뒤에 있어서, 몸을 세면 앞에 있는 이름표가 다 사라진다.
+        /// </summary>
+        bool BehindWall(Vector3 worldPosition)
+        {
+            Vector3 from = cam.transform.position;
+            Vector3 to = worldPosition - from;
+            float reach = to.magnitude - LabelOcclusionSlack;
+            if (reach <= 0f) return false;
+
+            int count = Physics.RaycastNonAlloc(from, to.normalized, occlusionHits, reach,
+                                                Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
+            for (int i = 0; i < count; i++)
+            {
+                Collider col = occlusionHits[i].collider;
+                if (col.transform.IsChildOf(player)) continue;
+                if (col.GetComponentInParent<UnityEngine.AI.NavMeshAgent>() != null) continue;
+                if (col.GetComponentInParent<CarryCrate>() != null) continue;
+                // 이름표의 주인(진열대·창고 선반·가구)은 자기 판자에 걸려도 가린 것으로 치지 않는다
+                if (col.GetComponentInParent<ShelfTable>() != null || col.GetComponentInParent<StorageRack>() != null
+                    || col.GetComponentInParent<PlaceableFurniture>() != null) continue;
+                return true;
+            }
+            return false;
         }
 
         bool Overlaps(Rect rect)

@@ -63,6 +63,9 @@ namespace DogShop.Player
 
         /// <summary>카메라가 보는 수평 방향(도). 이동 방향의 기준 — 피벗 transform 은 플레이어 자식이라 몸이 도는 동안 같이 돌아 믿을 수 없다.</summary>
         public float Yaw => yaw;
+
+        /// <summary>바라보는 수평 방향을 바로 정한다. 시연 첫 화면처럼 처음 보여 줄 방향이 정해진 경우에 쓴다.</summary>
+        public void FaceYaw(float degrees) => yaw = degrees;
         float pitch = 20f;
 
         /// <summary>Esc로 커서를 풀어둔 상태. 게임 화면을 다시 클릭하면 잠긴다.</summary>

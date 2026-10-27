@@ -57,6 +57,8 @@ namespace DogShop.Dogs
                 if (dog != null && Exhibition.Active)
                 {
                     int s = Exhibition.StartGrowthStat;
+                    // 시작 능력치는 키운 결과가 아니다 — 승급 알림("인기 강아지가 되었다!")이 첫 화면에 뜨지 않게 처음 보는 것으로 친다
+                    lastMascotGrade = -1;
                     dog.Stats.Restore(DogStats.MaxUpkeep, DogStats.MaxUpkeep, s, s, s);
                 }
             }

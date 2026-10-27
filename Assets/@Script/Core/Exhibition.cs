@@ -45,6 +45,35 @@ namespace DogShop.Core
         /// </summary>
         public const int ExtraStorageRacks = 4;
 
+        /// <summary>
+        /// 시작할 때 매장에 미리 세워 두는 진열대(가구 카탈로그 번호 · 자리 · 방향).
+        /// Lv 7 은 상품이 16종인데 씬에 놓인 진열대는 둘(6칸)뿐이고, 11m 로 넓어진 바닥이 거의 비어 있었다.
+        /// 아일랜드 하나를 문(x 4)을 사이에 두고 기존 아일랜드와 대칭으로, 벽 진열대 둘을 좌우 벽에 붙인다 — 16칸.
+        /// 계산 줄(z 1.1)과 입구 통로를 비키고, 손님 길(NavMesh)로 문에서 전부 닿는 것을 확인한 자리다.
+        /// </summary>
+        public static readonly int[] StartShelfCatalog = { 0, 1, 1 };
+        public static readonly Vector3[] StartShelfPosition =
+        {
+            new Vector3(7.1f, 0f, 3.3f),     // 진열대(아일랜드)
+            new Vector3(9.19f, 0f, 3.2f),    // 벽 진열대 — 오른쪽 벽
+            new Vector3(-1.19f, 0f, 3.5f),   // 벽 진열대 — 왼쪽 벽
+        };
+        public static readonly float[] StartShelfYaw = { 90f, 270f, 90f };
+
+        /// <summary>
+        /// 문을 열 때 이미 진열돼 있는 상품 수와 하나당 개수. 수요가 큰 순서로 고른다.
+        /// 빈 진열대로 시작하면 관람객이 상자를 나르기 전까지 손님이 한 명도 안 와 가게가 죽어 보였다.
+        /// 다 채우지 않는다 — 남은 칸과 팔려 나간 자리를 채우는 것이 1일차 할 일(상자 담기 → 진열)이다.
+        /// </summary>
+        public const int PrestockKinds = 10;
+        public const int PrestockEach = 3;
+
+        /// <summary>
+        /// 시작할 때 카메라가 보는 수평 방향(도). 180 이면 입구 쪽 — 문, 계산대, 진열대, 강아지가 한 화면에 들어온다.
+        /// 씬 기본값(0)은 매장 뒷벽을 봐서 첫 화면이 빈 벽이었다.
+        /// </summary>
+        public const float StartYaw = 180f;
+
         /// <summary>시작 자금. 발주·훈련·운동을 망설이지 않고 해 볼 만큼(본편 900원).</summary>
         public const int StartMoney = 3000;
 

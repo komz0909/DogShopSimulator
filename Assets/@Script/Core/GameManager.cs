@@ -52,6 +52,7 @@ namespace DogShop.Core
         void Start()
         {
             TimeManager.Instance.OnDayEnded += HandleDayEnded;
+            if (Exhibition.Active && GetComponent<ExhibitionSetup>() == null) gameObject.AddComponent<ExhibitionSetup>();   // 시연 첫 화면 차리기
         }
 
         void OnDestroy()
