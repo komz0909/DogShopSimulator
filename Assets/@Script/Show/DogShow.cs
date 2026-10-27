@@ -390,8 +390,10 @@ namespace DogShop.Show
             // GOOD 띠는 PERFECT 바깥으로 늘 같은 폭만큼 붙는다. 예전엔 GOOD 까지 같이 넓어져서
             // 미모가 높으면 대충 눌러도 다 맞았고, 두 판정이 한 색이라 어디가 PERFECT 인지 몰랐다
             targetRadius = Mathf.Lerp(0.26f, 0.36f, beautyN);
-            perfectHalf = Mathf.Lerp(0.012f, 0.045f, beautyN);
-            goodHalf = perfectHalf + 0.04f;
+            // 시연은 처음 해 보는 사람 기준으로 띠를 넓힌다(Exhibition.PoseWindowScale)
+            float window = Exhibition.Active ? Exhibition.PoseWindowScale : 1f;
+            perfectHalf = Mathf.Lerp(0.012f, 0.045f, beautyN) * window;
+            goodHalf = perfectHalf + 0.04f * window;
             goodTex = MakeBand(512, (targetRadius - goodHalf) / (targetRadius + goodHalf), 6f);
             perfectTex = MakeBand(512, (targetRadius - perfectHalf) / (targetRadius + perfectHalf), 1.5f);
             float total = 0f;
@@ -402,7 +404,8 @@ namespace DogShop.Show
                 subline = "Space 로 포즈!";
                 hero.Animator.Play(DogAnim.Idle);
 
-                float duration = Mathf.Lerp(1.7f, 1.15f, round / (float)(PoseRounds - 1));
+                float duration = Mathf.Lerp(1.7f, 1.15f, round / (float)(PoseRounds - 1))
+                               * (Exhibition.Active ? Exhibition.PoseDurationScale : 1f);
                 float t = 0f;
                 posePressed = false;
                 float got = 0f;
@@ -545,7 +548,11 @@ namespace DogShop.Show
                     Sound.Play(Sfx.FetchFail);      // 2단계 실패음
                     Say("그게 아닌데...", 1.4f);
                 }
-                subline = "골라 온 것: " + ItemName(broughtItem);
+                // 왜 틀렸는지 보여 준다 — 카드를 잘못 고른 건지, 훈련도가 모자라 강아지가 헷갈린 건지.
+                // 뒤쪽이면 "훈련하면 나아진다"가 보여야 육성과 이어진다
+                if (broughtItem == requested) subline = "골라 온 것: " + ItemName(broughtItem);
+                else if (ordered != requested) subline = "지시한 카드가 달랐다  (요청: " + ItemName(requested) + ")";
+                else subline = "훈련도가 모자라 헷갈렸다  (성공률 " + Mathf.RoundToInt(success * 100f) + "%, 훈련할수록 오른다)";
                 yield return Wait(1.4f);
 
                 // 다음 판을 위해 받침대 위로 되돌린다
@@ -1035,7 +1042,7 @@ namespace DogShop.Show
         }
 
         /// <summary>코스 제한 시간. 넘기면 거기까지 지난 장애물만 센다.</summary>
-        const float CourseLimit = 90f;
+        static float CourseLimit => Exhibition.Active ? Exhibition.CourseLimitSeconds : 90f;
         float courseTime;
 
         /// <summary>
@@ -1086,6 +1093,7 @@ namespace DogShop.Show
             runSpeed = Mathf.Lerp(2.2f, 4.0f, totalN);   // ③ 은 어질리티, ④ 는 종합 스탯
             float runAnimSpeed = Mathf.Lerp(1f, 1.6f, totalN);
             weaveArrows = Mathf.RoundToInt(Mathf.Lerp(WeaveArrowsMax, WeaveArrowsMin, totalN));
+            if (Exhibition.Active) weaveArrows = Mathf.Min(weaveArrows, Exhibition.CourseWeaveArrowsMax);
             introFor = -1;
             course.TableEase = totalN;   // 잘 키웠으면 단상이 덜 기운다
 

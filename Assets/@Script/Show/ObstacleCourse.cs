@@ -34,7 +34,7 @@ namespace DogShop.Show
         /// </summary>
         public const int PoleCount = 10;
         const float PoleGap = 1.0f;
-        public const float TableHold = 3f;
+        public static float TableHold => Core.Exhibition.Active ? Core.Exhibition.CourseTableHold : 3f;
 
         /// <summary>
         /// 테이블 균형잡기. 발판이 좌우로 <b>움직이지 않고 기운다</b> — 기운 쪽으로 강아지가 미끄러지고,
