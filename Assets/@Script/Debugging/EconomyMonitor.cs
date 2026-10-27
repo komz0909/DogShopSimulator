@@ -273,7 +273,12 @@ namespace DogShop.Debugging
             CountStages(tm, out stageSum, out stageTop, out upgrading);
             Append(row, stageSum);
             Append(row, stageTop);
-            Append(row, upgrading, last: true);
+            Append(row, upgrading);
+
+            // 이탈 이유(55~60차 이탈 진단). 합이 lost 열이다
+            Append(row, c.LostSoldOutToday);
+            Append(row, c.LostTravelToShelfToday);
+            Append(row, c.LostTravelToCounterToday, last: true);
 
             try
             {
@@ -296,7 +301,8 @@ namespace DogShop.Debugging
             + "ratioTarget,ratioActual,"
             + "heroBeauty,heroTraining,heroGrowthTotal,heroUpkeep,"
             + "openSlots,openShown,openStranded,trainCapacity,surplus,boxOpened,boxSpent,"
-            + "stageSum,stageTop,upgrading";
+            + "stageSum,stageTop,upgrading,"
+            + "lostSoldOut,lostTravelShelf,lostTravelCounter";
 
         /// <summary>해금된 훈련의 단계 합·최고 단계와, 지금 강화 중인 수.</summary>
         static void CountStages(TrainingManager tm, out int sum, out int top, out int upgrading)

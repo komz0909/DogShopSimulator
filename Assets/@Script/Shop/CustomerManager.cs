@@ -78,6 +78,16 @@ namespace DogShop.Shop
         public int SoldToday { get; private set; }
         public int LostToday { get; private set; }
 
+        /// <summary>
+        /// 이탈 이유. 셋의 합이 <see cref="LostToday"/> 다. 측정 기록(EconomyLog)에 남겨 원인을 가른다 -
+        /// 수만 남기면 품절로 빠진 손님과 길이 막혀 빠진 손님이 섞여 보인다(55~60차).
+        /// </summary>
+        public int LostSoldOutToday { get; private set; }
+        /// <summary>진열대로 가다가(둘러보기 포함) 이동 시간 초과로 나간 손님.</summary>
+        public int LostTravelToShelfToday { get; private set; }
+        /// <summary>물건을 들고 계산대 줄로 가다가 이동 시간 초과로 나간 손님.</summary>
+        public int LostTravelToCounterToday { get; private set; }
+
         /// <summary>오늘 문으로 들어온 손님 수.</summary>
         public int VisitorsToday { get; private set; }
 
@@ -166,6 +176,9 @@ namespace DogShop.Shop
         {
             SoldToday = 0;
             LostToday = 0;
+            LostSoldOutToday = 0;
+            LostTravelToShelfToday = 0;
+            LostTravelToCounterToday = 0;
             VisitorsToday = 0;
             ReputationToday = 0;
             RevenueToday = 0;
@@ -218,8 +231,10 @@ namespace DogShop.Shop
             ShelfTable shelf = ShelfManager.Instance.FindFor(wanted);
             if (shelf == null) return;
 
-            GameObject instance = Instantiate(customerPrefab, transform);
-            instance.transform.position = Door;
+            // 문 앞에서 바로 만든다. 원점에서 만든 뒤 위치만 옮기면 NavMeshAgent 는 생성 순간 원점에 가장 가까운 면에
+            // 붙어 버린다 — 매장이 넓어져 다시 구운 뒤엔 그 면이 가게 왼쪽 밖(-0.2, -0.7)의 끊긴 조각이라,
+            // 무인 측정에서 Lv7 이후 하루 손님 전원이 거기 갇혀 나갔다(56·57·60·61·62차의 붕괴)
+            GameObject instance = Instantiate(customerPrefab, Door, Quaternion.identity, transform);
 
             Customer customer = instance.GetComponent<Customer>();
             int appearance = NextAppearance();
@@ -253,6 +268,7 @@ namespace DogShop.Shop
             }
             else
             {
+                if (agent != null && agent.isActiveAndEnabled) agent.Warp(Door);
                 BeginBrowse(customer, shelf);
                 active.Add(customer);
             }
@@ -384,6 +400,11 @@ namespace DogShop.Shop
 
         void TickToShelf(Customer c, float step)
         {
+            // 둘러볼 자리에 끝내 닿지 못하면(진열대에 깎인 면 가장자리 등) 그 자리에서 구경한 것으로 친다.
+            // 안 그러면 0.6m 앞에서 45초를 서 있다 이동 시간 초과로 나간다(61차: 하루 1~2명)
+            if (!c.Arrived && c.TravelTime > BrowseLegGiveUp && (c.BrowseLeft > 0 || c.BrowseLinger > 0f || c.BrowsePeeks > 0))
+                c.MoveTo(c.transform.position);
+
             if (!c.Arrived || c.Holding) return;
 
             // 둘러보는 중 — 들른 곳에서 잠깐 구경하고 다음 곳으로, 다 보면 원하는 진열대로
@@ -430,7 +451,9 @@ namespace DogShop.Shop
             }
             else
             {
+                // 들어올 땐 진열대에 있었는데(FindFor) 도착해 보니 다 팔렸다
                 LostToday++;
+                LostSoldOutToday++;
                 Sound.Play(Sfx.CustomerLost);
                 OnLostSale?.Invoke(c.WantedProduct);
                 SendHome(c);
@@ -447,6 +470,8 @@ namespace DogShop.Shop
         /// <summary>한 진열대 앞에서 옆으로 옮겨 더 볼 때 걷는 거리(m)와 그 자리에서 서 있는 시간(초).</summary>
         static readonly Vector2 PeekStepRange = new Vector2(0.6f, 1.1f);
         static readonly Vector2 PeekLingerRange = new Vector2(1f, 2f);
+        /// <summary>둘러보기 한 구간에 쓰는 최대 이동 시간(게임 초). 가게 안 한 구간은 몇 m 라 이보다 훨씬 짧다.</summary>
+        const float BrowseLegGiveUp = 10f;
 
         /// <summary>서 있는 손님끼리 이만큼은 떨어진다(m). 몸 반지름 0.28 두 개 + 여유.</summary>
         const float StandGap = 0.62f;
@@ -509,6 +534,10 @@ namespace DogShop.Shop
                     if (t == null || !t.CustomersCanReach) continue;
                     if ((t.ApproachPoint - c.ShelfTarget).sqrMagnitude < 0.25f && sm.Count > 1) continue;
                     pick = t.ApproachPoint + new Vector3(UnityEngine.Random.Range(-0.5f, 0.5f), 0f, UnityEngine.Random.Range(-0.3f, 0.3f));
+                    // 접근점에 흔든 값을 더하면 진열대가 깎아 낸 자리에 떨어질 수 있다 — 손님이 걷는 면 위로 맞춘다
+                    NavMeshHit onMesh;
+                    if (NavMesh.SamplePosition(pick, out onMesh, 0.6f, Customer.WalkableAreas)) pick = onMesh.position;
+                    else pick = t.ApproachPoint;
                     look = t.transform.position;
                     break;
                 }
@@ -592,6 +621,17 @@ namespace DogShop.Shop
                 finished.Add(c);
                 return;
             }
+
+            bool toCounter = c.State == CustomerState.ToCounter;
+            if (toCounter) LostTravelToCounterToday++;
+            else LostTravelToShelfToday++;
+
+            // 길이 막힌 자리를 찾으려고 남긴다. 드문 일이라 할당은 신경 쓰지 않는다
+            bool browsing = c.BrowseLeft > 0 || c.BrowseLinger > 0f || c.BrowsePeeks > 0;
+            Debug.Log("[손님 이탈] 이동 시간 초과 - " + (toCounter ? "계산대로" : browsing ? "둘러보는 중" : "진열대로")
+                + " / 위치 " + c.transform.position.ToString("F1") + " / 목적지 " + c.Destination.ToString("F1")
+                + " / " + (GameManager.Instance != null ? GameManager.Instance.Day : 0) + "일차 "
+                + TimeManager.Instance.CurrentHour.ToString("F1") + "시");
 
             if (c.HasItem)
             {
