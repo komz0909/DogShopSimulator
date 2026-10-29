@@ -129,3 +129,7 @@ Assets/@Resources/AIProps/Decor/Materials.meta
 Assets/@Resources/AIProps/Town/Materials/
 Assets/@Resources/AIProps/Town/Materials.meta
 Temp_bld/
+
+# 프로젝트 압축본·수동 백업 — 수 GB라 커밋되면 푸시가 막힌다
+*.zip
+/Backups/
