@@ -21,7 +21,7 @@ namespace DogShop.Shop
         /// <summary>이 레벨부터 작동한다.</summary>
         [SerializeField] int unlockLevel = 7;
 
-        [SerializeField] float speed = 0.7f;
+        [SerializeField] float speed = 1.3f;   // 씬 청소기 0.95 → 1.3: 너무 느리다는 의견(2026-10-29). 씬 오브젝트가 프리팹과 끊겨 있어 씬 값이 실제 값이다
 
         /// <summary>한 지점을 빨아들이는 데 걸리는 시간.</summary>
         [SerializeField] float cleanSeconds = 1.2f;
@@ -76,8 +76,11 @@ namespace DogShop.Shop
                 // 손님이 못 가는 직원 구역(3)도 청소한다 — 바닥은 어디든 더러워진다
                 agent.areaMask = NavMesh.AllAreas;
 
-                // 사람이 우선이다. 청소기가 길을 막고 서 있으면 계산대 줄이 엉킨다
-                agent.avoidancePriority = 80;
+                // 사람·강아지가 우선이다. 유니티 회피는 자기보다 우선순위 숫자가 큰(덜 중요한) 상대는 피하지 않는데,
+                // 예전 값 80 은 손님(99)·강아지(90)보다 작아서 오히려 청소기가 아무도 안 피하고 밀고 지나갔다.
+                // 가장 덜 중요한 99 로 두고 회피 품질을 올린다(2026-10-29)
+                agent.avoidancePriority = 99;
+                agent.obstacleAvoidanceType = ObstacleAvoidanceType.HighQualityObstacleAvoidance;
             }
         }
 
@@ -125,9 +128,42 @@ namespace DogShop.Shop
             target = null;
         }
 
+        /// <summary>앞을 살피는 거리와 반경. 청소기 몸(반경 0.18)보다 넉넉히.</summary>
+        const float LookAhead = 0.35f, LookRadius = 0.45f;
+        /// <summary>앞을 막은 상대가 안 비키면 이만큼 기다린 뒤 옆으로 돌아간다(회피가 길을 찾는다). 영영 멈추지 않게.</summary>
+        const float YieldSeconds = 1.5f;
+        static readonly Collider[] nearby = new Collider[12];
+        float yieldTimer;
+
+        /// <summary>
+        /// 이만큼 넘게 거의 못 움직이면 그 얼룩은 건너뛴다. 계산 줄처럼 손님이 촘촘히 서 있으면 청소기(폭 0.36m)가
+        /// 틈으로 못 지나가 영영 멈춰 있었다. 건너뛴 얼룩은 줄이 풀리거나 주인이 치우면 다시 노린다.
+        /// </summary>
+        const float StuckSeconds = 3f;
+        float stuckTimer;
+        DirtSpot skipped;
+
         void Update()
         {
             if (!running || agent == null || !agent.isOnNavMesh) return;
+
+            // 달리는 중에 앞에 손님·강아지·주인이 있으면 멈춰 기다린다 — 사람 다리 사이로 밀고 들어가 보였다
+            if (state == State.Heading || state == State.Returning)
+            {
+                bool blocked = SomeoneAhead();
+                yieldTimer = blocked ? yieldTimer + Time.deltaTime : 0f;
+                agent.isStopped = blocked && yieldTimer < YieldSeconds;
+
+                // 오래 갇혀 있으면 이번 얼룩은 포기한다(돌아가는 중이면 그 자리에서 멈춰 쉰다)
+                bool crawling = agent.velocity.sqrMagnitude < 0.0025f && agent.remainingDistance > reach;
+                stuckTimer = crawling ? stuckTimer + Time.deltaTime : 0f;
+                if (stuckTimer > StuckSeconds)
+                {
+                    stuckTimer = 0f;
+                    if (state == State.Heading) { skipped = target; GoHome(); }
+                    else { agent.isStopped = true; state = State.Docked; }
+                }
+            }
 
             switch (state)
             {
@@ -220,6 +256,26 @@ namespace DogShop.Shop
             state = State.Docked;
         }
 
+        /// <summary>가는 방향 바로 앞에 사람이나 강아지가 있는가(다른 길찾기 에이전트 또는 주인).</summary>
+        bool SomeoneAhead()
+        {
+            Vector3 dir = agent.desiredVelocity;
+            dir.y = 0f;
+            if (dir.sqrMagnitude < 0.0001f) dir = transform.forward;
+            Vector3 probe = transform.position + dir.normalized * LookAhead;
+
+            int count = Physics.OverlapSphereNonAlloc(probe, LookRadius, nearby, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
+            for (int i = 0; i < count; i++)
+            {
+                Collider c = nearby[i];
+                if (c == null || c.transform.IsChildOf(transform)) continue;
+                NavMeshAgent other = c.GetComponentInParent<NavMeshAgent>();
+                if (other != null && other != agent) return true;
+                if (c.GetComponentInParent<CharacterController>() != null) return true;
+            }
+            return false;
+        }
+
         /// <summary>가장 가까운 오염 지점. 없으면 null.</summary>
         DirtSpot Nearest()
         {
@@ -233,6 +289,8 @@ namespace DogShop.Shop
             {
                 DirtSpot spot = dirt.SpotAt(i);
                 if (spot == null) continue;
+                // 방금 못 닿아 포기한 얼룩은 다른 게 남아 있는 동안 미룬다 — 하나뿐이면 다시 도전한다
+                if (spot == skipped && dirt.SpotCount > 1) continue;
 
                 float sqr = Flat(transform.position - spot.transform.position);
                 if (sqr >= bestSqr) continue;

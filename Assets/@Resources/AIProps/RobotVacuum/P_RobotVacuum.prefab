@@ -69,8 +69,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DogShop.Shop.RobotVacuum
   unlockLevel: 7
-  speed: 0.7
-  cleanSeconds: 1.2
+  speed: 1.3
+  cleanSeconds: 0.9
   reach: 0.35
   homeReach: 0.15
   spinSpeed: 240
