@@ -132,8 +132,19 @@ namespace DogShop.EditorTools
                 Bounds bounds = renderers[0].bounds;
                 for (int i = 1; i < renderers.Length; i++) bounds.Encapsulate(renderers[i].bounds);
 
-                Texture2D shot = Capture(bounds);
                 string path = OutputFolder + "/Thumb_" + Slug(source.name) + ".png";
+
+                // 거의 빈 사진이면 한 번 더 찍고, 그래도 비면 있던 사진을 덮어쓰지 않는다.
+                // 2026-10-27 일괄 굽기에서 강아지껌만 불투명 171픽셀짜리 검은 사진으로 구워져 도그쇼 카드가 까맣게 나왔다
+                // (다시 찍으니 정상 — 재현은 안 됐다)
+                Texture2D shot = Capture(bounds);
+                if (OpaqueCount(shot) < MinOpaque) { Object.DestroyImmediate(shot); shot = Capture(bounds); }
+                if (OpaqueCount(shot) < MinOpaque && File.Exists(path))
+                {
+                    Object.DestroyImmediate(shot);
+                    Debug.LogWarning("[상품 사진] " + source.name + " 사진이 비어 이전 사진을 그대로 둔다");
+                    return path;
+                }
                 File.WriteAllBytes(path, shot.EncodeToPNG());
                 Object.DestroyImmediate(shot);
                 return path;
@@ -233,6 +244,17 @@ namespace DogShop.EditorTools
             tex.Apply();
             RenderTexture.active = null;
             return tex;
+        }
+
+        /// <summary>정상 사진으로 볼 최소 불투명 픽셀 수(화면의 2%). 가장 작은 정상 사진(강아지껌)이 약 15%다.</summary>
+        const int MinOpaque = Size * Size / 50;
+
+        static int OpaqueCount(Texture2D tex)
+        {
+            int n = 0;
+            Color32[] px = tex.GetPixels32();
+            for (int i = 0; i < px.Length; i++) if (px[i].a > 128) n++;
+            return n;
         }
 
         // ---- 조명 ----

@@ -58,13 +58,13 @@ namespace DogShop.Core
         public static readonly int[] StartShelfCatalog = { 0, 1, 1, 9 };
         public static readonly Vector3[] StartShelfPosition =
         {
-            new Vector3(4.0f, 0f, 4.0f),     // 진열대(아일랜드) — 매장 가운데. 오른쪽 벽 진열대 옆(7.1, 3.3)은 창고 통로를 막았다
+            new Vector3(4.0f, 0f, 5.0f),     // 진열대(아일랜드) — 뒤쪽 가운데, 가로로. (4.0, 4.0)은 첫 화면 아래를 가렸고, (7.1, 3.3)은 창고 통로를 막았다
             new Vector3(9.19f, 0f, 3.2f),    // 벽 진열대 — 오른쪽 벽
             new Vector3(-1.19f, 0f, 3.5f),   // 벽 진열대 — 왼쪽 벽
             new Vector3(2.0f, 0f, 5.72f),    // 간식 매대 — 뒷벽 왼쪽, 입구에서 정면으로 보인다.
                                              // 계산대 오른쪽(7.9, 0.28)은 주인이 계산하는 직원 쪽이라 손님이 그 안으로 비집고 들어왔다(66차)
         };
-        public static readonly float[] StartShelfYaw = { 90f, 270f, 90f, 0f };
+        public static readonly float[] StartShelfYaw = { 0f, 270f, 90f, 0f };
 
         /// <summary>
         /// 문을 열 때 이미 진열돼 있는 상품 수와 하나당 개수. 수요가 큰 순서로 고른다.

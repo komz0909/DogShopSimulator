@@ -228,7 +228,7 @@ namespace DogShop.Show
             int spent = g.SpentTodayTotal;
             string spentSub = SpendPart("발주", GameManager.SpendKind.Stock) + SpendPart("가구", GameManager.SpendKind.Furniture)
                             + SpendPart("강아지", GameManager.SpendKind.Dog) + SpendPart("기타", GameManager.SpendKind.Other);
-            Row(ref y, x, w, iconSpend, "오늘 쓴 돈", "-" + spent.ToString("N0") + "원", Bad,
+            Row(ref y, x, w, iconSpend, "오늘 쓴 돈", (spent > 0 ? "-" : "") + spent.ToString("N0") + "원", Bad,
                 spentSub.Length > 0 ? spentSub.Substring(0, spentSub.Length - 5) : "쓴 돈 없음");
 
             // ---- 순이익 ----
@@ -263,7 +263,7 @@ namespace DogShop.Show
             // ---- 명성 ----
             int repGain = g.Reputation - g.ReputationAtDayStart;
             ShopLevelDef next = ShopLevelManager.Instance != null ? ShopLevelManager.Instance.Next : null;
-            string repSub = "누적 " + g.Reputation + (next != null ? "  /  다음 레벨까지 " + Mathf.Max(0, next.requiredReputation - g.Reputation) : "  /  최대 레벨");
+            string repSub = "누적 " + g.Reputation + (next == null ? "  /  최대 레벨" : next.requiredReputation > g.Reputation ? "  /  다음 레벨까지 " + (next.requiredReputation - g.Reputation) : "  /  다음 레벨 명성 충분");
             Row(ref y, x, w, iconReputation, "오늘 오른 명성", (repGain >= 0 ? "+" : "") + repGain, repGain >= 0 ? Gold : Bad, repSub);
 
             // ---- 손님 ----

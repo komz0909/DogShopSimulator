@@ -570,7 +570,14 @@ namespace DogShop.Dogs
             // 효과 칩(축 색)
             Color chip = d.axisKind == GrowthAxis.Beauty ? BeautyColor
                        : d.axisKind == GrowthAxis.Training ? TrainingColor : new Color(0.62f, 0.48f, 0.86f);
-            GUI.Box(new Rect(row.x + 210f, cy - 11f, 92f, 22f), d.axis + " +" + d.gain, UI.UiSkin.Tag(chip));
+            // 두 축(미모/훈련도)은 글이 길어 칸을 넘쳤다 — 그 칩만 글씨를 줄인다(스타일은 한 번만 만든다)
+            GUIStyle chipStyle = UI.UiSkin.Tag(chip);
+            if (d.axisKind == GrowthAxis.Both)
+            {
+                if (chipBoth == null || chipBoth.normal.background == null) chipBoth = new GUIStyle(chipStyle) { fontSize = 12 };
+                chipStyle = chipBoth;
+            }
+            GUI.Box(new Rect(row.x + 210f, cy - 11f, 92f, 22f), d.axis + " +" + d.gain, chipStyle);
 
             // 값 — 못 하는 까닭(돈·슬롯·컨디션)이 있으면 그 자리에 빨갛게
             bool showReason = !d.enabled && !d.used && !d.upgrading && d.reason.Length > 0;
@@ -685,6 +692,9 @@ namespace DogShop.Dogs
             popupLine = new GUIStyle(UI.UiSkin.Label) { fontSize = 18, alignment = TextAnchor.MiddleCenter };
             popupLine.normal.textColor = new Color(1f, 0.78f, 0.35f);
         }
+
+        /// <summary>두 축 훈련 칩(글씨 작게).</summary>
+        GUIStyle chipBoth;
 
         void RunCare(int slot)
         {

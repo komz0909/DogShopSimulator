@@ -42,7 +42,7 @@ namespace DogShop.Core
 
             GameManager.Instance.AddMoney(need);
             var hud = FindAnyObjectByType<UI.GameHud>();
-            if (hud != null) hud.Toast("할아버지의 응원금 +" + need + "원  — 오늘은 강아지를 키워 가게를 넓히자", new Color(1f, 0.84f, 0.38f));
+            if (hud != null) hud.Toast("할아버지의 응원금 +" + need + "원! 오늘은 강아지를 키워 가게를 넓히자", new Color(1f, 0.84f, 0.38f));
         }
 
         static void PlaceShelves()
