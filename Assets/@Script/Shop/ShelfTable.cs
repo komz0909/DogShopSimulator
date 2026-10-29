@@ -40,6 +40,12 @@ namespace DogShop.Shop
 
         [SerializeField] int capacityPerSlot = 8;
 
+        /// <summary>
+        /// 간식 매대. 간식(<see cref="Data.ProductDef.snack"/>)만 받고, 간식 배송이 오면 여기 빈자리부터 저절로 채워진다.
+        /// </summary>
+        [SerializeField] bool snackOnly;
+        public bool SnackOnly => snackOnly;
+
         /// <summary>프롭을 늘어놓을 상판 크기.</summary>
         [SerializeField] float slotWidth = 1.0f;
         [SerializeField] float slotDepth = 0.4f;
@@ -186,8 +192,9 @@ namespace DogShop.Shop
         /// <summary>이 가구가 그 상품의 부피를 받는가.</summary>
         public bool AcceptsBulk(int productIndex)
         {
-            if (acceptedBulk == 0) return true;
             if (InventoryManager.Instance == null) return true;
+            if (snackOnly && !InventoryManager.Instance.Catalog.Get(productIndex).snack) return false;
+            if (acceptedBulk == 0) return true;
             return CarryCrate.SlotCostOf(productIndex) == acceptedBulk;
         }
 
@@ -197,7 +204,8 @@ namespace DogShop.Shop
 
             if (!AcceptsBulk(productIndex))
             {
-                reason = acceptedBulk == 1
+                reason = snackOnly ? "간식만 올릴 수 있다"
+                    : acceptedBulk == 1
                     ? "작은 물건만 올릴 수 있다"
                     : "사료처럼 부피 큰 물건만 올릴 수 있다";
                 return false;

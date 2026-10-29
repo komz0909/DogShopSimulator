@@ -533,7 +533,9 @@ namespace DogShop.Shop
             for (int i = 0; i < incoming.Length; i++)
             {
                 if (incoming[i] <= 0) continue;
-                AddParcel(i, incoming[i]);
+                // 간식은 간식 매대 빈자리부터 채우고, 남는 것만 상자로 가게 앞에 온다
+                int shelved = catalog.Get(i).snack ? FillSnackShelves(i, incoming[i]) : 0;
+                AddParcel(i, incoming[i] - shelved);
                 incoming[i] = 0;
                 any = true;
             }
@@ -542,6 +544,31 @@ namespace DogShop.Shop
                 OnStockChanged?.Invoke();
                 Sound.Play(Sfx.Delivery);
             }
+        }
+
+        /// <summary>
+        /// 간식 매대(<see cref="ShelfTable.SnackOnly"/>)의 빈자리에 바로 올린다. 올린 개수를 돌려준다.
+        /// 손님이 닿는 매대만 친다 — 가게 앞에 세워 둔 채인 매대에 올리면 팔리지도 않고 상자도 안 온다.
+        /// </summary>
+        public int FillSnackShelves(int product, int quantity)
+        {
+            ShelfManager shelves = ShelfManager.Instance;
+            if (shelves == null || quantity <= 0) return 0;
+
+            int placed = 0;
+            for (int t = 0; t < shelves.Count && placed < quantity; t++)
+            {
+                ShelfTable table = shelves.Get(t);
+                if (!table.SnackOnly || !table.CustomersCanReach) continue;
+                while (placed < quantity)
+                {
+                    int slot = table.FirstSlotFor(product);
+                    if (slot < 0) break;
+                    table.Place(slot, product);
+                    placed++;
+                }
+            }
+            return placed;
         }
 
         /// <summary>가게 앞 배달 더미에서 하나 집는다. 집은 것은 호출한 쪽이 상자에 넣는다.</summary>

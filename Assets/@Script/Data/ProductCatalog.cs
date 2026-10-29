@@ -81,6 +81,13 @@ namespace DogShop.Data
         /// AIPropWiring이 프롭 크기에서 자동으로 채운다(최대 변 0.40m 이상이면 2칸).
         /// </summary>
         [Range(1, 2)] public int slotCost = 1;
+
+        /// <summary>
+        /// 간식인가. 간식 매대(<see cref="Shop.ShelfTable.SnackOnly"/>)는 간식만 받고,
+        /// 간식은 발주해서 배송이 오면 <b>간식 매대 빈자리부터 저절로 채워진다</b>(<see cref="Shop.InventoryManager"/>).
+        /// 편의점처럼 자잘한 간식을 하나하나 나르는 수고를 덜어 준다. 다른 상품은 지금처럼 사람이 나른다.
+        /// </summary>
+        public bool snack;
     }
 
     [CreateAssetMenu(menuName = "DogShop/Product Catalog", fileName = "ProductCatalog")]
