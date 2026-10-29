@@ -45,7 +45,8 @@ namespace DogShop.Show
         /// </summary>
         // 처음 값(5, 3, 8)은 기울기가 약하다는 의견으로 (7, 4, 11)로, 다시 "크게 더 기울게" 의견으로 (9, 5.5, 15)로 키웠다(2026-10-17).
         // 판이 1.5m 로 넓어진 만큼 가장자리까지 미끄러질 길이 길어 더 기울어도 바로 떨어지지는 않는다
-        const float TableWobbleA = 9f, TableWobbleB = 5.5f, TableLean = 15f, SlideGain = 0.8f, SlideDamp = 2f;
+        // 2026-10-29: 테스트에서 일반·시연 모두 쉽다는 의견으로 (10.5, 6.5, 17)로 키우고, 잘 키운 강아지의 흔들림 배율·속도(아래 TickPlatform)도 올렸다.
+        const float TableWobbleA = 10.5f, TableWobbleB = 6.5f, TableLean = 17f, SlideGain = 0.8f, SlideDamp = 2f;
         /// <summary>
         /// 테이블 난이도(0~1). DogShow 가 강아지 종합 스탯을 넣는다. 높을수록 덜·천천히 기운다 —
         /// 잘 키운 강아지는 거의 서 있기만 해도 되고, 덜 키웠으면 계속 반대로 버텨야 한다.
@@ -740,7 +741,9 @@ namespace DogShop.Show
             if (o.platform == null || !o.moving || o.done) return;
             o.moveTime += dt;
             // 능력치가 낮을수록 빨리, 많이 기운다(TableEase 0 = 첫날, 1 = 최고)
-            float speed = Mathf.Lerp(1.35f, 0.7f, TableEase), amp = Mathf.Lerp(1.3f, 0.45f, TableEase);
+            // 잘 키운 쪽 끝을 (0.7, 0.45) → (0.95, 0.7)로 올렸다 — 예전엔 거의 서 있기만 해도 버텼다(2026-10-29).
+            // 첫날 쪽 끝(1.35, 1.3)은 그대로 — 이미 미끄러지는 속도가 걸음 속도에 가깝다
+            float speed = Mathf.Lerp(1.35f, 0.95f, TableEase), amp = Mathf.Lerp(1.3f, 0.7f, TableEase);
             float t = o.moveTime * speed;
             float ramp = Mathf.Clamp01(o.moveTime / 0.8f);
             float lean = Mathf.Clamp(Local(o, dogWorld).z / (o.size.z * 0.5f), -1f, 1f) * TableLean;

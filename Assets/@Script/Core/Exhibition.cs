@@ -37,7 +37,11 @@ namespace DogShop.Core
         public const int StartLevel = 7;
 
         /// <summary>시작 명성. Lv 8 문턱(433) 바로 아래 — 1일차 손님 몇 명이면 넘는다.</summary>
-        public const int StartReputation = 428;
+        ///
+        /// 2026-10-27: 문턱 바로 아래(428)에서 문턱(433)으로 올렸다. 관람객이 1일차를 [오늘 마치기]로 일찍 끝내면
+        /// 손님 명성이 안 쌓여 2일차 할 일 "가게 레벨업"에서 막혔다. 이제 2일차 레벨업을 막는 건 마스코트 등급뿐이다 —
+        /// 시연이 보여 주려는 것(강아지가 커야 가게가 큰다)은 그대로 남는다.
+        public const int StartReputation = 433;
 
         /// <summary>
         /// 기본 창고 선반(4개, 12단)에 더해 뒷벽에 세우는 선반 수. Lv 7 상품 16종이 한 단씩 다 들어가고 남는다.
@@ -51,14 +55,16 @@ namespace DogShop.Core
         /// 아일랜드 하나를 문(x 4)을 사이에 두고 기존 아일랜드와 대칭으로, 벽 진열대 둘을 좌우 벽에 붙인다 — 16칸.
         /// 계산 줄(z 1.1)과 입구 통로를 비키고, 손님 길(NavMesh)로 문에서 전부 닿는 것을 확인한 자리다.
         /// </summary>
-        public static readonly int[] StartShelfCatalog = { 0, 1, 1 };
+        public static readonly int[] StartShelfCatalog = { 0, 1, 1, 9 };
         public static readonly Vector3[] StartShelfPosition =
         {
-            new Vector3(7.1f, 0f, 3.3f),     // 진열대(아일랜드)
+            new Vector3(4.0f, 0f, 4.0f),     // 진열대(아일랜드) — 매장 가운데. 오른쪽 벽 진열대 옆(7.1, 3.3)은 창고 통로를 막았다
             new Vector3(9.19f, 0f, 3.2f),    // 벽 진열대 — 오른쪽 벽
             new Vector3(-1.19f, 0f, 3.5f),   // 벽 진열대 — 왼쪽 벽
+            new Vector3(2.0f, 0f, 5.72f),    // 간식 매대 — 뒷벽 왼쪽, 입구에서 정면으로 보인다.
+                                             // 계산대 오른쪽(7.9, 0.28)은 주인이 계산하는 직원 쪽이라 손님이 그 안으로 비집고 들어왔다(66차)
         };
-        public static readonly float[] StartShelfYaw = { 90f, 270f, 90f };
+        public static readonly float[] StartShelfYaw = { 90f, 270f, 90f, 0f };
 
         /// <summary>
         /// 문을 열 때 이미 진열돼 있는 상품 수와 하나당 개수. 수요가 큰 순서로 고른다.
@@ -76,6 +82,16 @@ namespace DogShop.Core
 
         /// <summary>시작 자금. 발주·훈련·운동을 망설이지 않고 해 볼 만큼(본편 900원).</summary>
         public const int StartMoney = 3000;
+
+        /// <summary>마스코트를 승급시키고 가게를 키우는 날(오늘 할 일 "가게 레벨업").</summary>
+        public const int LevelUpDay = 2;
+
+        /// <summary>
+        /// 레벨업하는 날 아침, 돈이 승급비 + 이만큼보다 모자라면 "할아버지의 응원금"으로 채워 준다(훈련 두세 번 몫).
+        /// Lv 8 승급비가 1,680원이라 1일차에 발주로 돈을 많이 쓴 관람객은 2일차 할 일에서 막혔다.
+        /// 시연이 보여 주려는 것은 강아지가 커야 가게가 큰다는 것이지 돈 관리가 아니다.
+        /// </summary>
+        public const int SupportReserve = 400;
 
         /// <summary>열린 상품마다 창고에 깔아 두는 수. 첫날 발주하지 않아도 바로 진열하고 팔 수 있게.</summary>
         public const int StartStockPerProduct = 10;
@@ -126,6 +142,26 @@ namespace DogShop.Core
         public static void RecordSale(int paid) { if (Active) Earned += paid; }
         public static void RecordTraining() { if (Active) Trainings++; }
         public static void RecordExercise() { if (Active) Exercises++; }
+
+        // ---- 도그쇼 (시연에서만 다른 값) ----
+
+        /// <summary>
+        /// 미모 심사 판정 띠 배율. 시연 능력치(약 90/240)에서 GOOD 띠가 0.19초, PERFECT 띠가 0.07초라
+        /// 처음 해 보는 관람객은 대부분 MISS 로 첫 종목을 시작했다. 미모가 높을수록 넓어지는 비율은 그대로 두고 전체만 키운다.
+        /// </summary>
+        public const float PoseWindowScale = 1.8f;
+
+        /// <summary>미모 심사 링이 줄어드는 시간 배율. 1.25 면 첫 판 1.7초 → 2.1초.</summary>
+        public const float PoseDurationScale = 1.25f;
+
+        /// <summary>장애물 달리기 제한 시간(본편 90초). 부스에서 한 사람이 너무 오래 붙잡지 않게.</summary>
+        public const float CourseLimitSeconds = 60f;
+
+        /// <summary>위브 화살표 상한(본편 8~16개). 시연 능력치면 13개 남짓이라 10초 안에 쉬지 않고 눌러야 했다.</summary>
+        public const int CourseWeaveArrowsMax = 8;
+
+        /// <summary>테이블 위에서 버티는 시간(본편 3초).</summary>
+        public const float CourseTableHold = 3f;   // 2초로 줄였다가 너무 쉽다는 의견으로 본편과 같게 되돌렸다(2026-10-29)
 
         /// <summary>오늘 할 일이 남았을 때 시계를 붙잡아 두는 시각. 영업 마감(19:30)보다 앞이라 손님이 계속 온다.</summary>
         public const float HoldHour = 18f;

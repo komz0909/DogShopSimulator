@@ -291,7 +291,11 @@ namespace DogShop.Shop
             Changed();
         }
 
-        /// <summary>"건강 70 이상", "마스코트 등급" 은 하는 일이 아니라 상태라 신호 대신 직접 본다.</summary>
+        /// <summary>
+        /// "건강 70 이상", "마스코트 등급", "가게 레벨업" 은 하는 일이 아니라 상태라 신호 대신 직접 본다.
+        /// 레벨업을 신호로만 세면, 할 일 순서를 앞질러(돌보기 전에 훈련으로 승급하고 바로 레벨업) 해 버린 관람객은
+        /// 다시 레벨업할 수 없어 그 줄에 영영 멈췄다 — 다음 줄인 운동도 "미션 때 열림"이라 같이 잠겼다.
+        /// </summary>
         void CheckStateGoals()
         {
             if (IsComplete) return;
@@ -302,7 +306,12 @@ namespace DogShop.Shop
                 if (hero != null && hero.Stats.Health >= Show.ChampionshipManager.HealthGate) Advance(Goal.Health);
             }
             else if (goal == Goal.Mascot && MascotGateMet) Advance(Goal.Mascot);
+            else if (goal == Goal.LevelUp && LeveledUpThisRun) Advance(Goal.LevelUp);
         }
+
+        /// <summary>시연에서 가게를 이미 한 번 이상 키웠나(시작 레벨보다 높다). 본편 튜토리얼에는 레벨업 할 일이 없다.</summary>
+        static bool LeveledUpThisRun =>
+            Exhibition.Active && ShopLevelManager.Instance != null && ShopLevelManager.Instance.Level > Exhibition.StartLevel;
 
         /// <summary>다음 가게 레벨이 요구하는 마스코트 등급을 채웠나. 요구가 없거나 최대 레벨이면 채운 것으로 본다.</summary>
         static bool MascotGateMet

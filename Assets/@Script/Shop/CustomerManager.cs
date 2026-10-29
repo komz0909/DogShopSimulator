@@ -174,6 +174,7 @@ namespace DogShop.Shop
 
         void ResetDaily()
         {
+            ClearLeftovers();
             SoldToday = 0;
             LostToday = 0;
             LostSoldOutToday = 0;
@@ -184,6 +185,24 @@ namespace DogShop.Shop
             RevenueToday = 0;
             pending = 0f;
             if (TimeManager.Instance != null) lastClockHour = TimeManager.Instance.FlowHour;
+        }
+
+        /// <summary>
+        /// 밤을 넘긴 손님을 돌려보낸다. 줄 선 손님은 계산해 줄 때까지 떠나지 않는데, 계산을 다 못 하고 잠들면
+        /// 그 손님들이 다음 날 아침에도, 시연 3일차(가게를 쉬는 도그쇼 날)에도 계산대 앞에 그대로 서 있었다.
+        /// 들고 있던 물건은 진열대로 돌린다. 지난 날 정산은 끝났으므로 놓친 손님으로 다시 세지 않는다.
+        /// </summary>
+        void ClearLeftovers()
+        {
+            for (int i = active.Count - 1; i >= 0; i--)
+            {
+                Customer c = active[i];
+                active.RemoveAt(i);
+                if (c == null) continue;
+                if (c.HasItem) InventoryManager.Instance.ReturnToShelf(c.WantedProduct, c.PickedGrade);
+                Destroy(c.gameObject);
+            }
+            queue.Clear();
         }
 
         /// <summary>

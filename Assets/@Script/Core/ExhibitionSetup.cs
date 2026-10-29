@@ -21,6 +21,28 @@ namespace DogShop.Core
             PlaceShelves();
             Prestock();
             FaceEntrance();
+
+            if (GameManager.Instance != null) GameManager.Instance.OnDayChanged += HandleDayChanged;
+        }
+
+        void OnDestroy()
+        {
+            if (GameManager.Instance != null) GameManager.Instance.OnDayChanged -= HandleDayChanged;
+        }
+
+        /// <summary>레벨업하는 날 아침, 승급비가 모자라면 모자란 만큼 채워 준다(<see cref="Exhibition.SupportReserve"/>).</summary>
+        static void HandleDayChanged(int day)
+        {
+            if (day != Exhibition.LevelUpDay) return;
+            ShopLevelManager levels = ShopLevelManager.Instance;
+            if (levels == null || levels.IsMaxLevel) return;
+
+            int need = levels.Next.upgradeCost + Exhibition.SupportReserve - GameManager.Instance.Money;
+            if (need <= 0) return;
+
+            GameManager.Instance.AddMoney(need);
+            var hud = FindAnyObjectByType<UI.GameHud>();
+            if (hud != null) hud.Toast("할아버지의 응원금 +" + need + "원  — 오늘은 강아지를 키워 가게를 넓히자", new Color(1f, 0.84f, 0.38f));
         }
 
         static void PlaceShelves()
@@ -63,9 +85,14 @@ namespace DogShop.Core
                 if (want <= 0) continue;
 
                 // 올라간 만큼만 창고에서 뺀다. 자리가 없으면(부피가 맞는 칸이 다 찼으면) 다음 상품으로
-                int before = inv.ShelfOf(product);
-                inv.PlaceOnShelf(product, want);
-                int placed = inv.ShelfOf(product) - before;
+                // 간식은 간식 매대부터 — 배송 때 저절로 채워지는 그 자리를 처음부터 보여 준다
+                int placed = inv.Catalog.Get(product).snack ? inv.FillSnackShelves(product, want) : 0;
+                if (placed < want)
+                {
+                    int before = inv.ShelfOf(product);
+                    inv.PlaceOnShelf(product, want - placed);
+                    placed += inv.ShelfOf(product) - before;
+                }
                 for (int n = 0; n < placed; n++) inv.TryConsumeStorage(product);
                 if (placed > 0) kinds++;
             }
