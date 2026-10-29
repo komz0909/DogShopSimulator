@@ -62,6 +62,46 @@ namespace DogShop.Shop
             return Origin + CustomerSide * (FirstGap + Mathf.Max(0, index) * Spacing);
         }
 
+        /// <summary>비워 둘 줄 자리 수. 하루 손님이 가장 많을 때(Lv10 36명) 한꺼번에 서는 줄이 이 정도다.</summary>
+        const int QueueLaneSlots = 8;
+
+        /// <summary>
+        /// 계산 줄이 서는 띠(계산대 앞에서 손님 쪽으로 <see cref="QueueLaneSlots"/> 자리, 폭 ±0.6m). 바닥 XZ 사각형.
+        /// 여기에 가구를 세우면 줄이 끊긴다 — 57차 측정에서 Lv7 에 산 진열대 둘이 줄 위에 서서 하루 손님 27명 중 26명을 놓쳤다.
+        /// </summary>
+        public Rect QueueLane
+        {
+            get
+            {
+                Vector3 a = QueueSlot(0), b = QueueSlot(QueueLaneSlots - 1);
+                const float Half = 0.6f;
+                return Rect.MinMaxRect(Mathf.Min(a.x, b.x) - Half, Mathf.Min(a.z, b.z) - Half,
+                                       Mathf.Max(a.x, b.x) + Half, Mathf.Max(a.z, b.z) + Half);
+            }
+        }
+
+        /// <summary>직원 구역이 계산대 중심에서 직원 쪽으로 시작하는 거리와 끝나는 거리, 계산대 양옆 여유.</summary>
+        const float StaffZoneNear = 0.4f, StaffZoneFar = 3.0f, StaffZoneHalfWidth = 1.2f;
+
+        /// <summary>
+        /// 계산대 뒤 직원 구역(주인이 서서 계산하는 쪽). 바닥 XZ 사각형.
+        /// 여기에 진열대를 세우면 손님이 물건을 집으러 계산대 뒤로 비집고 들어오다 막힌다 —
+        /// 66차 측정에서 봇이 계산대 오른쪽 앞벽에 벽 진열대를 세워 하루 1~2명씩 21명을 놓쳤다.
+        /// </summary>
+        public Rect StaffZone
+        {
+            get
+            {
+                Vector3 across = Vector3.Cross(Vector3.up, StaffSide).normalized * StaffZoneHalfWidth;
+                Vector3 near = Origin + StaffSide * StaffZoneNear, far = Origin + StaffSide * StaffZoneFar;
+                Vector3 p0 = near + across, p1 = near - across, p2 = far + across, p3 = far - across;
+                return Rect.MinMaxRect(Mathf.Min(Mathf.Min(p0.x, p1.x), Mathf.Min(p2.x, p3.x)),
+                                       Mathf.Min(Mathf.Min(p0.z, p1.z), Mathf.Min(p2.z, p3.z)),
+                                       Mathf.Max(Mathf.Max(p0.x, p1.x), Mathf.Max(p2.x, p3.x)),
+                                       Mathf.Max(Mathf.Max(p0.z, p1.z), Mathf.Max(p2.z, p3.z)));
+            }
+        }
+
         /// <summary>놓을 수 있는지 볼 때 확인하는 줄 자리 수.</summary>
         const int RoomSlots = 3;
 

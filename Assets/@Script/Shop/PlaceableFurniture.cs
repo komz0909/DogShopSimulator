@@ -184,8 +184,39 @@ namespace DogShop.Shop
                 return false;
             }
 
+            if (BlocksWalkway(position, rotation, out reason)) return false;
+
             reason = null;
             return true;
+        }
+
+        /// <summary>
+        /// 손님·직원이 지나다니는 자리를 막는가 — 입구 통로, 계산 줄, 계산대 뒤 직원 구역.
+        /// 손님 길을 막는 가구(<see cref="blocksCustomers"/>)만 본다. 작은 장식과 벽 높이 거는 장식은 길을 막지 않는다.
+        /// 계산대 자신은 줄 자리를 따로 본다(<see cref="ShopCounter.HasQueueRoom"/>).
+        /// 예전엔 측정 봇만 이 자리를 피했고 사람은 어디든 놓을 수 있었다.
+        /// </summary>
+        public bool BlocksWalkway(Vector3 position, Quaternion rotation, out string reason)
+        {
+            reason = null;
+            if (!blocksCustomers || mountHeight > 1f) return false;
+            if (GetComponent<ShopCounter>() != null) return false;
+
+            // 회전한 발자국의 XZ 외접 사각형. 정확히 맞물릴 필요 없이 넉넉히 보면 된다
+            Vector3 center = CenterAt(position, rotation);
+            Vector3 half = RawHalfExtents;
+            Vector3 x = rotation * new Vector3(half.x, 0f, 0f);
+            Vector3 z = rotation * new Vector3(0f, 0f, half.z);
+            float spanX = Mathf.Abs(x.x) + Mathf.Abs(z.x);
+            float spanZ = Mathf.Abs(x.z) + Mathf.Abs(z.z);
+            Rect footprint = new Rect(center.x - spanX, center.z - spanZ, spanX * 2f, spanZ * 2f);
+
+            if (footprint.Overlaps(ShopSpace.EntranceLane)) { reason = "입구 통로는 비워 둬야 한다"; return true; }
+            ShopCounter counter = ShopCounter.Instance;
+            if (counter == null) return false;
+            if (footprint.Overlaps(counter.QueueLane)) { reason = "계산 줄 자리는 비워 둬야 한다"; return true; }
+            if (footprint.Overlaps(counter.StaffZone)) { reason = "계산대 뒤는 직원 자리다"; return true; }
+            return false;
         }
 
         /// <summary>
@@ -303,6 +334,11 @@ namespace DogShop.Shop
 
             float reach = Mathf.Max(HalfExtents.x, HalfExtents.z) + ApproachClearance;
 
+            // 매장 바닥 밖 후보는 버린다. 앞벽에 붙인 가구는 벽 바깥 앞마당도 손님 길이라,
+            // 입구에 더 가까운 그쪽이 뽑혀 "손님이 닿지 않는 진열대"가 됐다.
+            // (정면 쪽만 보게 했더니 계산대 옆에서 정면이 깎여 이웃 진열대와 같은 구석을 골라 손님이 엉켰다 — 65차)
+            Rect floor = ShopSpace.Instance != null ? ShopSpace.Instance.FloorRect : new Rect(-100f, -100f, 200f, 200f);
+
             Vector3 best = center;
             float bestScore = float.MaxValue;
 
@@ -310,6 +346,7 @@ namespace DogShop.Shop
             {
                 float angle = i * 45f * Mathf.Deg2Rad;
                 Vector3 candidate = center + new Vector3(Mathf.Sin(angle), 0f, Mathf.Cos(angle)) * reach;
+                if (!floor.Contains(new Vector2(candidate.x, candidate.z))) continue;
 
                 NavMeshHit hit;
                 if (!NavMesh.SamplePosition(candidate + Vector3.up * 0.3f, out hit, 0.4f, Customer.WalkableAreas)) continue;

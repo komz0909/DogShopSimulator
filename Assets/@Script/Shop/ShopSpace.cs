@@ -89,6 +89,12 @@ namespace DogShop.Shop
         /// </summary>
         public const float CenterX = 4f;
 
+        /// <summary>
+        /// 출입구 앞 통로. 바닥 XZ 사각형. 문틈은 x 3.0~5.0 하나뿐이라 여기에 가구를 세우면
+        /// 손님이 들어오다 엉켜 이동 시간 초과로 나간다 — 29차 측정에서 하루 8명을 놓쳤다.
+        /// </summary>
+        public static readonly Rect EntranceLane = new Rect(2.6f, -0.5f, 2.8f, 2.4f);
+
         public float LeftX => CenterX - Width * 0.5f;
         public float RightX => CenterX + Width * 0.5f;
 

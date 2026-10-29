@@ -394,12 +394,6 @@ namespace DogShop.Debugging
         /// <summary>자리를 훑는 간격. 촘촘하게 볼수록 느리고, 이 정도면 가구 하나가 들어간다.</summary>
         const float HaulStep = 0.4f;
 
-        /// <summary>
-        /// 출입구 앞은 비워 둔다. 문틈은 x 3.0~5.0 하나뿐이라 여기에 가구를 세우면
-        /// 손님이 들어오다 엉켜 <see cref="CustomerManager.TravelTimeout"/>에 걸린다 —
-        /// 29차 측정에서 자리 없는 상품이 0인 날에도 하루 8명을 놓쳤다.
-        /// </summary>
-        static readonly Rect Doorway = new Rect(2.6f, -0.5f, 2.8f, 2.4f);
 
         /// <summary>
         /// 배달 온 가구를 <b>매장 안으로 들여놓는다.</b>
@@ -507,8 +501,6 @@ namespace DogShop.Debugging
                     if (furniture.WallMounted
                         && !furniture.TrySnapToWall(floor, out position, out rotation)) continue;
 
-                    if (BlocksDoorway(furniture, position, rotation)) continue;
-
                     string reason;
                     if (!furniture.Fits(position, rotation, null, out reason)) continue;
 
@@ -522,41 +514,6 @@ namespace DogShop.Debugging
             furniture.transform.SetPositionAndRotation(bestPosition, bestRotation);
             ShelfManager.Instance.RefreshApproach(furniture);
         }
-
-        /// <summary>그 자리에 놓으면 문 앞을 막는가. 발자국이 통로에 조금이라도 걸리면 막는 것이다.</summary>
-        static bool BlocksDoorway(PlaceableFurniture furniture, Vector3 position, Quaternion rotation)
-        {
-            Vector3 center = furniture.CenterAt(position, rotation);
-            Vector3 half = furniture.RawHalfExtents;
-
-            // 회전한 발자국의 XZ 외접 사각형. 정확히 맞물릴 필요 없이 넉넉히 보면 된다
-            Vector3 x = rotation * new Vector3(half.x, 0f, 0f);
-            Vector3 z = rotation * new Vector3(0f, 0f, half.z);
-            float spanX = Mathf.Abs(x.x) + Mathf.Abs(z.x);
-            float spanZ = Mathf.Abs(x.z) + Mathf.Abs(z.z);
-
-            Rect footprint = new Rect(center.x - spanX, center.z - spanZ, spanX * 2f, spanZ * 2f);
-            return footprint.Overlaps(Doorway) || footprint.Overlaps(QueueLane());
-        }
-
-        /// <summary>
-        /// 계산 줄이 서는 띠(계산대 앞에서 손님 쪽으로 <see cref="QueueLaneSlots"/> 자리, 폭 ±0.6m).
-        /// 봇은 입구에서 가까운 빈자리부터 진열대를 놓는데, 그게 하필 줄 자리였다 —
-        /// 57차 측정에서 Lv7 에 산 진열대 둘이 줄 위에 서서 25일차부터 하루 손님 27명 중 26명을 놓쳤다(56차에도 이틀).
-        /// </summary>
-        static Rect QueueLane()
-        {
-            ShopCounter counter = ShopCounter.Instance;
-            if (counter == null) return Rect.zero;
-            Vector3 a = counter.QueueSlot(0), b = counter.QueueSlot(QueueLaneSlots - 1);
-            const float Half = 0.6f;
-            float xMin = Mathf.Min(a.x, b.x) - Half, xMax = Mathf.Max(a.x, b.x) + Half;
-            float zMin = Mathf.Min(a.z, b.z) - Half, zMax = Mathf.Max(a.z, b.z) + Half;
-            return Rect.MinMaxRect(xMin, zMin, xMax, zMax);
-        }
-
-        /// <summary>비워 둘 줄 자리 수. 하루 손님이 가장 많을 때(Lv10 36명) 한꺼번에 서는 줄이 이 정도다.</summary>
-        const int QueueLaneSlots = 8;
 
         /// <summary>진열대 하나의 칸을 부피 조건별로 더한다.</summary>
         static void CountSlots(ShelfTable table, ref int any, ref int small, ref int bulky)
