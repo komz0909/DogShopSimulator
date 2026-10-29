@@ -1227,6 +1227,18 @@ namespace DogShop.Show
             AimCamera(posePoint.position, 3.2f, 1.4f, 0f);
 
             headline = "심사 결과";
+            subline = "심사위원들이 점수를 매겼다";
+
+            // 순위표 전에 심사표 — 종목마다 점수와 그 점수를 정한 능력치를 이어서 보여 준다(키운 만큼 쉬워졌다)
+            cardTotal = total;
+            cardShownAt = Time.time;
+            cardOpen = true;
+            while (cardOpen)
+            {
+                if (Exhibition.Active && Time.time - cardShownAt > ExhibitionCardSeconds) cardOpen = false;
+                yield return null;
+            }
+
             subline = "미모 " + Mathf.RoundToInt(poseScore * 100f) + "  /  훈련 " + Mathf.RoundToInt(fetchScore * 100f)
                     + "  /  어질리티 " + Mathf.RoundToInt(agilityScore * 100f) + "  /  장애물 " + Mathf.RoundToInt(courseScore * 100f)
                     + "   /   총점 " + total + "점";
@@ -1561,7 +1573,7 @@ namespace DogShop.Show
             if (phase == Phase.Course && course != null) DrawCourse();
             if (phase == Phase.CourseGuide && course != null) DrawCourseGuide();
             if (phase == Phase.Guide) DrawGuide();
-            if (phase == Phase.Result) DrawBoard();
+            if (phase == Phase.Result) { if (cardOpen) DrawScoreCard(); else DrawBoard(); }
 
             // 카운트다운: "GO!" 는 잠깐만, 숫자는 다음 숫자가 올 때까지
             if (countdown.Length > 0 && (countdown != "GO!" || Time.time < countdownUntil))
@@ -2050,6 +2062,162 @@ namespace DogShop.Show
             GUI.DrawTexture(new Rect(bg.x, bg.y, bg.width * fill, bg.height), Texture2D.whiteTexture);
             GUI.color = Color.white;
             GUI.Label(new Rect(bg.xMax + 12f, y, 120f, 30f), value, UiSkin.Label);
+        }
+
+        // ---- 심사표 ----
+
+        /// <summary>심사표 카드 그림(Resources/T_UI_ScoreCard). 바르코로 뽑은 나무 액자 카드다.</summary>
+        Texture2D cardArt;
+        /// <summary>카드 그림 안쪽 크림색 칸(그림 크기 대비 비율, 위에서부터). 그림에서 잰 값이다.</summary>
+        static readonly Rect CardInner = new Rect(0.074f, 0.212f, 0.851f, 0.663f);
+        /// <summary>카드 그림 가로세로 비(976 x 1420).</summary>
+        const float CardAspect = 976f / 1420f;
+        /// <summary>시연에서 심사표를 띄워 두는 시간(초). 그 안에 누르면 바로 순위표로 넘어간다.</summary>
+        const float ExhibitionCardSeconds = 8f;
+        /// <summary>종목 한 줄씩 공개하는 간격과 막대가 차오르는 시간(초).</summary>
+        const float CardStep = 0.45f, CardFill = 0.6f;
+
+        bool cardOpen;
+        float cardShownAt;
+        int cardTotal;
+        GUIStyle cardTitle, cardName, cardScore, cardEffect, cardTotalStyle, cardTip, cardTag;
+
+        static readonly Color PoseBar = new Color(1f, 0.6f, 0.8f), FetchBar = new Color(0.55f, 0.75f, 1f),
+                              AgilityBar = new Color(1f, 0.72f, 0.4f), CourseBar = new Color(0.45f, 0.78f, 0.55f);
+
+        /// <summary>
+        /// 심사표. 네 종목의 점수 막대와 비중, 그 아래에 점수를 정한 능력치와 실제로 쉬워진 정도(판정 띠·성공률·속도)를 적는다.
+        /// 값은 종목들이 쓰는 식 그대로다 — 새로 지어낸 숫자가 아니다. 가장 낮은 종목에 표시를 하고, 무엇을 키웠으면 쉬웠을지 한 줄 남긴다.
+        /// </summary>
+        void DrawScoreCard()
+        {
+            if (cardArt == null) cardArt = Resources.Load<Texture2D>("T_UI_ScoreCard");
+            if (cardTitle == null || cardTitle.font != UiSkin.Font)
+            {
+                cardTitle = new GUIStyle(UiSkin.Title) { fontSize = 24, alignment = TextAnchor.MiddleCenter };
+                cardTitle.normal.textColor = new Color(0.55f, 0.3f, 0.12f);   // 크림 칸 위라 진한 갈색
+                cardName = new GUIStyle(UiSkin.Title) { fontSize = 19, alignment = TextAnchor.MiddleLeft };
+                cardName.normal.textColor = UiSkin.Ink;
+                cardScore = new GUIStyle(UiSkin.Title) { fontSize = 20, alignment = TextAnchor.MiddleRight };
+                cardScore.normal.textColor = UiSkin.Ink;
+                cardEffect = new GUIStyle(UiSkin.Label) { fontSize = 14, alignment = TextAnchor.MiddleLeft };
+                cardEffect.normal.textColor = new Color(UiSkin.Ink.r, UiSkin.Ink.g, UiSkin.Ink.b, 0.75f);
+                cardTotalStyle = new GUIStyle(UiSkin.Title) { fontSize = 30, alignment = TextAnchor.MiddleCenter };
+                cardTotalStyle.normal.textColor = new Color(0.55f, 0.3f, 0.12f);
+                cardTip = new GUIStyle(UiSkin.Label) { fontSize = 15, alignment = TextAnchor.MiddleCenter, wordWrap = true };
+                cardTip.normal.textColor = new Color(0.45f, 0.3f, 0.18f);
+                cardTag = new GUIStyle(UiSkin.Tag(UiSkin.Coral)) { fontSize = 12 };
+            }
+
+            // 순위표와 같은 자리 — 넘어갈 때 판만 바뀌어 보인다
+            float h = Mathf.Min(SH - 120f, 700f);
+            float w = h * CardAspect;
+            var card = new Rect(Mathf.Min(SW * 0.52f, SW - w - 20f), 100f, w, h);
+            if (cardArt != null) GUI.DrawTexture(card, cardArt, ScaleMode.StretchToFill);
+            else GUI.Box(card, GUIContent.none, UiSkin.Panel_);
+
+            // 제목은 크림 칸 맨 위 가운데. 나무 이름판은 메달 리본 꼬리가 한가운데를 덮어 글자를 얹으면 겹쳐 보였다 — 장식으로 둔다
+            var inner = new Rect(card.x + card.width * CardInner.x, card.y + card.height * CardInner.y,
+                                 card.width * CardInner.width, card.height * CardInner.height);
+            float pad = inner.width * 0.06f;
+            float titleH = inner.height * 0.09f;
+            cardTitle.fontSize = Mathf.RoundToInt(titleH * 0.72f);
+            GUI.Label(new Rect(inner.x, inner.y + pad * 0.5f, inner.width, titleH), "심사표", cardTitle);
+            var body = new Rect(inner.x + pad, inner.y + pad * 0.5f + titleH + pad * 0.3f, inner.width - pad * 2f,
+                                inner.height - (pad * 0.5f + titleH + pad * 0.3f) - pad * 0.8f);
+            float elapsed = Time.time - cardShownAt;
+
+            DogStats st = hero.Stats;
+            float[] scores = { poseScore, fetchScore, agilityScore, courseScore };
+            int weakest = 0;
+            for (int i = 1; i < 4; i++) if (scores[i] < scores[weakest]) weakest = i;
+
+            float rowsH = body.height * 0.74f, rowH = rowsH / 4f;
+            for (int i = 0; i < 4; i++)
+            {
+                float showAt = 0.25f + i * CardStep;
+                if (elapsed < showAt) continue;
+                float a = Mathf.Clamp01((elapsed - showAt) / 0.25f);
+                float fill = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((elapsed - showAt) / CardFill)) * scores[i];
+                var row = new Rect(body.x, body.y + i * rowH + (1f - a) * 10f, body.width, rowH);
+                GUI.color = new Color(1f, 1f, 1f, a);
+
+                string name; Color bar; float weight; string effect;
+                CardRow(i, st, out name, out bar, out weight, out effect);
+
+                float lineH = rowH * 0.32f;
+                GUI.Label(new Rect(row.x, row.y, row.width * 0.6f, lineH), name + "  (" + Mathf.RoundToInt(weight * 100f) + "%)", cardName);
+                GUI.Label(new Rect(row.x, row.y, row.width, lineH), Mathf.RoundToInt(scores[i] * 100f) + "점", cardScore);
+                if (i == weakest && scores[i] < 0.995f)
+                    GUI.Box(new Rect(row.x + row.width * 0.6f - 4f, row.y + lineH * 0.18f, 96f, lineH * 0.7f), "가장 아쉬운 종목", cardTag);
+
+                // 막대: 바탕 → 채움
+                var barRect = new Rect(row.x, row.y + lineH + rowH * 0.04f, row.width, rowH * 0.18f);
+                GUI.DrawTexture(barRect, Texture2D.whiteTexture, ScaleMode.StretchToFill, false, 0f, new Color(0.45f, 0.32f, 0.2f, 0.18f * a), 0f, barRect.height * 0.5f);
+                if (fill > 0.001f)
+                    GUI.DrawTexture(new Rect(barRect.x, barRect.y, Mathf.Max(barRect.height, barRect.width * fill), barRect.height),
+                                    Texture2D.whiteTexture, ScaleMode.StretchToFill, false, 0f, new Color(bar.r, bar.g, bar.b, a), 0f, barRect.height * 0.5f);
+
+                GUI.Label(new Rect(row.x, barRect.yMax + rowH * 0.03f, row.width, rowH * 0.3f), effect, cardEffect);
+            }
+            GUI.color = Color.white;
+
+            // 총점과 한 줄 조언 — 네 줄이 다 차오른 뒤
+            float doneAt = 0.25f + 4 * CardStep + CardFill * 0.6f;
+            if (elapsed >= doneAt)
+            {
+                float a = Mathf.Clamp01((elapsed - doneAt) / 0.3f);
+                GUI.color = new Color(1f, 1f, 1f, a);
+                var foot = new Rect(body.x, body.y + rowsH, body.width, body.height - rowsH);
+                GUI.DrawTexture(new Rect(foot.x, foot.y + 2f, foot.width, 2f), Texture2D.whiteTexture, ScaleMode.StretchToFill, false, 0f,
+                                new Color(0.55f, 0.38f, 0.2f, 0.35f * a), 0f, 0f);
+                GUI.Label(new Rect(foot.x, foot.y + foot.height * 0.08f, foot.width, foot.height * 0.42f), "총점  " + cardTotal + "점", cardTotalStyle);
+                GUI.Label(new Rect(foot.x, foot.y + foot.height * 0.5f, foot.width, foot.height * 0.48f), CardTip(weakest, scores[weakest]), cardTip);
+                GUI.color = Color.white;
+            }
+
+            // 순위표로 — 순위표의 [확인]과 같은 자리
+            var left = new Rect(0f, 0f, card.x, SH);
+            var go = new Rect(left.center.x - 130f, SH - 96f, 260f, 56f);
+            if (UiSkin.Click(go, "순위 발표", new GUIStyle(UiSkin.Button(UiSkin.Green)) { fontSize = 22 })) cardOpen = false;
+        }
+
+        /// <summary>심사표 한 줄의 이름·색·비중과, 그 점수를 정한 능력치가 실제로 무엇을 쉽게 했는지(종목이 쓰는 식 그대로).</summary>
+        void CardRow(int i, DogStats st, out string name, out Color bar, out float weight, out string effect)
+        {
+            switch (i)
+            {
+                case 0:
+                    name = "미모 심사"; bar = PoseBar; weight = PoseWeight;
+                    effect = "미모 " + st.Beauty + "  >  판정 띠가 입양 첫날의 " + (Mathf.Lerp(0.012f, 0.045f, beautyN) / 0.012f).ToString("0.0") + "배";
+                    break;
+                case 1:
+                    name = "훈련 심사"; bar = FetchBar; weight = FetchWeight;
+                    effect = "훈련도 " + st.Training + "  >  맞는 물건을 물어 올 확률 " + Mathf.RoundToInt(Mathf.Lerp(0.6f, 0.98f, Mathf.Sqrt(trainingN)) * 100f) + "%";
+                    break;
+                case 2:
+                    name = "어질리티"; bar = AgilityBar; weight = AgilityWeight;
+                    effect = "어질리티 " + st.Agility + "  >  속도 " + (Mathf.Lerp(2.2f, 4.0f, agilityN) / 2.2f).ToString("0.0")
+                           + "배, 점프 " + (Mathf.Lerp(0.35f, 0.62f, agilityN) / 0.35f).ToString("0.0") + "배";
+                    break;
+                default:
+                    name = "장애물 달리기"; bar = CourseBar; weight = CourseWeight;
+                    effect = "세 능력치 평균 " + Mathf.RoundToInt(totalN * StatFull) + "  >  달리기 " + Mathf.Lerp(2.2f, 4.0f, totalN).ToString("0.0") + "m/s";
+                    break;
+            }
+        }
+
+        /// <summary>가장 낮은 종목을 쉽게 만들었을 능력치와 키우는 법. 만점에 가까우면 칭찬만.</summary>
+        static string CardTip(int weakest, float score)
+        {
+            if (score >= 0.95f) return "모든 종목을 훌륭하게 해냈다!";
+            switch (weakest)
+            {
+                case 0: return "털관리, 스타일링으로 미모를 키웠다면\n미모 심사의 판정 띠가 더 넓었을 거예요";
+                case 1: return "산책, 고급 훈련으로 훈련도를 키웠다면\n엉뚱한 물건을 덜 물어 왔을 거예요";
+                case 2: return "운동으로 어질리티를 키웠다면\n더 빨리 달리고 더 높이 뛰었을 거예요";
+                default: return "세 능력치를 골고루 키웠다면\n장애물 코스를 더 빨리 달렸을 거예요";
+            }
         }
 
         // ---- 순위표 ----

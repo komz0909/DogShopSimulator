@@ -326,7 +326,7 @@ namespace DogShop.Shop
             // 손맛 피드백: 포장대 위로 번 돈과 명성
             PackingStation station = FindFirstObjectByType<PackingStation>();
             if (station != null)
-                UI.JuiceFx.FloatText(station.transform.position + Vector3.up * 1.4f, "+" + paid.ToString("N0") + "원 · 명성 +" + o.reputation, new Color(1f, 0.85f, 0.3f));
+                UI.JuiceFx.FloatText(station.transform.position + Vector3.up * 1.4f, "+" + paid.ToString("N0") + "원, 명성 +" + o.reputation, new Color(1f, 0.85f, 0.3f));
             Sound.Play(Sfx.CoinJingle);
             OnChanged?.Invoke();
             GameEvents.RaiseOnlineOrderShipped(o.id);
