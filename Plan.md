@@ -1252,3 +1252,21 @@ D30에 정확히 70으로 겨우 들어간다 — **30일 중 14일이 문턱 �
 - 시연만: 라이벌 78·66·54·42·30(±3, Exhibition.RivalShowScores), 최저 3등 보장(Exhibition.MinShowRank, ChampionshipManager.KeepPodium — 메달권 밖으로 밀릴 라이벌을 주인공보다 2점 간격으로 낮춤). 1등은 실력으로만(대략 78점 이상)
 - 확인: 주인공 5·41·65점 → 3등, 75 → 2등, 85 → 1등
 - 게임 아이콘: 바르코(nano-banana-pro)로 웰시코기 얼굴 아이콘 3장 생성, 1번 채택 → Assets/@Resources/UI/T_AppIcon.png(1024, 비압축), Player Settings 기본 아이콘. 빌드 exe 아이콘 반영 확인(32px에서도 얼굴 식별)
+
+### 도그쇼 조명·바닥 안내 (2026-10-30)
+- 조명: 무대는 지붕·천장이 해를 가려 그늘(시상대 스포트 2개뿐)이라 강아지가 어둡게 보였다 → DogShowStage/ShowLights(정면 방향광 0.7, 그림자 없음)를 쇼 동안만 켠다(DogShow.showLights, Begin/Restore)
+- ④ 장애물 달리기 길 안내: 바르코 화살표(T_UI_CourseArrow, M_ShowCourseArrow) — 장애물 밖에 있을 때 강아지 발밑에서 다음 입구까지 최대 7개, 입구 쪽으로 흐르는 깜빡임 + 입구에 진행 방향 큰 화살표(ObstacleCourse.NextEntrance, ShowFloorGuide)
+- ③ 어질리티 점프 구간: 바르코 초록 패드(T_UI_JumpZone, M_ShowJumpZone) — 허들·링마다 누르면 넘는 구간(h = jumpHeight·4x(1-x) 에서 계산, 양 끝 10% 덜어냄). 다가오면 깜빡, 구간 안이면 밝게, 지나면 흐려짐
+- 투명 셰이더가 빌드에서 빠지지 않게 머티리얼 에셋을 Resources 에 두고 복제해 쓴다
+- 캐릭터(심사위원·손님·주인공) 모두 Humanoid — 환호 모션 하나를 Humanoid 로 받으면 공용으로 쓸 수 있다
+
+### 도그쇼 환호 연출 (2026-10-30)
+- 받은 소리: Crowd_cheer_1.wav(5.4초) → SFX_CrowdCheer(Sfx.Cheer, 볼륨 0.7), 앞 1.8초를 잘라 끝 0.65초 페이드 → SFX_CrowdCheerShort(Sfx.CheerShort, 0.55)
+- 받은 동작: 바르코 '환호하기.fbx'(Humanoid 52뼈, 4.8초) → 동작만 Anim_Cheer.anim 으로 떼고 원본 FBX(26MB)는 프로젝트에서 뺐다. 루트 회전·높이·XZ 를 포즈에 굽고 높이는 원본 기준(중심 기준이면 테이블 뒤로 주저앉았다)
+- Characters/Animators 의 손님·주인공 컨트롤러 8개에 Cheer 상태(끝나면 Idle 로) 추가 — 모두 Humanoid 라 같은 동작을 쓴다
+- DogShow: 미모 PERFECT(+100 떠오름, 짧은 환호, 카메라 FOV 7% 당김) / GOOD(+60) / 물어오기 정답(+50, 짧은 환호) / 링 통과·장애물 하나 통과(짧은 환호) / 장애물 완주·메달권 순위 발표(긴 환호). 환호마다 심사위원 셋이 조금씩 어긋나게 Cheer(3초 간격 제한)
+- 심사위원은 손님 프리팹이라 루트 모션이 켜져 있어 환호마다 몇 cm 밀렸다 → 환호 전에 끈다
+- 강아지 스포트라이트: 쇼 동안 강아지 머리 위 3.2m·카메라 쪽 1.4m 에서 따라오는 스포트(38도, 세기 15 — 직접 보고 18에서 낮춤, 가장자리 흐림, 그림자 없음, DogShow.LateUpdate). 대비를 위해 무대 정면 조명 0.7 → 0.5
+
+### 강아지 걷기 교체 시도 — 되돌림 (2026-10-30)
+- 바르코 dog_walk 를 6견종에 옮겨 봤으나(뼈대 같음, 회전만, 견종별로 구움, 속도 맞춤) 직접 보니 걷는 모습이 어색해서 원래 킷 걷기(Walking01)로 되돌렸다
