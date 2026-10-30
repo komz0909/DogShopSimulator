@@ -100,6 +100,7 @@ namespace DogShop.Dogs
                 dog.Animator.Play(isHealth ? DogAnim.Eat : DogAnim.Sit);
                 dog.SyncMood();
                 GameEvents.RaiseDogCared();
+                GameEvents.RaiseDogCareDone(productIndex == DogCare.MedicineIndex ? 2 : isHealth ? 0 : 1);
             }
         }
     }

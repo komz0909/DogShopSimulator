@@ -140,6 +140,8 @@ namespace DogShop.Shop
         {
             if (Instance != null && Instance != this) { Destroy(this); return; }
             Instance = this;
+            // 튜토리얼이 끝나면 그다음 날부터 일일 퀘스트가 이어받는다 — 장면에 따로 놓지 않고 여기 붙인다
+            if (GetComponent<DailyQuestManager>() == null) gameObject.AddComponent<DailyQuestManager>();
         }
 
         void OnEnable()

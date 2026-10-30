@@ -425,6 +425,7 @@ namespace DogShop.Dogs
             else SpentTodayTraining += cost;
             OnSlotsChanged?.Invoke();
             GameEvents.RaiseDogTrained();
+            GameEvents.RaiseDogTrainedAxis((int)def.axis);
             return true;
         }
 

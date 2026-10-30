@@ -98,6 +98,7 @@ namespace DogShop.Dogs
             if (rep <= 0) return;
             earnedToday += rep;
             GameManager.Instance.AddReputation(rep);
+            GameEvents.RaiseMascotGreeted();
         }
 
         void Update()
@@ -212,6 +213,7 @@ namespace DogShop.Dogs
                 Sound.Play(Sfx.Warning);
             }
             if (rep != 0) GameManager.Instance.AddReputation(rep);
+            if (rep > 0) GameEvents.RaiseMascotGreeted();
 
             bubbleWho = who;
             bubbleText = line;

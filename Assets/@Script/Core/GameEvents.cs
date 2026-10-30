@@ -29,6 +29,14 @@ namespace DogShop.Core
         public static event Action DogExercised;
         /// <summary>플레이어가 비용을 내고 가게 레벨을 올렸다(세이브 복원은 빼고).</summary>
         public static event Action ShopLeveledUp;
+        /// <summary>계산대에서 상품 하나가 팔렸다. 인자는 상품 번호(일일 퀘스트 '추천 상품·사료 팔기').</summary>
+        public static event Action<int> ProductSold;
+        /// <summary>돌보기 종류 — 0 밥, 1 목욕, 2 약(일일 퀘스트). DogCared 와 같은 자리에서 함께 울린다.</summary>
+        public static event Action<int> DogCareDone;
+        /// <summary>마스코트가 손님을 반겨 명성이 올랐다(일일 퀘스트 '손님 반기기').</summary>
+        public static event Action MascotGreeted;
+        /// <summary>훈련 하나를 마쳤다. 인자는 그 훈련이 올리는 축(GrowthAxis 를 int 로 — 일일 퀘스트 '미모·훈련도 올리는 훈련').</summary>
+        public static event Action<int> DogTrainedAxis;
 
         // 도메인 리로드를 끈 에디터에서 지난 플레이의 구독자가 남지 않게
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
@@ -43,6 +51,10 @@ namespace DogShop.Core
             DogCared = null;
             DogExercised = null;
             ShopLeveledUp = null;
+            ProductSold = null;
+            DogCareDone = null;
+            MascotGreeted = null;
+            DogTrainedAxis = null;
         }
 
         public static void RaiseStorageToCrate() => StorageToCrate?.Invoke();
@@ -54,5 +66,9 @@ namespace DogShop.Core
         public static void RaiseDogCared() => DogCared?.Invoke();
         public static void RaiseDogExercised() { Exhibition.RecordExercise(); DogExercised?.Invoke(); }
         public static void RaiseShopLeveledUp() => ShopLeveledUp?.Invoke();
+        public static void RaiseProductSold(int product) => ProductSold?.Invoke(product);
+        public static void RaiseDogCareDone(int care) => DogCareDone?.Invoke(care);
+        public static void RaiseMascotGreeted() => MascotGreeted?.Invoke();
+        public static void RaiseDogTrainedAxis(int axis) => DogTrainedAxis?.Invoke(axis);
     }
 }

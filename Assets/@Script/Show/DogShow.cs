@@ -52,8 +52,8 @@ namespace DogShop.Show
         [Header("훈련 심사 물건(상품 이름)")]
         [SerializeField] string[] fetchItemNames = { "장난감", "뼈다귀 장난감", "고기 인형", "목줄", "강아지껌" };
 
-        /// <summary>스탯을 0~1 로 펼 때 쓰는 기준. 46차 측정에서 30일 최적 플레이가 미모·훈련도 각 220 안팎이었다.</summary>
-        const float StatFull = 240f;
+        /// <summary>스탯을 0~1 로 펼 때 쓰는 기준 — 시즌마다 오른다(<see cref="ChampionshipManager.StatFull"/>, 시즌 1·시연 240).</summary>
+        static float StatFull => ChampionshipManager.StatFull;
 
         /// <summary>미모 심사 판 수. 시연은 쇼만 3분 가까이 걸려 체험 시간의 절반을 먹었다 — 종목 넷은 그대로 두고 판 수만 줄인다.</summary>
         static int PoseRounds => Exhibition.Active ? 3 : 5;
@@ -170,14 +170,15 @@ namespace DogShop.Show
         void CheckNotice()
         {
             GameManager g = GameManager.Instance;
-            if (g == null || Exhibition.Active || g.Day != NoticeDay || noticeShownDay == g.Day) return;
+            // 시즌마다 쇼 10일 전(20·50·80일차…)
+            if (g == null || Exhibition.Active || g.Day != ChampionshipManager.LastDay - (ChampionshipManager.FinalDay - NoticeDay) || noticeShownDay == g.Day) return;
             if (Debugging.MeasurementMode.Instance != null && Debugging.MeasurementMode.Instance.Active) return;
 
             Dogs.Dog hero = DogManager.Instance != null ? DogManager.Instance.Hero : null;
             string now = hero != null ? "지금 " + hero.DisplayName + "의 건강은 " + hero.Stats.Health : null;
             noticeShownDay = g.Day;
             OpenNotice("도그쇼 참가 조건 안내",
-                       ChampionshipManager.FinalDay + "일차 도그쇼는 건강 " + ChampionshipManager.HealthGate + " 이상이어야 나갈 수 있다",
+                       ChampionshipManager.LastDay + "일차 도그쇼는 건강 " + ChampionshipManager.HealthGate + " 이상이어야 나갈 수 있다",
                        now != null ? now + ". 밥, 약으로 미리 챙겨 두자" : "밥, 약으로 미리 챙겨 두자",
                        "미모, 훈련도, 어질리티가 높을수록 도그쇼 종목이 쉬워진다");
         }
@@ -241,7 +242,7 @@ namespace DogShop.Show
 
             int stat = Mathf.RoundToInt(StatFull * 0.8f);
             dog.Stats.Restore(DogStats.MaxUpkeep, DogStats.MaxUpkeep, stat, stat, stat);
-            GameManager.Instance.DebugSetDay(ChampionshipManager.FinalDay);
+            GameManager.Instance.DebugSetDay(ChampionshipManager.LastDay);
 
             Begin();
             if (phase == Phase.None) { reason = "무대/카메라 연결 없음"; return false; }
@@ -269,7 +270,8 @@ namespace DogShop.Show
             Running = true;
             Sound.PlayBgm(Bgm.DogShow);
             if (showLights != null) showLights.SetActive(true);
-            headline = "Day " + ChampionshipManager.LastDay + "  도그쇼 챔피언십";
+            int showSeasonNo = ChampionshipManager.Instance.Season;
+            headline = (showSeasonNo > 1 && !Exhibition.Active ? "시즌 " + showSeasonNo + "  " : "") + "Day " + ChampionshipManager.LastDay + "  도그쇼 챔피언십";
             subline = ChampionshipManager.LastDay + "일 동안 함께한 " + hero.DisplayName + "와(과) 무대에 오를 시간이다";
 
             // 가게는 오늘 안 연다. 시계·조작·HUD 를 끈다

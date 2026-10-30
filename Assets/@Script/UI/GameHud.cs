@@ -119,6 +119,7 @@ namespace DogShop.UI
 
             UpdateMoney();
             UpdateQuest();
+            UpdateDaily();
             UpdateOrderAlert();
 
             refreshTimer += Time.unscaledDeltaTime;
@@ -262,6 +263,7 @@ namespace DogShop.UI
             BuildToday(root, font);
             BuildToast(root, font);
             BuildQuest(root, font);
+            BuildDaily(root, font);
             BuildOrderAlert(root, font);
         }
 
@@ -429,12 +431,120 @@ namespace DogShop.UI
             questPanel.sizeDelta = new Vector2(QuestWidth, height);
         }
 
+        // ---- 일일 퀘스트(오늘의 가게 목표, DailyQuestManager) ----
+        // 튜토리얼 판과 같은 자리(우상단 상태창 아래). 튜토리얼 판이 떠 있으면 숨는다.
+        // 줄마다 목표, 진행도와 보상, 달성하면 [받기]. 받으면 "완료"로 흐려진다.
+
+        const float DailyHeaderHeight = 34f;
+        const float DailyRowHeight = 50f;
+        RectTransform dailyPanel;
+        Text dailyHeader;
+        readonly Text[] dailyObjective = new Text[DailyQuestManager.PerDay];
+        readonly Text[] dailySub = new Text[DailyQuestManager.PerDay];
+        readonly RectTransform[] dailyClaim = new RectTransform[DailyQuestManager.PerDay];
+        readonly Image[] dailyClaimImage = new Image[DailyQuestManager.PerDay];
+        readonly Text[] dailyClaimLabel = new Text[DailyQuestManager.PerDay];
+        int dailyVersion = -1;
+
+        void BuildDaily(RectTransform root, Font font)
+        {
+            float height = DailyHeaderHeight + DailyRowHeight * DailyQuestManager.PerDay + 8f;
+            RectTransform inner = Panel(root, "DailyQuest", new Vector2(1f, 1f), new Vector2(-24f, -WalletBottom - QuestGap), new Vector2(QuestWidth, height));
+            dailyPanel = (RectTransform)inner.parent;
+
+            var star = new GameObject("Star", typeof(RectTransform), typeof(CanvasRenderer), typeof(RawImage));
+            star.transform.SetParent(inner, false);
+            RawImage starImage = star.GetComponent<RawImage>();
+            starImage.texture = questStarTexture;
+            starImage.raycastTarget = false;
+            if (questStarTexture == null) starImage.color = MoneyColor;
+            Anchor(starImage.rectTransform, new Vector2(0f, 1f), new Vector2(10f, -5f), new Vector2(26f, 26f));
+
+            dailyHeader = Label(inner, "Header", font, 17, TextAnchor.MiddleLeft, MoneyColor);
+            Anchor(dailyHeader.rectTransform, new Vector2(0f, 1f), new Vector2(42f, -7f), new Vector2(QuestWidth - 54f, 22f));
+
+            for (int i = 0; i < DailyQuestManager.PerDay; i++)
+            {
+                float y = -DailyHeaderHeight - i * DailyRowHeight;
+                dailyObjective[i] = Label(inner, "Objective" + i, font, 17, TextAnchor.MiddleLeft, TextColor);
+                Anchor(dailyObjective[i].rectTransform, new Vector2(0f, 1f), new Vector2(14f, y - 2f), new Vector2(QuestWidth - 122f, 24f));
+                dailySub[i] = Label(inner, "Sub" + i, font, 14, TextAnchor.MiddleLeft, CalmColor);
+                Anchor(dailySub[i].rectTransform, new Vector2(0f, 1f), new Vector2(14f, y - 25f), new Vector2(QuestWidth - 122f, 20f));
+
+                dailyClaim[i] = Block(inner, "Claim" + i, ClaimColor);
+                Anchor(dailyClaim[i], new Vector2(0f, 1f), new Vector2(QuestWidth - 104f, y - 8f), new Vector2(90f, 34f));
+                dailyClaimImage[i] = dailyClaim[i].GetComponent<Image>();
+                dailyClaimLabel[i] = Label(dailyClaim[i], "Label", font, 17, TextAnchor.MiddleCenter, new Color(0.16f, 0.19f, 0.22f));
+                Stretch(dailyClaimLabel[i].rectTransform, Vector2.zero, Vector2.zero);
+            }
+            dailyPanel.gameObject.SetActive(false);
+        }
+
+        void UpdateDaily()
+        {
+            if (dailyPanel == null) return;
+            DailyQuestManager daily = DailyQuestManager.Instance;
+            bool tutorialShowing = questPanel != null && questPanel.gameObject.activeSelf;
+            bool show = daily != null && daily.Active && !tutorialShowing;
+            if (dailyPanel.gameObject.activeSelf != show) dailyPanel.gameObject.SetActive(show);
+            if (!show) return;
+
+            // [받기] — 튜토리얼 판과 같은 규칙(커서가 풀려 있고 다른 창이 없을 때만)
+            UnityEngine.InputSystem.Mouse mouse = UnityEngine.InputSystem.Mouse.current;
+            if (daily.AnyReady && mouse != null && mouse.leftButton.wasPressedThisFrame
+                && Cursor.lockState != CursorLockMode.Locked && !PointerMenus.AnyOpen)
+            {
+                Vector2 point = mouse.position.ReadValue();
+                for (int i = 0; i < DailyQuestManager.PerDay; i++)
+                {
+                    DailyQuestManager.Quest q = daily.Quests[i];
+                    if (q == null || !q.ReadyToClaim || !RectTransformUtility.RectangleContainsScreenPoint(dailyClaim[i], point, null)) continue;
+                    if (daily.Claim(i))
+                    {
+                        var corners = new Vector3[4];
+                        dailyClaim[i].GetWorldCorners(corners);
+                        JuiceFx.SparkleScreen(new Vector2((corners[0].x + corners[2].x) * 0.5f, Screen.height - (corners[0].y + corners[2].y) * 0.5f), true);
+                    }
+                    break;
+                }
+            }
+
+            // 받을 보상이 있는 버튼은 숨 쉰다
+            float k = 0.5f + 0.5f * Mathf.Sin(Time.unscaledTime * 4f);
+            for (int i = 0; i < DailyQuestManager.PerDay; i++)
+            {
+                DailyQuestManager.Quest q = daily.Quests[i];
+                if (q != null && q.ReadyToClaim) dailyClaimImage[i].color = Color.Lerp(ClaimColor, new Color(0.75f, 0.92f, 0.8f), k);
+            }
+
+            if (dailyVersion == daily.Version) return;
+            dailyVersion = daily.Version;
+            dailyHeader.text = "오늘의 가게 목표   " + daily.DoneCount + " / " + DailyQuestManager.PerDay;
+            for (int i = 0; i < DailyQuestManager.PerDay; i++)
+            {
+                DailyQuestManager.Quest q = daily.Quests[i];
+                if (q == null) continue;
+                dailyObjective[i].text = DailyQuestManager.Objective(q);
+                dailyObjective[i].color = q.claimed ? CalmColor : q.Done ? MoneyColor : TextColor;
+                string reward = DailyQuestManager.RewardText(q);
+                dailySub[i].text = q.claimed ? "받음   " + reward
+                                 : q.Done ? "달성!   보상 " + reward
+                                 : "진행 " + q.progress + "/" + q.target + "   보상 " + reward;
+                dailyClaim[i].gameObject.SetActive(q.Done);
+                dailyClaimLabel[i].text = q.claimed ? "완료" : "받기";
+                dailyClaimImage[i].color = q.claimed ? new Color(1f, 1f, 1f, 0.12f) : ClaimColor;
+                dailyClaimLabel[i].color = q.claimed ? CalmColor : new Color(0.16f, 0.19f, 0.22f);
+            }
+        }
+
         int questStepShown = -1;
 
         /// <summary>퀘스트 판이 차지하는 아래 끝(우상단 기준, 양수). 그 아래에 다른 알림을 붙인다.</summary>
         float QuestBottom => questPanel != null && questPanel.gameObject.activeSelf
             ? WalletBottom + QuestGap + questPanel.sizeDelta.y
-            : WalletBottom;
+            : dailyPanel != null && dailyPanel.gameObject.activeSelf
+                ? WalletBottom + QuestGap + dailyPanel.sizeDelta.y
+                : WalletBottom;
 
         /// <summary>
         /// 우상단 상태창 바로 아래 — 수락 안 한 온라인 주문이 있으면 뼈다귀가 깜빡이며 "주문접수중".

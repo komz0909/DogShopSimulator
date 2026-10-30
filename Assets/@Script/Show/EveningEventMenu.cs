@@ -9,7 +9,8 @@ namespace DogShop.Show
 {
     /// <summary>
     /// 잠든 뒤 뜨는 마감 패널. 정산 요약 → (5일마다) 모의 심사 → 다음 날 아침.
-    /// D30에는 챔피언십 결과와 최종 랭크가 나오고 게임이 끝난다.
+    /// 시즌 끝날(30·60·90일차…)에는 챔피언십 결과와 최종 랭크가 나오고 엔딩으로 간다.
+    /// 본편은 엔딩 뒤 시즌 결산 판에서 다음 시즌으로 이어 가거나 저장하고 타이틀로 간다. 시연은 엔딩 뒤 견종 고르기.
     ///
     /// 예전에는 여기서 저녁 이벤트 카드(기부·봉사·폐품·휴식)를 한 장 골랐다. 명성이
     /// 손님 방문으로 쌓이게 바뀌면서 뺐다 — 매일 같은 카드를 누르는 의례였고,
@@ -93,7 +94,7 @@ namespace DogShop.Show
             if (isFinal && champ.HasShowResult && !finished && Cutscene.Instance != null)
             {
                 finished = true;
-                Cutscene.Instance.PlayEnding(endingValues);
+                Cutscene.Instance.PlayEnding(endingValues, AfterEnding);
                 return;
             }
 
@@ -114,7 +115,7 @@ namespace DogShop.Show
             }
 
             // 챔피언십 순위는 D30 도그쇼 총점으로만 정한다 — 여기서는 미니게임에 쓰일 몸 상태만 보여 준다
-            mockLine = "모의 심사: 미모 " + hero.Stats.Beauty + " / 훈련도 " + hero.Stats.Training + " / 어질리티 " + hero.Stats.Agility + "  (도그쇼 난이도 반영)";
+            mockLine = "모의 심사: 미모 " + hero.Stats.Beauty + " / 훈련도 " + hero.Stats.Training + " / 어질리티 " + hero.Stats.Agility + "  (만점 " + Mathf.RoundToInt(ChampionshipManager.StatFull) + ", 도그쇼 난이도 반영)";
         }
 
         void BuildFinalResult(Dog hero, ChampionshipManager champ, GameManager g)
@@ -162,6 +163,7 @@ namespace DogShop.Show
             else if (rank > 3) place = rank + "위. 이번엔 아쉬웠지만 더 노력해서 다음 대회를 노려보자, 화이팅!";
             else place = "무대에는 서지 못했다. 그래도 " + ChampionshipManager.LastDay + "일을 함께 버틴 우리는 이미 한 팀이다. 다음엔 같이 서자!";
 
+            seasonRank = rank;
             endingValues["won"] = rank == 1 ? "1" : "0";
             endingValues["place"] = place;
             endingValues["grade"] = grade;
@@ -181,6 +183,7 @@ namespace DogShop.Show
 
         void OnGUI()
         {
+            if (seasonChoice) { DrawSeasonChoice(); return; }
             if (!open) return;
 
             // 진열대 이름표 같은 다른 OnGUI 보다 위에 — 정산서 위로 월드 라벨이 비쳐 보였다
@@ -222,6 +225,7 @@ namespace DogShop.Show
             string earnedSub = "매장 판매 " + store.ToString("N0") + "원";
             if (online > 0) earnedSub += "  /  온라인 " + online.ToString("N0") + "원";
             if (g.BonusToday > 0) earnedSub += "  /  보상 " + g.BonusToday.ToString("N0") + "원";
+            if (c != null && c.ChampionBonusToday > 0) earnedSub += "  /  챔피언 +" + c.ChampionBonusToday.ToString("N0") + "원";
             Row(ref y, x, w, iconIncome, "오늘 번 돈", "+" + earned.ToString("N0") + "원", Good, earnedSub);
 
             // ---- 쓴 돈 ----
@@ -270,6 +274,14 @@ namespace DogShop.Show
             string custSub = c != null ? "판매 " + c.SoldToday + "건  /  놓친 손님 " + c.LostToday + "명" : "";
             Row(ref y, x, w, iconCustomers, "다녀간 손님", (c != null ? c.VisitorsToday : 0) + "명", Ink, custSub);
 
+            // 오늘의 가게 목표(일일 퀘스트) — 달성하고 안 받은 보상은 마감 때 대신 받아 준다
+            DailyQuestManager daily = DailyQuestManager.Instance;
+            if (daily != null && daily.Active)
+            {
+                GUI.Label(new Rect(x, y, w, 26f), "오늘의 가게 목표 " + daily.DoneCount + " / " + DailyQuestManager.PerDay + " 달성", noteStyle);
+                y += 28f;
+            }
+
             // 내일의 추천 상품 — 오늘 밤 발주로 넉넉히 들여 둘지 정하게
             if (!isFinal && inv != null && inv.RecommendedTomorrow >= 0 && InventoryManager.ShopOpensTomorrow)
             {
@@ -291,14 +303,14 @@ namespace DogShop.Show
                 y += 26f;
                 GUI.Label(new Rect(x, y, w, 46f), gradeLine, noteStyle);
 
-                if (!finished && UiSkin.Click(new Rect(x, bottom - 56f, w, 50f), (Exhibition.Active ? "시연 종료" : "게임 종료: 30일 완주"), Big(UiSkin.Coral)))
+                if (!finished && UiSkin.Click(new Rect(x, bottom - 56f, w, 50f), (Exhibition.Active ? "시연 종료" : "시즌 " + ChampionshipManager.Instance.Season + " 마치기"), Big(UiSkin.Coral)))
                 {
                     finished = true;
                     open = false;
                     PointerMenus.SetOpen(this, false);
 
                     // 엔딩 3장을 보고 타이틀로 돌아간다
-                    if (Cutscene.Instance != null) Cutscene.Instance.PlayEnding(endingValues);
+                    if (Cutscene.Instance != null) Cutscene.Instance.PlayEnding(endingValues, AfterEnding);
                 }
                 GUI.matrix = keep;
                 return;
@@ -306,6 +318,114 @@ namespace DogShop.Show
 
             if (UiSkin.Click(new Rect(x, bottom - 56f, w, 50f), "다음 날 아침으로  Day " + (g.Day + 1), Big(UiSkin.Green))) Continue();
             GUI.matrix = keep;
+        }
+
+        // ---- 시즌 결산(본편, 챔피언십 엔딩 뒤) ----
+
+        bool seasonChoice;
+        int seasonRank = -1;
+        GUIStyle wrapStyle;
+
+        /// <summary>엔딩을 다 본 뒤 부를 것. 본편만 시즌 결산 판, 시연은 null(견종 고르기로).</summary>
+        System.Action AfterEnding => Exhibition.Active ? null : (System.Action)OpenSeasonChoice;
+
+        void OpenSeasonChoice()
+        {
+            ChampionshipManager.Instance.RecordSeason(seasonRank);
+            seasonChoice = true;
+            PointerMenus.SetOpen(this, true);
+        }
+
+        void DrawSeasonChoice()
+        {
+            GUI.depth = -100;
+            Styles();
+            if (wrapStyle == null || wrapStyle.font != noteStyle.font) wrapStyle = new GUIStyle(noteStyle) { wordWrap = true };
+
+            Matrix4x4 keep = GUI.matrix;
+            float s = Mathf.Min(Screen.width / 1920f, Screen.height / 1080f);
+            GUI.matrix = Matrix4x4.Scale(new Vector3(s, s, 1f));
+            float sw = Screen.width / s, sh = Screen.height / s;
+
+            GUI.color = new Color(0f, 0f, 0f, 0.6f);
+            GUI.DrawTexture(new Rect(0f, 0f, sw, sh), Texture2D.whiteTexture);
+            GUI.color = Color.white;
+
+            float bh = Mathf.Min(sh * 0.92f, 1000f);
+            float bw = board != null ? bh * board.width / board.height : bh * 0.7f;
+            var b = new Rect((sw - bw) * 0.5f, (sh - bh) * 0.5f, bw, bh);
+            if (board != null) GUI.DrawTexture(b, board, ScaleMode.StretchToFill, true);
+            else GUI.Box(b, GUIContent.none, UiSkin.Tag(new Color(0.98f, 0.95f, 0.87f)));
+            float x = b.x + bw * 0.10f, w = bw * 0.80f, y = b.y + bh * 0.135f, bottom = b.yMax - bh * 0.075f;
+
+            ChampionshipManager champ = ChampionshipManager.Instance;
+            GUI.Label(new Rect(x, y, w, 50f), "시즌 " + champ.Season + " 마무리", titleStyle);
+            y += 76f;
+
+            string result = seasonRank == 1 ? "챔피언! 우승 트로피를 받았다"
+                          : seasonRank > 1 ? "이번 시즌 " + seasonRank + "위"
+                          : "이번 시즌은 무대에 서지 못했다";
+            GUI.Label(new Rect(x, y, w, 40f), result, labelStyle);
+            y += 52f;
+            if (seasonRank == 1)
+            {
+                GUI.Label(new Rect(x, y, w, 30f), "우승 상금 +" + ChampionshipManager.ChampionPrize.ToString("N0") + "원  /  가게 벽에 우승 액자가 걸렸다", noteStyle);
+                y += 36f;
+            }
+            GUI.Label(new Rect(x, y, w, 30f), "우승 트로피 " + champ.Trophies + "개"
+                + (ChampionshipManager.SaleBonus > 0f ? "  /  매장 판매가 +" + Mathf.RoundToInt(ChampionshipManager.SaleBonus * 100f) + "%" : ""), noteStyle);
+            y += 36f;
+
+            // 지난 시즌들 — 많아지면 최근 6개만
+            var history = new System.Text.StringBuilder();
+            int from = Mathf.Max(0, champ.SeasonRanks.Count - 6);
+            for (int i = from; i < champ.SeasonRanks.Count; i++)
+            {
+                int r = champ.SeasonRanks[i];
+                if (history.Length > 0) history.Append("   ");
+                history.Append(i + 1).Append("시즌 ").Append(r > 0 ? r + "위" : "불참");
+            }
+            GUI.Label(new Rect(x, y, w, 30f), history.ToString(), noteStyle);
+            y += 60f;
+
+            int nextStart = ChampionshipManager.LastDay + 1;
+            GUI.Label(new Rect(x, y, w, 120f),
+                "다음 시즌은 Day " + nextStart + " ~ " + (nextStart + ChampionshipManager.FinalDay - 1) + ". "
+                + "가게와 " + (DogManager.Instance != null && DogManager.Instance.Hero != null ? DogManager.Instance.Hero.DisplayName : "강아지")
+                + "는 그대로 이어지고, 라이벌들은 더 강해져서 돌아온다.", wrapStyle);
+            y += 64f;
+
+            // 다음 시즌에 무엇이 어려워지는가 — 만점과 라이벌
+            int fullNow = ChampionshipManager.StatFullFor(champ.Season), fullNext = ChampionshipManager.StatFullFor(champ.Season + 1);
+            int rivalNext = Mathf.Min(ChampionshipManager.MaxRivalBonus, champ.Season * ChampionshipManager.RivalBonusPerSeason) - champ.RivalBonus;
+            string harder = (fullNext > fullNow ? "능력치 만점 " + fullNow + "에서 " + fullNext + "으로" : "능력치 만점 " + fullNow + " (최대)")
+                          + (rivalNext > 0 ? "   /   라이벌 점수 +" + rivalNext : "   /   라이벌은 최고 수준");
+            GUI.Label(new Rect(x, y, w, 30f), "다음 시즌: " + harder, noteStyle);
+
+            if (UiSkin.Click(new Rect(x, bottom - 120f, w, 50f), "다음 시즌 도전하기", Big(UiSkin.Green))) StartNextSeason(false);
+            if (UiSkin.Click(new Rect(x, bottom - 56f, w, 50f), "저장하고 타이틀로", Big(UiSkin.Coral))) StartNextSeason(true);
+            GUI.matrix = keep;
+        }
+
+        /// <summary>다음 시즌 첫날 아침으로. 타이틀로 갈 때도 넘긴 뒤 저장해서, 이어하기가 다음 시즌에서 시작되게 한다.</summary>
+        void StartNextSeason(bool toTitle)
+        {
+            seasonChoice = false;
+            PointerMenus.SetOpen(this, false);
+            ChampionshipManager.Instance.BeginNextSeason();
+            finished = false;
+            isFinal = false;
+            open = false;
+            GameManager.Instance.BeginNextDay();
+            if (toTitle) StartCoroutine(SaveAndLeave());
+        }
+
+        System.Collections.IEnumerator SaveAndLeave()
+        {
+            yield return null;
+            yield return null;   // 아침 처리(입고·하루 초기화)가 끝난 뒤를 남긴다
+            if (SaveManager.Instance != null) SaveManager.Instance.Save();
+            if (Cutscene.Instance != null) Cutscene.Instance.ReturnToTitle();
         }
 
         static readonly Color Ink = new Color(0.33f, 0.2f, 0.1f);

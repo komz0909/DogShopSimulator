@@ -96,8 +96,11 @@ namespace DogShop.Show
             if (Instance == this) Instance = null;
         }
 
-        /// <summary>엔딩을 튼다. <paramref name="values"/> 의 키가 글의 {키} 를 채운다.</summary>
-        public void PlayEnding(Dictionary<string, string> values)
+        /// <summary>
+        /// 엔딩을 튼다. <paramref name="values"/> 의 키가 글의 {키} 를 채운다.
+        /// <paramref name="afterEnding"/> 가 있으면 다 본 뒤 타이틀 대신 그걸 부른다(본편 시즌 결산).
+        /// </summary>
+        public void PlayEnding(Dictionary<string, string> values, Action afterEnding = null)
         {
             Dictionary<string, string> all = BreedTokens();
             if (values != null) foreach (var kv in values) all[kv.Key] = kv.Value;
@@ -108,10 +111,14 @@ namespace DogShop.Show
             Play(ending, all, () =>
             {
                 Sound.StopBgm();
+                if (afterEnding != null) { afterEnding(); return; }
                 if (Exhibition.Active) Exhibition.ReturnToPicker = true;
                 UnityEngine.SceneManagement.SceneManager.LoadScene(titleScene);
             });
         }
+
+        /// <summary>타이틀 화면으로(시즌 결산의 [저장하고 타이틀로]).</summary>
+        public void ReturnToTitle() => UnityEngine.SceneManagement.SceneManager.LoadScene(titleScene);
 
         static Dictionary<string, string> BreedTokens()
         {

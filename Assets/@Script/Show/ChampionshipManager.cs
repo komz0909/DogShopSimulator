@@ -6,11 +6,14 @@ using UnityEngine;
 namespace DogShop.Show
 {
     /// <summary>
-    /// D30 챔피언십 1회. 심사 가중치는 게임 시작 시 결정되어 공개되고, 30일 내내 육성 목표가 된다.
+    /// 시즌마다 챔피언십 1회(시즌 = <see cref="FinalDay"/>일, 시즌 1 은 30일차·시즌 2 는 60일차…).
+    /// 엔딩 뒤 [다음 시즌 도전하기]로 이어 가고, 시즌마다 라이벌 도그쇼 점수가 오른다(<see cref="RivalBonus"/>).
+    /// 심사 가중치는 시즌 시작 때 결정되어 공개되고, 그 시즌 내내 육성 목표가 된다.
     /// 5일마다 열리는 모의 심사는 같은 채점 함수를 그대로 호출하고 보상은 주지 않는다 — 학습 기회만 준다.
     /// </summary>
-    public class ChampionshipManager : MonoBehaviour
+    public class ChampionshipManager : MonoBehaviour, ISaveParticipant
     {
+        /// <summary>한 시즌의 길이(일). 시즌 1 챔피언십 날이기도 하다.</summary>
         public const int FinalDay = 30;
         public const int MockInterval = 5;
         public const int HealthGate = 70;
@@ -63,9 +66,115 @@ namespace DogShop.Show
 
         public string WeightText => "미모 " + BeautyWeight + " / 훈련도 " + TrainingWeight;
 
-        public bool IsMockDay(int day) => day % MockInterval == 0 && day < FinalDay;
-        /// <summary>이번 판의 도그쇼 날. 본편 30일차, 시연 모드 3일차.</summary>
-        public static int LastDay => Exhibition.Active ? Exhibition.Days : FinalDay;
+        public bool IsMockDay(int day) => day % MockInterval == 0 && day < LastDay;
+        /// <summary>이번 시즌의 도그쇼 날. 본편은 시즌 × 30일차(30·60·90…), 시연 모드 3일차.</summary>
+        public static int LastDay => Exhibition.Active ? Exhibition.Days : (Instance != null ? Instance.Season : 1) * FinalDay;
+
+        // ---- 시즌(2026-10-30) ----
+
+        /// <summary>지금 시즌(1부터).</summary>
+        public int Season { get; private set; } = 1;
+
+        /// <summary>시즌별 챔피언십 순위(-1 = 출전하지 못함). 지난 시즌까지만 들어 있다.</summary>
+        readonly List<int> seasonRanks = new List<int>();
+        public IReadOnlyList<int> SeasonRanks => seasonRanks;
+        public int Trophies { get { int n = 0; foreach (int r in seasonRanks) if (r == 1) n++; return n; } }
+
+        /// <summary>시즌마다 라이벌 도그쇼 점수가 이만큼 오른다. 1위 라이벌 86 → 90 → 94 → 98 에서 멈춘다.</summary>
+        public const int RivalBonusPerSeason = 4;
+        public const int MaxRivalBonus = 12;
+        public int RivalBonus => Exhibition.Active ? 0 : Mathf.Min(MaxRivalBonus, (Season - 1) * RivalBonusPerSeason);
+
+        /// <summary>
+        /// 도그쇼가 능력치를 0~1 로 펼 때 쓰는 만점 기준. 시즌 1 은 240(46차 측정: 30일 최적 플레이가 미모·훈련도 각 220 안팎),
+        /// 시즌마다 +80, 시즌 4 부터 480. 능력치 자체에는 상한이 없지만 만점을 넘긴 몫은 도그쇼에 안 들어가므로,
+        /// 만점이 오르면 같은 강아지라도 무대가 다시 어려워져 계속 키워야 한다. 시연은 240.
+        /// </summary>
+        public const int BaseStatFull = 240;
+        public const int StatFullPerSeason = 80;
+        public const int MaxStatFull = 480;
+        public static int StatFullFor(int season) => Mathf.Min(MaxStatFull, BaseStatFull + (Mathf.Max(1, season) - 1) * StatFullPerSeason);
+        public static float StatFull => Exhibition.Active || Instance == null ? BaseStatFull : StatFullFor(Instance.Season);
+
+        // ---- 우승 혜택(명예의 벽) ----
+
+        /// <summary>우승한 시즌의 기록. 가게 뒷벽 액자(<see cref="ChampionWall"/>)에 걸린다.</summary>
+        [System.Serializable]
+        public class ChampionRecord
+        {
+            public int season;
+            public int breedIndex;
+            public string dogName;
+        }
+
+        readonly List<ChampionRecord> champions = new List<ChampionRecord>();
+        public IReadOnlyList<ChampionRecord> Champions => champions;
+
+        /// <summary>우승 상금 — 우승한 그 자리에서 바로 받는다.</summary>
+        public const int ChampionPrize = 1000;
+
+        /// <summary>트로피 하나당 매장 판매가 보너스. 최대 <see cref="MaxBonusTrophies"/>개까지(+15%).</summary>
+        public const float SaleBonusPerTrophy = 0.05f;
+        public const int MaxBonusTrophies = 3;
+
+        /// <summary>지금 매장 판매가 보너스(0.05 = +5%). 시연에는 없다.</summary>
+        public static float SaleBonus => Exhibition.Active || Instance == null ? 0f
+            : Mathf.Min(MaxBonusTrophies, Instance.Trophies) * SaleBonusPerTrophy;
+
+        /// <summary>판매가에 챔피언 보너스를 얹는다(CustomerManager.PayoutOf).</summary>
+        public static int WithSaleBonus(int retail)
+        {
+            float bonus = SaleBonus;
+            return bonus > 0f ? Mathf.RoundToInt(retail * (1f + bonus)) : retail;
+        }
+
+        /// <summary>
+        /// 이번 시즌 순위를 적는다(시즌 결산 판이 뜰 때). 한 시즌에 한 번만.
+        /// 우승이면 명예의 벽에 액자를 걸고 상금을 준다.
+        /// </summary>
+        public void RecordSeason(int rank)
+        {
+            if (seasonRanks.Count >= Season) return;
+            seasonRanks.Add(rank);
+            if (rank != 1 || Exhibition.Active) return;
+
+            Dog hero = DogManager.Instance != null ? DogManager.Instance.Hero : null;
+            champions.Add(new ChampionRecord
+            {
+                season = Season,
+                breedIndex = hero != null ? hero.BreedIndex : 0,
+                dogName = hero != null ? hero.DisplayName : "강아지",
+            });
+            if (GameManager.Instance != null) GameManager.Instance.AddMoney(ChampionPrize);
+        }
+
+        /// <summary>다음 시즌으로. 가게·강아지는 그대로, 순위표·심사 가중치만 새로.</summary>
+        public void BeginNextSeason()
+        {
+            RecordSeason(HasShowResult ? ShowRank : -1);
+            Season++;
+            ShowBoard = null;
+            ShowRank = 0;
+            ShowScore = 0;
+            BeautyWeight = BeautyWeightOptions[Random.Range(0, BeautyWeightOptions.Length)];
+        }
+
+        public void CaptureInto(SaveData data)
+        {
+            data.season = Season;
+            data.seasonRanks = seasonRanks.ToArray();
+            data.champions = champions.ToArray();
+        }
+
+        public void RestoreFrom(SaveData data)
+        {
+            // 시즌이 없던 세이브는 0 — 날짜로 맞춘다(30일차까지 시즌 1)
+            Season = Mathf.Max(Mathf.Max(1, data.season), (data.day - 1) / FinalDay + 1);
+            seasonRanks.Clear();
+            if (data.seasonRanks != null) seasonRanks.AddRange(data.seasonRanks);
+            champions.Clear();
+            if (data.champions != null) champions.AddRange(data.champions);
+        }
 
         public bool IsFinalDay(int day) => day >= LastDay;
 
@@ -151,7 +260,7 @@ namespace DogShop.Show
                     name = names[i % names.Count],
                     breed = dm.BreedName(breeds[i]),
                     breedIndex = breeds[i],
-                    score = Mathf.Clamp(baseScore + Random.Range(-RivalShowSpread, RivalShowSpread + 1), 0, 100),
+                    score = Mathf.Clamp(baseScore + RivalBonus + Random.Range(-RivalShowSpread, RivalShowSpread + 1), 0, 100),
                 });
             }
 

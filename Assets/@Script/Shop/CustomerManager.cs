@@ -105,6 +105,8 @@ namespace DogShop.Shop
         /// <summary>장식 보너스로 생긴 소수점 명성. 1이 차면 그 손님 몫에 얹는다.</summary>
         float reputationCarry;
         public int RevenueToday { get; private set; }
+        /// <summary>오늘 매출 중 우승 트로피 보너스로 더 받은 몫(정산서 한 줄).</summary>
+        public int ChampionBonusToday { get; private set; }
         public int AverageBasket => SoldToday > 0 ? RevenueToday / SoldToday : 0;
         public int InStore => active.Count;
         public int QueueLength => queue.Count;
@@ -183,6 +185,7 @@ namespace DogShop.Shop
             VisitorsToday = 0;
             ReputationToday = 0;
             RevenueToday = 0;
+            ChampionBonusToday = 0;
             pending = 0f;
             if (TimeManager.Instance != null) lastClockHour = TimeManager.Instance.FlowHour;
         }
@@ -618,6 +621,7 @@ namespace DogShop.Shop
             int retail = ItemGrades.PriceOf(
                 InventoryManager.Instance.Catalog.Get(c.WantedProduct).retail, c.PickedGrade);
             retail = InventoryManager.Instance.WithRecommendBonus(c.WantedProduct, retail);   // 오늘의 추천 상품
+            retail = Show.ChampionshipManager.WithSaleBonus(retail);   // 우승 트로피(명예의 벽) 보너스
 
             if (c.Overtime <= 0f) return retail;
 
@@ -759,11 +763,14 @@ namespace DogShop.Shop
             if (c == null || c.State != CustomerState.Waiting || !c.HasItem) return false;
 
             int paid = PayoutOf(c);
+            float champBonus = Show.ChampionshipManager.SaleBonus;
+            if (champBonus > 0f) ChampionBonusToday += paid - Mathf.RoundToInt(paid / (1f + champBonus));
             RevenueToday += paid;
             SoldToday++;
             GameManager.Instance.RegisterSale(paid);
             OnSale?.Invoke(paid);
             GameEvents.RaiseCustomerCheckedOut();
+            GameEvents.RaiseProductSold(c.WantedProduct);
             Sound.Play(Sfx.Checkout);
             Sound.Play(Sfx.CoinJingle);
             UI.JuiceFx.FloatText(c.transform.position + Vector3.up * (c.LabelHeight + 0.2f), "+" + paid.ToString("N0") + "원", new Color(1f, 0.85f, 0.3f));

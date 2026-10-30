@@ -114,6 +114,15 @@ namespace DogShop.Core
         public int tutorialStep;
         public int tutorialProgress;
         public bool tutorialOrderIssued;
+        /// <summary>일일 퀘스트(DailyQuestManager). 목표를 만든 날, 튜토리얼을 끝낸 날, 그날 목표 3개(진행도·받음 포함).</summary>
+        public int dailyQuestDay;
+        public int dailyTutorialDoneDay;
+        public DogShop.Shop.DailyQuestManager.Quest[] dailyQuests;
+        /// <summary>챔피언십 시즌(ChampionshipManager). 0 = 시즌이 없던 세이브(날짜로 맞춘다). 시즌별 순위(-1 = 출전 못 함).</summary>
+        public int season;
+        public int[] seasonRanks;
+        /// <summary>우승 기록(명예의 벽 액자).</summary>
+        public DogShop.Show.ChampionshipManager.ChampionRecord[] champions;
         public int[] shelf = new int[0];
         public int[] incoming = new int[0];
 

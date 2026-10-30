@@ -100,6 +100,7 @@ namespace DogShop.Debugging
             ServeCustomers();
             ShipOnlineOrders();
             ClearTutorial();
+            ClearDailyQuests();
             CleanFloor();
             AdvanceDayIfOver();
         }
@@ -154,6 +155,16 @@ namespace DogShop.Debugging
                 case TutorialQuestManager.OnlineOrderStep: break;
                 default: GameEvents.RaiseDogTrained(); break;
             }
+        }
+
+        /// <summary>
+        /// 튜토리얼 다음 날부터 나오는 일일 퀘스트(오늘의 가게 목표)를 다 깨고 보상을 받는다.
+        /// 사람이 매일 하는 일이므로 경제 상한에 넣어야 맞다. 목표 종류와 상관없이 전부 채운다.
+        /// </summary>
+        void ClearDailyQuests()
+        {
+            DailyQuestManager daily = DailyQuestManager.Instance;
+            if (daily != null && daily.Active && daily.AnyUnclaimed) daily.CompleteAllForMeasurement();
         }
 
         /// <summary>
