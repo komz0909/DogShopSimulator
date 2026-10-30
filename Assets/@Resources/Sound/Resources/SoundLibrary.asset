@@ -151,6 +151,12 @@ MonoBehaviour:
   - id: Sparkle
     clip: {fileID: 8300000, guid: c77c9e6e8a435824895f60d78f46e5f7, type: 3}
     volume: 0.7
+  - id: Cheer
+    clip: {fileID: 8300000, guid: 7b66bd9a4ddfa5f47b28290c2180f2e1, type: 3}
+    volume: 0.7
+  - id: CheerShort
+    clip: {fileID: 8300000, guid: 8dd9225cef723be47a52e4d5acdc4977, type: 3}
+    volume: 0.55
   bgm:
   - id: DogShow
     clip: {fileID: 8300000, guid: 94b27d92d7eac244aaccf03deb6babd1, type: 3}

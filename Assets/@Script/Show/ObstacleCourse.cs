@@ -158,6 +158,22 @@ namespace DogShop.Show
         public Obstacle Active => !Finished && Obstacles[Next].entered ? Obstacles[Next] : null;
 
         /// <summary>
+        /// 다음 장애물 입구(월드, 입구 앞 0.35m)와 지나가는 방향. 다 끝났으면 false.
+        /// 바닥 화살표(<see cref="ShowFloorGuide"/>)가 강아지 발밑에서 여기까지 줄을 잇는다.
+        /// </summary>
+        public bool NextEntrance(out Vector3 entry, out Vector3 forward)
+        {
+            entry = Vector3.zero;
+            forward = Vector3.forward;
+            if (Finished || stage == null) return false;
+            Obstacle o = Obstacles[Next];
+            Quaternion r = Quaternion.Euler(0f, o.yaw, 0f);
+            entry = stage.TransformPoint(o.center + r * new Vector3(0f, 0f, -Front(o) - 0.35f));
+            forward = stage.TransformDirection(r * Vector3.forward);
+            return true;
+        }
+
+        /// <summary>
         /// 이번 프레임 이동(무대 기준)을 거른다. 장애물을 하는 중이면 뒤로 가는 몫만 지운다 — 옆으로는 자유.
         /// 입구 밖으로 뒷걸음질해 나가지도 못한다.
         /// </summary>

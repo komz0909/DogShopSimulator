@@ -17,6 +17,8 @@ namespace DogShop.Core
         Countdown, Go, CarMove,
         // 손맛 피드백(2026-10). 클립은 나중에 SoundLibrary 칸에 넣는다 — 비어 있으면 조용하다
         CoinJingle, ItemTok, Sparkle, Fanfare,
+        // 도그쇼 관중 환호(2026-10-30). Cheer 는 5초 전체(장애물 완주·순위 발표), CheerShort 는 앞 1.8초를 잘라 끝을 줄인 것(좋은 판정)
+        Cheer, CheerShort,
     }
 
     /// <summary>배경음. 한 번에 하나만 흐른다.</summary>

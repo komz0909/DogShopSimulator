@@ -32,6 +32,8 @@ namespace DogShop.Show
         [Header("무대")]
         [SerializeField] Transform stage;
         [SerializeField] Camera showCamera;
+        /// <summary>쇼 동안만 켜는 무대 정면 조명. 무대는 지붕이 해를 가려 그늘이라 강아지가 어둡게 보였다(10-30). 쇼가 끝나면 끈다.</summary>
+        [SerializeField] GameObject showLights;
         [SerializeField] Transform posePoint;      // 미모 심사 단상
         [SerializeField] Transform fetchStart;     // 훈련 심사 출발점(주인 옆)
         [SerializeField] Transform itemTable;      // 물건이 놓인 탁자
@@ -266,6 +268,7 @@ namespace DogShop.Show
             phase = Phase.Waiting;
             Running = true;
             Sound.PlayBgm(Bgm.DogShow);
+            if (showLights != null) showLights.SetActive(true);
             headline = "Day " + ChampionshipManager.LastDay + "  도그쇼 챔피언십";
             subline = ChampionshipManager.LastDay + "일 동안 함께한 " + hero.DisplayName + "와(과) 무대에 오를 시간이다";
 
@@ -301,6 +304,7 @@ namespace DogShop.Show
         {
             foreach (Behaviour b in silenced) if (b != null) b.enabled = true;
             silenced.Clear();
+            if (showLights != null) showLights.SetActive(false);
             PointerMenus.SetOpen(this, false);
         }
 
@@ -419,8 +423,8 @@ namespace DogShop.Show
                     if (posePressed && !judged)
                     {
                         float diff = Mathf.Abs(ringRadius - targetRadius);
-                        if (diff <= perfectHalf) { got = 1f; Flash("PERFECT!", PerfectColor); Sound.Play(Sfx.PosePerfect); UI.JuiceFx.Sparkle(hero.transform.position + Vector3.up * 0.4f, true); }
-                        else if (diff <= goodHalf) { got = 0.6f; Flash("GOOD", GoodColor); Sound.Play(Sfx.PoseGood); }
+                        if (diff <= perfectHalf) { got = 1f; Flash("PERFECT!", PerfectColor); Sound.Play(Sfx.PosePerfect); UI.JuiceFx.Sparkle(hero.transform.position + Vector3.up * 0.4f, true); ScorePop("+100", PerfectColor); Cheer(false); CameraKick(); }
+                        else if (diff <= goodHalf) { got = 0.6f; Flash("GOOD", GoodColor); Sound.Play(Sfx.PoseGood); ScorePop("+60", GoodColor); }
                         else { Flash("MISS", new Color(1f, 0.55f, 0.5f)); Sound.Play(Sfx.PoseMiss); }
                         judged = true;
                         break;
@@ -539,6 +543,8 @@ namespace DogShop.Show
                     Flash("정답!", new Color(0.6f, 1f, 0.75f));
                     UI.JuiceFx.Sparkle(hero.transform.position + Vector3.up * 0.4f, true);
                     Sound.Play(Sfx.FetchSuccess);   // 2단계 성공음
+                    ScorePop("+" + Mathf.RoundToInt(100f / FetchRounds), PerfectColor);
+                    Cheer(false);
                     Say("잘했어!", 1.4f);
                     hero.Animator.Play(DogAnim.WagTail);
                 }
@@ -732,6 +738,7 @@ namespace DogShop.Show
             airTime = Mathf.Lerp(0.42f, 0.55f, agilityN);
 
             BuildTrack();
+            BuildJumpPads();
             Vector3 startFace;
             Vector3 trackStart = stage.TransformPoint(TrackPoint(0f, out startFace));
             PlaceDog(trackStart, Quaternion.LookRotation(stage.TransformDirection(startFace)));
@@ -772,6 +779,7 @@ namespace DogShop.Show
             while (pos < TrackLength)
             {
                 pos += runSpeed * Time.deltaTime;
+                if (jumpGuide != null) jumpGuide.UpdatePads(pos);
                 if (jumpRequested && Time.time - jumpStart > airTime) { jumpStart = Time.time; Sound.Play(Sfx.ShowJump); }
                 jumpRequested = false;
 
@@ -797,7 +805,7 @@ namespace DogShop.Show
                 if (!hoopDone && pos >= TrackHoopAt)
                 {
                     hoopDone = true;
-                    if (h > (hoopModel != null ? HoopModelClear : HoopInnerBottom)) { cleared++; Flash("링 통과!", PerfectColor); Sound.Play(Sfx.HurdleClear); UI.JuiceFx.Sparkle(hero.transform.position + Vector3.up * 0.4f, true); }
+                    if (h > (hoopModel != null ? HoopModelClear : HoopInnerBottom)) { cleared++; Flash("링 통과!", PerfectColor); Sound.Play(Sfx.HurdleClear); Cheer(false); UI.JuiceFx.Sparkle(hero.transform.position + Vector3.up * 0.4f, true); }
                     else { Flash("링에 걸렸다", new Color(1f, 0.55f, 0.5f)); hoopWobble = 1f; Sound.Play(Sfx.HurdleFail); }
                 }
                 if (hoop != null && hoopWobble > 0f)
@@ -813,9 +821,41 @@ namespace DogShop.Show
             hero.Animator.SetPlaybackSpeed(1f);
             hero.Animator.Play(DogAnim.WagTail);
             agilityScore = cleared / (float)total;
+            if (jumpGuide != null) { jumpGuide.Clear(); jumpGuide = null; }
             headline = "어질리티 끝";
             subline = "허들과 링 " + total + "개 중 " + cleared + "개";
             yield return Wait(1.8f);
+        }
+
+        ShowFloorGuide jumpGuide, courseGuide;
+
+        /// <summary>
+        /// 허들·링마다 "여기서 누르면 넘는다" 구간을 바닥에 깐다(<see cref="ShowFloorGuide"/>). 처음엔 감으로 눌러 0점이 나오기 쉬웠다(10-30).
+        /// 점프 높이는 h = jumpHeight·4x(1-x) (x = 체공 비율)라, 장애물에 닿을 때 h 가 넘을 높이(need) 이상이려면 x 가 [x1, x2] 안이어야 한다 —
+        /// 누르는 자리는 장애물 앞 x2·airTime·runSpeed ~ x1·airTime·runSpeed. 몸(어질리티)이 좋을수록 구간이 넓다.
+        /// </summary>
+        void BuildJumpPads()
+        {
+            if (jumpGuide != null) jumpGuide.Clear();
+            jumpGuide = new ShowFloorGuide(stage, "JumpPads");
+            for (int i = 0; i < trackHurdles.Count; i++) AddJumpPad(TrackHurdleAt[i], 0.25f);
+            AddJumpPad(TrackHoopAt, hoopModel != null ? HoopModelClear : HoopInnerBottom);
+        }
+
+        void AddJumpPad(float at, float need)
+        {
+            float k = need / (4f * jumpHeight);
+            if (k >= 0.25f) return;   // 이 몸으로는 못 넘는 높이
+            float r = Mathf.Sqrt(1f - 4f * k);
+            float x1 = (1f - r) * 0.5f, x2 = (1f + r) * 0.5f;
+            float run = airTime * runSpeed;
+            // 양 끝 10% 는 덜어 낸다 — 끝자락에서 누르면 프레임 차이로 걸릴 수 있다
+            float start = at - x2 * run, end = at - x1 * run, trim = (end - start) * 0.1f;
+            start += trim;
+            end -= trim;
+            Vector3 tan;
+            Vector3 c = stage.TransformPoint(TrackPoint((start + end) * 0.5f, out tan));
+            jumpGuide.AddJumpPad(c, stage.TransformDirection(tan), start, end, at);
         }
 
         // ---- ③ U자 점프 트랙 ----
@@ -1096,6 +1136,8 @@ namespace DogShop.Show
             if (Exhibition.Active) weaveArrows = Mathf.Min(weaveArrows, Exhibition.CourseWeaveArrowsMax);
             introFor = -1;
             course.TableEase = totalN;   // 잘 키웠으면 단상이 덜 기운다
+            if (courseGuide != null) courseGuide.Clear();
+            courseGuide = new ShowFloorGuide(stage, "CourseGuide");
 
             while (!course.Finished && courseTime < CourseLimit)
             {
@@ -1160,6 +1202,11 @@ namespace DogShop.Show
                 pos.y = y;
                 hero.transform.position = pos;
 
+                // 바닥 화살표: 장애물 밖에 있을 때만 다음 입구까지 길을 그린다
+                Vector3 entryAt = Vector3.zero, entryFwd = Vector3.forward;
+                bool guideOn = course.Active == null && course.NextEntrance(out entryAt, out entryFwd);
+                courseGuide.UpdateCourse(pos, guideOn, entryAt, entryFwd, floorY);
+
                 if (!still) courseFacing = dir.normalized;
                 // 터널 안에선 몸을 터널 방향으로 — 뒤로 못 가니 앞쪽(지나가는 쪽)을 본다
                 Vector3 tunnelFwd;
@@ -1177,6 +1224,7 @@ namespace DogShop.Show
                 {
                     if (done.kind == ObstacleCourse.Kind.Weave && done.alternations >= ObstacleCourse.PoleCount - 1) Flash("위브 완벽!", PerfectColor);
                     else Flash(done.nameKo + " 통과!", new Color(0.6f, 1f, 0.75f));
+                    Cheer(false);
                 }
                 else if (warn != null) Flash(warn, new Color(1f, 0.75f, 0.5f));
                 subline = course.Finished ? "" : course.Obstacles[course.Next].nameKo + ": " + course.Obstacles[course.Next].hint;
@@ -1185,6 +1233,7 @@ namespace DogShop.Show
                 yield return null;
             }
 
+            if (courseGuide != null) { courseGuide.Clear(); courseGuide = null; }
             hero.Animator.SetPlaybackSpeed(1f);
             hero.Animator.Play(course.Finished ? DogAnim.WagTail : DogAnim.Sit);
 
@@ -1197,6 +1246,7 @@ namespace DogShop.Show
             float points = Mathf.Max(0f, timePoints - course.PenaltyPoints);
             courseScore = points / 100f;
 
+            if (course.Finished) Cheer(true);
             headline = course.Finished ? "장애물 달리기 끝" : "시간 종료";
             subline = "기록 " + courseTime.ToString("0.0") + "초 (" + Mathf.RoundToInt(timePoints) + "점)   감점 -" + course.PenaltyPoints
                     + "   성적 " + Mathf.RoundToInt(points) + "점";
@@ -1244,6 +1294,7 @@ namespace DogShop.Show
                     + "   /   총점 " + total + "점";
             boardShownAt = Time.time;
             Sound.Play(Sfx.Ranking);
+            if (ChampionshipManager.Instance != null && ChampionshipManager.Instance.ShowRank <= 3) Cheer(true);   // 메달권이면 관중이 환호한다
             resultReady = true;
             while (resultReady)
             {
@@ -1369,6 +1420,63 @@ namespace DogShop.Show
                 yield return null;
             }
             if (model != null) model.SetPositionAndRotation(homePos, homeRot);
+        }
+
+        // ---- 환호 연출(2026-10-30) ----
+        // 좋은 판정마다 관중 환호(짧게)와 심사위원 환호 동작, 강아지 위로 점수가 떠오른다. 미모 PERFECT 엔 카메라가 살짝 당겨진다.
+        // 장애물 완주·메달권 순위 발표엔 긴 환호. 환호 동작(Anim_Cheer, 바르코)은 Humanoid 라 손님·주인공 애니메이터에도 Cheer 상태로 들어 있다.
+
+        static readonly int CheerHash = Animator.StringToHash("Cheer");
+        /// <summary>환호 동작이 4.8초라 이보다 자주 다시 틀면 처음 동작만 되풀이된다.</summary>
+        const float JudgeCheerGap = 3f;
+        Animator[] judgeAnimators;
+        float judgesCheeredAt = -10f;
+
+        void Cheer(bool big)
+        {
+            Sound.Play(big ? Sfx.Cheer : Sfx.CheerShort);
+            JudgesCheer();
+        }
+
+        void JudgesCheer()
+        {
+            if (Time.time - judgesCheeredAt < JudgeCheerGap) return;
+            judgesCheeredAt = Time.time;
+            if (judgeAnimators == null)
+            {
+                Transform j = stage != null ? stage.Find("Judges") : null;
+                judgeAnimators = j != null ? j.GetComponentsInChildren<Animator>() : new Animator[0];
+                // 손님 프리팹을 그대로 써서 루트 모션이 켜져 있다 — 환호할 때마다 몇 cm 씩 밀려났다
+                foreach (Animator ja in judgeAnimators) ja.applyRootMotion = false;
+            }
+            foreach (Animator a in judgeAnimators)
+                if (a != null && a.isActiveAndEnabled && a.HasState(0, CheerHash))
+                    a.CrossFadeInFixedTime(CheerHash, 0.15f, 0, Random.Range(0f, 0.25f));   // 셋이 똑같이 움직이지 않게 조금씩 어긋나게
+        }
+
+        void ScorePop(string text, Color color) =>
+            UI.JuiceFx.FloatText(hero.transform.position + Vector3.up * (DogSize() * 0.9f + 0.35f), text, color);
+
+        Coroutine kick;
+        float baseFov = -1f;
+
+        void CameraKick()
+        {
+            if (kick != null) StopCoroutine(kick);
+            kick = StartCoroutine(KickRoutine());
+        }
+
+        IEnumerator KickRoutine()
+        {
+            if (baseFov < 0f) baseFov = showCamera.fieldOfView;
+            const float Dur = 0.35f;
+            for (float t = 0f; t < Dur; t += Time.deltaTime)
+            {
+                showCamera.fieldOfView = baseFov * (1f - 0.07f * Mathf.Sin(t / Dur * Mathf.PI));   // 들어갔다 나온다
+                yield return null;
+            }
+            showCamera.fieldOfView = baseFov;
+            kick = null;
         }
 
         void Flash(string text, Color color)
@@ -1503,6 +1611,43 @@ namespace DogShop.Show
         Texture2D ItemIcon(int index) => index >= 0 ? InventoryManager.Instance.Catalog.Get(index).icon : null;
 
         // ---- 입력 ----
+
+        // ---- 강아지 스포트라이트(2026-10-30) ----
+        // 무대 정면 조명(ShowLights/Show_Key)은 고르게 밝힐 뿐이라 강아지가 돋보이지 않았다. 쇼 동안 강아지 머리 위, 카메라 쪽 앞에서
+        // 부드러운 스포트라이트가 따라다닌다. ShowLights 아래 Show_DogSpot 이 있으면 그걸 쓰고, 없으면 만든다.
+        const float SpotHeight = 3.2f, SpotBack = 1.4f;
+        Light dogSpot;
+
+        void LateUpdate()
+        {
+            if (!Running || hero == null || showLights == null || !showLights.activeInHierarchy) return;
+            if (dogSpot == null)
+            {
+                Transform s = showLights.transform.Find("Show_DogSpot");
+                if (s == null)
+                {
+                    s = new GameObject("Show_DogSpot").transform;
+                    s.SetParent(showLights.transform, false);
+                    var l = s.gameObject.AddComponent<Light>();
+                    l.type = LightType.Spot;
+                    l.spotAngle = 38f;
+                    l.innerSpotAngle = 14f;   // 가장자리를 넓게 흐려 바닥에 둥근 자국이 또렷하지 않게
+                    l.range = 7f;
+                    l.intensity = 15f;
+                    l.color = new Color(1f, 0.95f, 0.85f);
+                    l.shadows = LightShadows.None;
+                }
+                dogSpot = s.GetComponent<Light>();
+            }
+            Vector3 dog = hero.transform.position;
+            Vector3 toCam = showCamera != null ? showCamera.transform.position - dog : -stage.forward;
+            toCam.y = 0f;
+            toCam = toCam.sqrMagnitude > 1e-4f ? toCam.normalized : -stage.forward;
+            Vector3 want = dog + Vector3.up * SpotHeight + toCam * SpotBack;
+            // 카메라가 휙 돌 때 빛이 튀지 않게 조금 늦게 따라간다
+            dogSpot.transform.position = Vector3.Lerp(dogSpot.transform.position, want, 1f - Mathf.Exp(-10f * Time.deltaTime));
+            dogSpot.transform.rotation = Quaternion.LookRotation(dog + Vector3.up * 0.25f - dogSpot.transform.position);
+        }
 
         void Update()
         {
