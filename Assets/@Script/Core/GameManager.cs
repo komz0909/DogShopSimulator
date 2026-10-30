@@ -125,6 +125,8 @@ namespace DogShop.Core
             if (amount == 0) return;
 
             int next = Mathf.Max(0, Reputation + amount);
+            // 시연은 시작 명성(Lv 8 문턱) 밑으로 내려가지 않는다 — 1일차를 일찍 끝내며 손님을 놓치면 -4 로 2일차 레벨업이 막혔다(10-30 빌드 점검)
+            if (Exhibition.Active) next = Mathf.Max(next, Exhibition.StartReputation);
             if (next == Reputation) return;
 
             Reputation = next;
