@@ -93,6 +93,15 @@ namespace DogShop.Core
         /// </summary>
         public const int SupportReserve = 400;
 
+        /// <summary>
+        /// 시연 도그쇼 라이벌 기준 점수(±3). 본편 값(86·79·71·62·52)은 30일 키운 강아지 기준이라 3일 키운 시연견은 꼴찌가 됐다(10-30 빌드 점검, 41점 6등).
+        /// 처음 해 보는 사람 60~70점 → 2~3등, 80점 근처 → 우승.
+        /// </summary>
+        public static readonly int[] RivalShowScores = { 78, 66, 54, 42, 30 };
+
+        /// <summary>시연 도그쇼 최저 순위(메달권). 이보다 아래면 라이벌 점수를 주인공 아래로 내린다(ChampionshipManager.KeepPodium).</summary>
+        public const int MinShowRank = 3;
+
         /// <summary>열린 상품마다 창고에 깔아 두는 수. 첫날 발주하지 않아도 바로 진열하고 팔 수 있게.</summary>
         public const int StartStockPerProduct = 10;
 

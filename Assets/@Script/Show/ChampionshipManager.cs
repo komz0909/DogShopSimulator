@@ -144,7 +144,8 @@ namespace DogShop.Show
 
             for (int i = 0; i < breeds.Count; i++)
             {
-                int baseScore = RivalShowScores[Mathf.Min(i, RivalShowScores.Length - 1)];
+                int[] rivals = Exhibition.Active ? Exhibition.RivalShowScores : RivalShowScores;
+                int baseScore = rivals[Mathf.Min(i, rivals.Length - 1)];
                 board.Add(new ShowEntry
                 {
                     name = names[i % names.Count],
@@ -155,9 +156,25 @@ namespace DogShop.Show
             }
 
             board.Sort((a, b) => a.score != b.score ? b.score.CompareTo(a.score) : b.hero.CompareTo(a.hero));
+            if (Exhibition.Active) KeepPodium(board);
             ShowBoard = board;
             ShowScore = score;
             ShowRank = board.FindIndex(e => e.hero) + 1;
+        }
+
+        /// <summary>
+        /// 시연은 최소 <see cref="Exhibition.MinShowRank"/>등에 든다 — 처음 해 본 관람객이 꼴찌로 끝나면 게임 인상이 나빠진다.
+        /// 주인공보다 위에 있는 라이벌 중 메달권 밖으로 밀려날 자리를 주인공 점수보다 조금 낮게 바꾼다. 1등은 실력으로만.
+        /// </summary>
+        static void KeepPodium(List<ShowEntry> board)
+        {
+            int heroAt = board.FindIndex(e => e.hero);
+            int keepAbove = Exhibition.MinShowRank - 1;
+            if (heroAt <= keepAbove) return;
+            int heroScore = board[heroAt].score;
+            for (int i = keepAbove; i < heroAt; i++)
+                board[i].score = Mathf.Max(0, heroScore - 1 - (i - keepAbove) * 2 - Random.Range(0, 2));   // 2점 간격이라 서로 겹치지 않는다
+            board.Sort((a, b) => a.score != b.score ? b.score.CompareTo(a.score) : b.hero.CompareTo(a.hero));
         }
 
         static void Shuffle<T>(List<T> list)
