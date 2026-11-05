@@ -265,7 +265,7 @@ namespace DogShop.Shop
         public string CompleteText => Demo ? (Exhibition.IsShowDay(Today) ? "준비 완료!" : "오늘 할 일 완료!") : "튜토리얼 완료!";
         public string CompleteDetail => !Demo ? null
             : Exhibition.IsShowDay(Today) ? "왼쪽 [도그쇼 시작]을 누르거나 G 를 누르자."
-            : "잠시 뒤 다음 날로 넘어간다. 바로 가려면 왼쪽 버튼을 누르자.";
+            : "잠시 뒤 다음 날로 넘어간다.";
 
         /// <summary>
         /// [퀘스트 완료] — 보상 50원을 받고 다음 퀘스트로. 달성했을 때만 된다.

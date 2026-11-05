@@ -59,7 +59,7 @@ namespace DogShop.Dogs
         /// <summary>막았을 때 보여 줄 안내.</summary>
         public static string Message(Reject reject)
         {
-            return reject == Reject.Glyph ? "글꼴에 없는 글자라 쓸 수 없다. 다른 글자로 지어 보자" : "한글과 영어만 쓸 수 있다";
+            return reject == Reject.Glyph ? "글꼴에 없는 글자는 쓸 수 없다" : "한글과 영어만 쓸 수 있다";
         }
     }
 }
