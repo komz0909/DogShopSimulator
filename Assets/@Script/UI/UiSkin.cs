@@ -39,7 +39,7 @@ namespace DogShop.UI
         /// 게임 전체 UI 배율. 1080p 설계 크기보다 이만큼 크게 그린다 — "글자가 작다"는 피드백(2026-10-17).
         /// 창은 <see cref="ScaleFor"/> 로 화면 안에 들어가는 만큼만 키우므로 화면 밖으로 나가지 않는다.
         /// </summary>
-        public const float Boost = 1.15f;
+        public const float Boost = 1.3f;   // 1.15 -> 1.3 (지스타 시연 전 다시 키움, 2026-11-04)
 
         /// <summary>화면 비율 배율(1080p = 1) x <see cref="Boost"/>. 화면 가장자리에 붙여 배치하는 HUD·메뉴용.</summary>
         public static float ScreenScale => Mathf.Min(Screen.width / 1920f, Screen.height / 1080f) * Boost;

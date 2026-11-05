@@ -125,6 +125,9 @@ namespace DogShop.Dogs
             // 우선순위가 낮은 쪽만 비키므로 반려견을 맨 뒤로 두면 손님은 제 길을 가고 반려견이 비킨다
             // (주인과는 Dog 에서 몸 충돌을 아예 끈다)
             agent.avoidancePriority = 90;
+            // 손님과 서로 통과한다(2026-11-04). 손님은 이미 아무도 피하지 않는데 반려견만 피하려다
+            // 줄 선 손님 사이에서 비킬 틈을 찾지 못하고 멈춰 길을 막았다. 청소기처럼 회피를 끈다
+            agent.obstacleAvoidanceType = ObstacleAvoidanceType.NoObstacleAvoidance;
         }
 
         void Start()

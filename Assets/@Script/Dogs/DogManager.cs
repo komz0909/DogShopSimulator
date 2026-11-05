@@ -97,6 +97,24 @@ namespace DogShop.Dogs
             return dog;
         }
 
+        /// <summary>
+        /// 새 시즌의 새 강아지(2026-11-04). 지난 강아지를 보내고 고른 견종을 처음 능력치로 들인다.
+        /// 훈련 단계(TrainingManager)는 가게의 것이라 그대로 남는다.
+        /// </summary>
+        public void ReplaceHero(int breedIndex, string name)
+        {
+            if (Hero != null)
+            {
+                Hero.Stats.OnChanged -= PushHeroStatToLevelGate;
+                Destroy(Hero.gameObject);
+            }
+            Hero = null;
+            lastMascotGrade = -1;   // 새 강아지의 첫 등급은 승급 알림을 내지 않는다
+            Dog dog = Spawn(breedIndex);
+            if (dog != null) dog.SetName(name ?? "");
+            OnRosterChanged?.Invoke();
+        }
+
         void HandleDayStarted()
         {
             if (Hero == null) return;
@@ -152,7 +170,8 @@ namespace DogShop.Dogs
                     agility = st.Agility,
                     beautyCarry = st.BeautyCarry,
                     trainingCarry = st.TrainingCarry,
-                    agilityCarry = st.AgilityCarry
+                    agilityCarry = st.AgilityCarry,
+                    mascotFame = Hero.MascotFame
                 }
             };
         }
@@ -175,6 +194,7 @@ namespace DogShop.Dogs
             dog.RestoreState(s.daysOwned);
             dog.SetName(s.name);
             dog.Stats.Restore(s.cleanliness, s.health, s.beauty, s.training, s.agility, s.beautyCarry, s.trainingCarry, s.agilityCarry);
+            dog.RestoreMascotFame(s.mascotFame);
             dog.SyncMood();
 
             PushHeroStatToLevelGate();

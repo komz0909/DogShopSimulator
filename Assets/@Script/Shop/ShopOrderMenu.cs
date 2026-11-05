@@ -26,7 +26,9 @@ namespace DogShop.Shop
 
         // 창 안 좌표는 1920x1080 기준 설계값이다. 화면이 작으면 GUI.matrix 로 통째로 줄인다
         const float Gap = 10f;
-        const int Columns = 4;
+        // 4 -> 5 (2026-11-05): 가구 탭이 세 줄이 되며 창이 세로로 길어 화면 높이에 맞춰 0.9배로 줄었고 글씨가 작았다.
+        // 다섯 칸이면 두 줄에 들어 창이 낮아지고 그만큼 크게 그린다
+        const int Columns = 5;
         const float CardWidth = 132f;
         const float CardHeight = 240f;
 
@@ -401,6 +403,11 @@ namespace DogShop.Shop
         /// 가게 레벨업 — <b>사야 오른다</b>. 명성이 문턱을 넘어도 저절로 오르지 않고, 여기서 비용을 내고 눌러야 한다.
         /// 조건이 안 되면 무엇이 모자란지 버튼에 적고 눌리지 않는다. 오르면 HUD 가 해금 내용을 알린다.
         /// </summary>
+        /// <summary>레벨업 버튼 뒤에서 깜빡이는 금색 테두리.</summary>
+        static readonly Color LevelUpGlow = new Color(1f, 0.55f, 0.12f);
+        /// <summary>레벨업할 수 있을 때 버튼 색(노랑).</summary>
+        static readonly Color LevelUpFlash = new Color(1f, 0.84f, 0.3f);
+
         void DrawLevelUpButton(Rect rect)
         {
             ShopLevelManager levels = ShopLevelManager.Instance;
@@ -428,7 +435,25 @@ namespace DogShop.Shop
 
             // 조건이 안 돼도 글자는 또렷하게 — GUI.enabled 로 끄면 무엇이 모자란지가 흐려서 안 읽혔다.
             // 대신 눌러도 오르지 않고 사유만 알린다(ActionRunner 가 거절 사유를 띄운다)
-            var style = new GUIStyle(UiSkin.Button(can ? UiSkin.Green : UiSkin.Cream)) { fontSize = 15 };
+            // 올릴 수 있으면 처음부터 노란 버튼(초록과 번갈아 바뀌면 어색했다, 2026-11-04 의견) — 깜빡임은 뒤 테두리가 맡는다
+            var style = new GUIStyle(UiSkin.Button(can ? LevelUpFlash : UiSkin.Cream)) { fontSize = 18 };
+
+            // 올릴 수 있으면 깜빡이며 눈에 띄게(2026-11-04 시연 플레이 의견 — 머리줄에 묻혀 잘 안 보였다).
+            // 버튼 뒤로 금색 테두리가 숨 쉬듯 커졌다 작아지고, 버튼도 살짝 커진다. 못 올릴 때는 차분하게 둔다
+            if (can)
+            {
+                float k = 0.5f + 0.5f * Mathf.Sin(Time.unscaledTime * 6f);
+                float grow = 4f + 6f * k;
+                var halo = new Rect(rect.x - grow, rect.y - grow, rect.width + grow * 2f, rect.height + grow * 2f);
+                Color keep = GUI.color;
+                GUI.color = new Color(1f, 1f, 1f, k);   // 사라졌다 나타났다 — 깜빡깜빡
+                GUI.Box(halo, GUIContent.none, UiSkin.Button(LevelUpGlow));
+                GUI.color = keep;
+                float pop = 1.5f * k;
+                rect = new Rect(rect.x - pop, rect.y - pop, rect.width + pop * 2f, rect.height + pop * 2f);
+                style.fontStyle = FontStyle.Bold;
+            }
+
             if (UiSkin.Click(rect, label, style))
             {
                 ActionRunner.TryRun(new ShopLevelManager.UpgradeAction());
@@ -659,7 +684,7 @@ namespace DogShop.Shop
                 GUI.color = prev;
             }
 
-            var label = new GUIStyle(UiSkin.Caption) { fontSize = 15, alignment = TextAnchor.MiddleLeft };
+            var label = new GUIStyle(UiSkin.Caption) { fontSize = 18, alignment = TextAnchor.MiddleLeft };
             label.normal.textColor = UiSkin.Ink;
             GUI.Label(new Rect(rect.x + rect.height + 4f, rect.y, rect.width - rect.height - 10f, rect.height),
                 "랜덤 상자  " + box.Price + "원", label);
@@ -678,6 +703,11 @@ namespace DogShop.Shop
             // 마감한 뒤에는 ActionRunner 가 모든 행동을 막는다. 눌러 봐야 거절만 뜨므로 아예 끈다
             bool canOrder = TimeManager.Instance == null || !TimeManager.Instance.IsDayOver;
 
+            // 시연 '발주하기' 차례면 시켜 볼 물건 카드 뒤에 주황 테두리를 깜빡인다(레벨업 버튼과 같은 모양)
+            TutorialQuestManager quests = TutorialQuestManager.Instance;
+            bool pointDemo = quests != null && quests.WantsDemoOrder;
+            float glow = 0.5f + 0.5f * Mathf.Sin(Time.unscaledTime * 6f);
+
             for (int i = 0; i < visible.Count; i++)
             {
                 int index = visible[i];
@@ -685,10 +715,18 @@ namespace DogShop.Shop
                 bool unlocked = inv.IsUnlocked(index);
 
                 Rect card = CardAt(left, top, i);
+                if (pointDemo && product.nameKo == TutorialQuestManager.DemoOrderProduct)
+                {
+                    float grow = 4f + 6f * glow;
+                    Color keep = GUI.color;
+                    GUI.color = new Color(1f, 1f, 1f, glow);
+                    GUI.Box(new Rect(card.x - grow, card.y - grow, card.width + grow * 2f, card.height + grow * 2f), GUIContent.none, UiSkin.Button(LevelUpGlow));
+                    GUI.color = keep;
+                }
                 DrawCard(card);
 
                 DrawPhoto(card, product.icon, unlocked);
-                GUI.Label(new Rect(card.x + 4f, card.y + NameY, card.width - 8f, 20f), product.nameKo, Styles.name);
+                GUI.Label(new Rect(card.x + 4f, card.y + NameY, card.width - 8f, 20f), product.nameKo, Styles.Fit(Styles.name, product.nameKo, card.width - 8f));
                 DrawTag(card, PriceY, "도매 " + product.wholesale + "원", UiSkin.Cream);
                 GUI.Label(new Rect(card.x + 4f, card.y + RetailY, card.width - 8f, 18f),
                           "판매 " + product.retail + "원", Styles.small);
@@ -762,10 +800,11 @@ namespace DogShop.Shop
                 DrawCard(card);
 
                 DrawPhoto(card, item.icon, unlocked);
-                GUI.Label(new Rect(card.x + 4f, card.y + NameY, card.width - 8f, 20f), item.nameKo, Styles.name);
+                GUI.Label(new Rect(card.x + 4f, card.y + NameY, card.width - 8f, 20f), item.nameKo, Styles.Fit(Styles.name, item.nameKo, card.width - 8f));
                 DrawTag(card, PriceY, item.price.ToString("N0") + "원", UiSkin.Cream);
                 // 장식 가구는 쓰임새 대신 효과를 적는다 — 고르는 기준이 그것뿐이다
-                GUI.Label(new Rect(card.x + 4f, card.y + RetailY, card.width - 8f, 18f), item.IsDecor ? item.DecorText : item.note, Styles.small);
+                string furnitureNote = item.IsDecor ? item.DecorText : item.note;
+                GUI.Label(new Rect(card.x + 4f, card.y + RetailY, card.width - 8f, 18f), furnitureNote, Styles.Fit(Styles.small, furnitureNote, card.width - 8f));
 
                 if (!unlocked)
                 {
@@ -870,21 +909,38 @@ namespace DogShop.Shop
                 if (sign != null && built == UiSkin.Font) return;
                 built = UiSkin.Font;
 
-                sign = Make(22, new Color(1f, 0.96f, 0.86f), TextAnchor.MiddleCenter, true);
-                soft = Make(15, Soft, TextAnchor.MiddleLeft, false);
-                softWrap = Make(14, Soft, TextAnchor.UpperLeft, false);
+                sign = Make(25, new Color(1f, 0.96f, 0.86f), TextAnchor.MiddleCenter, true);
+                soft = Make(18, Soft, TextAnchor.MiddleLeft, false);
+                softWrap = Make(17, Soft, TextAnchor.UpperLeft, false);
                 softWrap.wordWrap = true;
-                softCenter = Make(13, Soft, TextAnchor.MiddleCenter, false);
-                money = Make(18, Ink, TextAnchor.MiddleRight, true);
-                heading = Make(17, Ink, TextAnchor.MiddleLeft, true);
-                item = Make(14, Ink, TextAnchor.MiddleLeft, false);
-                itemRight = Make(14, Ink, TextAnchor.MiddleRight, false);
-                name = Make(15, Ink, TextAnchor.MiddleCenter, true);
-                small = Make(13, Soft, TextAnchor.MiddleCenter, false);
-                footer = Make(14, Soft, TextAnchor.MiddleLeft, false);
-                warnRight = Make(13, Warn, TextAnchor.MiddleRight, false);
-                tab = Make(16, Soft, TextAnchor.MiddleCenter, true);
-                tabOn = Make(16, Ink, TextAnchor.MiddleCenter, true);
+                softCenter = Make(16, Soft, TextAnchor.MiddleCenter, false);
+                money = Make(21, Ink, TextAnchor.MiddleRight, true);
+                heading = Make(20, Ink, TextAnchor.MiddleLeft, true);
+                item = Make(17, Ink, TextAnchor.MiddleLeft, false);
+                itemRight = Make(17, Ink, TextAnchor.MiddleRight, false);
+                name = Make(18, Ink, TextAnchor.MiddleCenter, true);
+                small = Make(16, Soft, TextAnchor.MiddleCenter, false);
+                footer = Make(17, Soft, TextAnchor.MiddleLeft, false);
+                warnRight = Make(16, Warn, TextAnchor.MiddleRight, false);
+                tab = Make(19, Soft, TextAnchor.MiddleCenter, true);
+                tabOn = Make(19, Ink, TextAnchor.MiddleCenter, true);
+            }
+
+            static readonly System.Collections.Generic.Dictionary<long, GUIStyle> fitted = new System.Collections.Generic.Dictionary<long, GUIStyle>();
+
+            /// <summary>칸보다 긴 글은 글씨를 1씩 줄여 한 줄에 넣는다(2026-11-05, 글씨를 키우며 가구 설명이 카드를 넘쳤다).</summary>
+            public static GUIStyle Fit(GUIStyle baseStyle, string text, float width)
+            {
+                var content = new GUIContent(text);
+                if (baseStyle.CalcSize(content).x <= width) return baseStyle;
+                GUIStyle s = baseStyle;
+                for (int size = baseStyle.fontSize - 1; size >= 11; size--)
+                {
+                    long key = (long)baseStyle.GetHashCode() * 64 + size;
+                    if (!fitted.TryGetValue(key, out s) || s.font != baseStyle.font) { s = new GUIStyle(baseStyle) { fontSize = size }; fitted[key] = s; }
+                    if (s.CalcSize(content).x <= width) break;
+                }
+                return s;
             }
 
             static GUIStyle Make(int size, Color color, TextAnchor anchor, bool bold)

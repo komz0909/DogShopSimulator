@@ -54,6 +54,7 @@ namespace DogShop.Dogs
             float w = BaseWidth * scale;
             float h = w * plate.height / plate.width;
             var r = new Rect(sp.x - w * 0.5f, Screen.height - sp.y - h, w, h);
+            if (UI.GameHud.Covers(r)) return;   // 할 일 판 위에 이름표가 겹쳐 글을 가렸다(2026-11-04)
 
             float alpha = 1f - Mathf.InverseLerp(FadeFrom, MaxDistance, sp.z);
             GUI.depth = 50;   // HUD·창보다 뒤에 그린다

@@ -80,8 +80,43 @@ namespace DogShop.Show
         public IReadOnlyList<int> SeasonRanks => seasonRanks;
         public int Trophies { get { int n = 0; foreach (int r in seasonRanks) if (r == 1) n++; return n; } }
 
+        // 시즌마다의 기록(2026-11-05): 순위, 그 시즌 가게 명성, 함께한 강아지. 시즌 결산 판과 명예의 전당이 쓴다
+        [System.Serializable]
+        public class SeasonLog
+        {
+            public int season;
+            public int rank;
+            public int shopFame;
+            public string dogName;
+            public int breedIndex;
+        }
+
+        readonly List<SeasonLog> seasonLogs = new List<SeasonLog>();
+        public IReadOnlyList<SeasonLog> SeasonLogs => seasonLogs;
+
+        /// <summary>지금까지 시즌들의 가게 명성 합.</summary>
+        public int TotalShopFame { get { int n = 0; foreach (SeasonLog l in seasonLogs) n += l.shopFame; return n; } }
+
+        /// <summary>다섯 시즌을 다 마친 판을 명예의 전당 기록 하나로.</summary>
+        public HallOfFame.Entry BuildHallEntry()
+        {
+            int n = seasonLogs.Count;
+            var e = new HallOfFame.Entry { ranks = new int[n], fames = new int[n], dogNames = new string[n], breeds = new int[n] };
+            for (int i = 0; i < n; i++)
+            {
+                e.ranks[i] = seasonLogs[i].rank;
+                e.fames[i] = seasonLogs[i].shopFame;
+                e.dogNames[i] = seasonLogs[i].dogName;
+                e.breeds[i] = seasonLogs[i].breedIndex;
+            }
+            e.totalFame = TotalShopFame;
+            e.date = System.DateTime.Now.ToString("yyyy.MM.dd");
+            e.stamp = System.DateTime.Now.Ticks;
+            return e;
+        }
+
         /// <summary>시즌마다 라이벌 도그쇼 점수가 이만큼 오른다. 1위 라이벌 86 → 90 → 94 → 98 에서 멈춘다.</summary>
-        public const int RivalBonusPerSeason = 4;
+        public const int RivalBonusPerSeason = 3;   // 4 -> 3: 다섯 시즌에 걸쳐 0/3/6/9/12 로 고르게(2026-11-04)
         public const int MaxRivalBonus = 12;
         public int RivalBonus => Exhibition.Active ? 0 : Mathf.Min(MaxRivalBonus, (Season - 1) * RivalBonusPerSeason);
 
@@ -91,7 +126,11 @@ namespace DogShop.Show
         /// 만점이 오르면 같은 강아지라도 무대가 다시 어려워져 계속 키워야 한다. 시연은 240.
         /// </summary>
         public const int BaseStatFull = 240;
-        public const int StatFullPerSeason = 80;
+        public const int StatFullPerSeason = 60;   // 80 -> 60: 다섯 시즌에 240/300/360/420/480(2026-11-04)
+
+        /// <summary>본편은 다섯 시즌까지 — 더 길면 지루하다(2026-11-04). 5시즌 결산 뒤 끝난다.</summary>
+        public const int MaxSeasons = 5;
+        public bool IsLastSeason => Season >= MaxSeasons;
         public const int MaxStatFull = 480;
         public static int StatFullFor(int season) => Mathf.Min(MaxStatFull, BaseStatFull + (Mathf.Max(1, season) - 1) * StatFullPerSeason);
         public static float StatFull => Exhibition.Active || Instance == null ? BaseStatFull : StatFullFor(Instance.Season);
@@ -105,6 +144,14 @@ namespace DogShop.Show
             public int season;
             public int breedIndex;
             public string dogName;
+            // 액자에 E 를 누르면 보이는 그 시즌의 기록(2026-11-04). 이전 세이브의 액자는 0 이다
+            public int beauty;
+            public int training;
+            public int agility;
+            public int health;
+            public int mascotFame;
+            public int showScore;
+            public int shopFame;   // 그 시즌에 쌓은 가게 명성(2026-11-05)
         }
 
         readonly List<ChampionRecord> champions = new List<ChampionRecord>();
@@ -121,6 +168,27 @@ namespace DogShop.Show
         public static float SaleBonus => Exhibition.Active || Instance == null ? 0f
             : Mathf.Min(MaxBonusTrophies, Instance.Trophies) * SaleBonusPerTrophy;
 
+        // ---- 순위 보너스(2026-11-05) ----
+        // 지난 시즌 순위마다 명성, 훈련, 운동으로 오르는 양에 보너스가 붙는다. 1등 10%, 2등 7.5%, 3등 5%.
+        // 시즌끼리 더한다(합연산): 1등, 3등, 1등이면 +25%. 시즌 결산 판에서 순위를 적는 순간부터 붙는다. 시연에는 없다.
+
+        public static float RankBonusOf(int rank) => rank == 1 ? 0.10f : rank == 2 ? 0.075f : rank == 3 ? 0.05f : 0f;
+
+        /// <summary>지금 붙는 순위 보너스 합(0.175 = +17.5%).</summary>
+        public static float RankBonus
+        {
+            get
+            {
+                if (Exhibition.Active || Instance == null) return 0f;
+                float sum = 0f;
+                foreach (int r in Instance.seasonRanks) sum += RankBonusOf(r);
+                return sum;
+            }
+        }
+
+        /// <summary>+17.5% 처럼 적는다.</summary>
+        public static string RankBonusText(float bonus) => "+" + (bonus * 100f).ToString("0.#") + "%";
+
         /// <summary>판매가에 챔피언 보너스를 얹는다(CustomerManager.PayoutOf).</summary>
         public static int WithSaleBonus(int retail)
         {
@@ -136,6 +204,15 @@ namespace DogShop.Show
         {
             if (seasonRanks.Count >= Season) return;
             seasonRanks.Add(rank);
+            Dog logDog = DogManager.Instance != null ? DogManager.Instance.Hero : null;
+            seasonLogs.Add(new SeasonLog
+            {
+                season = Season,
+                rank = rank,
+                shopFame = GameManager.Instance != null ? GameManager.Instance.Reputation : 0,
+                dogName = logDog != null ? logDog.DisplayName : "",
+                breedIndex = logDog != null ? logDog.BreedIndex : 0,
+            });
             if (rank != 1 || Exhibition.Active) return;
 
             Dog hero = DogManager.Instance != null ? DogManager.Instance.Hero : null;
@@ -144,6 +221,13 @@ namespace DogShop.Show
                 season = Season,
                 breedIndex = hero != null ? hero.BreedIndex : 0,
                 dogName = hero != null ? hero.DisplayName : "강아지",
+                beauty = hero != null ? hero.Stats.Beauty : 0,
+                training = hero != null ? hero.Stats.Training : 0,
+                agility = hero != null ? hero.Stats.Agility : 0,
+                health = hero != null ? hero.Stats.Health : 0,
+                mascotFame = hero != null ? hero.MascotFame : 0,
+                showScore = ShowScore,
+                shopFame = GameManager.Instance != null ? GameManager.Instance.Reputation : 0,
             });
             if (GameManager.Instance != null) GameManager.Instance.AddMoney(ChampionPrize);
         }
@@ -164,6 +248,7 @@ namespace DogShop.Show
             data.season = Season;
             data.seasonRanks = seasonRanks.ToArray();
             data.champions = champions.ToArray();
+            data.seasonLogs = seasonLogs.ToArray();
         }
 
         public void RestoreFrom(SaveData data)
@@ -174,6 +259,8 @@ namespace DogShop.Show
             if (data.seasonRanks != null) seasonRanks.AddRange(data.seasonRanks);
             champions.Clear();
             if (data.champions != null) champions.AddRange(data.champions);
+            seasonLogs.Clear();
+            if (data.seasonLogs != null) seasonLogs.AddRange(data.seasonLogs);
         }
 
         public bool IsFinalDay(int day) => day >= LastDay;

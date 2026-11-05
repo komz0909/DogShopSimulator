@@ -119,10 +119,30 @@ namespace DogShop.Core
             return true;
         }
 
-        /// <summary>음수를 넣으면 깎인다. 0 아래로는 내려가지 않는다.</summary>
-        public void AddReputation(int amount)
+        /// <summary>음수를 넣으면 깎인다. 0 아래로는 내려가지 않는다. 오르는 쪽에는 순위 보너스가 붙는다.</summary>
+        public void AddReputation(int amount) => AddReputation(amount, true);
+
+        float reputationBonusCarry;
+
+        /// <summary>
+        /// rankBonus 가 true 면 오르는 명성에 지난 시즌 순위 보너스(<see cref="Show.ChampionshipManager.RankBonus"/>)를 얹는다.
+        /// 한 번에 1~3 씩 오르니 소수점은 쌓아 두었다가 1이 되면 붙인다. 손님 입장은 장식 보너스와 더해 직접 셈하므로 false 로 부른다.
+        /// </summary>
+        public void AddReputation(int amount, bool rankBonus)
         {
             if (amount == 0) return;
+
+            if (amount > 0 && rankBonus)
+            {
+                float b = Show.ChampionshipManager.RankBonus;
+                if (b > 0f)
+                {
+                    reputationBonusCarry += amount * b;
+                    int extra = Mathf.FloorToInt(reputationBonusCarry + 0.0001f);
+                    reputationBonusCarry -= extra;
+                    amount += extra;
+                }
+            }
 
             int next = Mathf.Max(0, Reputation + amount);
             // 시연은 시작 명성(Lv 8 문턱) 밑으로 내려가지 않는다 — 1일차를 일찍 끝내며 손님을 놓치면 -4 로 2일차 레벨업이 막혔다(10-30 빌드 점검)
@@ -130,6 +150,15 @@ namespace DogShop.Core
             if (next == Reputation) return;
 
             Reputation = next;
+            OnReputationChanged?.Invoke(Reputation);
+        }
+
+        /// <summary>새 시즌(2026-11-05): 가게를 1레벨부터 다시 키우므로 가게 명성도 0에서 다시 쌓는다. 지난 시즌 명성은 시즌 기록에 남는다.</summary>
+        public void ResetReputationForNewSeason()
+        {
+            Reputation = 0;
+            ReputationAtDayStart = 0;
+            reputationBonusCarry = 0f;
             OnReputationChanged?.Invoke(Reputation);
         }
 

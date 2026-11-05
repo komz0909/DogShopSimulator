@@ -257,15 +257,16 @@ namespace DogShop.Shop
         }
 
         /// <summary>
-        /// 보상 수치. 하루 매출(67차 측정 평균 약 1,400원)의 10% 안팎이 되게 — 셋을 다 받아도 하루 판도를 바꾸지 않는다.
-        /// 돈 60~200원, 명성 2~5, 능력치 +2~4, 섞으면 각각 절반쯤.
+        /// 보상 수치. 셋을 다 받아도 하루 판도를 바꾸지 않게 — 돈 40~130원, 명성 2~5, 능력치 +1~2, 섞으면 각각 절반쯤.
         /// </summary>
         static void RewardFor(Quest q, int day, GrowthAxis weak, System.Random rng)
         {
             day = Mathf.Min(day, Show.ChampionshipManager.FinalDay);
-            int money = 60 + day * 5;
+            // 69차(퀘스트 없음)와 68차(퀘스트 있음)를 비교해 줄였다(2026-11-02) — 30일 직접 보상이 돈 4,635·능력치 69 로
+            // 성장이 120 → 314, 가게 Lv7 → 9 가 됐다. 능력치는 마스코트 등급(승급 조건)도 당겨서 가장 크게 줄인다
+            int money = 40 + day * 3;
             int rep = 2 + day / 8;
-            int stat = 2 + day / 14;
+            int stat = 1 + day / 15;
             q.axis = weak;   // 능력치 보상은 가장 낮은 축을 채운다
             switch (q.reward)
             {

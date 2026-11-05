@@ -20,6 +20,14 @@ namespace DogShop.Dogs
         /// <summary>하루에 손님 반응으로 얻을 수 있는 명성.</summary>
         public const int DailyCap = 15;
 
+        /// <summary>등급이 오를 때마다 하루 상한이 5씩 오른다(15~35) — 최고 등급 뒤에도 잘 키운 만큼 마스코트 명성이 더 쌓이게(2026-11-04).</summary>
+        public const int CapPerGrade = 5;
+        static int CapToday()
+        {
+            Dog hero = DogManager.Instance != null ? DogManager.Instance.Hero : null;
+            return DailyCap + (hero != null ? MascotGrade.GradeOf(hero.Stats.MascotTotal) * CapPerGrade : 0);
+        }
+
         /// <summary>하루에 깎일 수 있는 명성(아픈·더러운 강아지). 돌보기를 빼먹으면 손해지만 끝없이 깎이진 않게.</summary>
         public const int DailyPenaltyCap = 5;
 
@@ -94,10 +102,11 @@ namespace DogShop.Dogs
             }
             int rep = kind == Reaction.Basic ? 1 : 2;
             if (MascotGrade.GradeOf(hero.Stats.MascotTotal) >= MascotGrade.Thresholds.Length - 1) rep++;
-            rep = Mathf.Min(rep, DailyCap - earnedToday);
+            rep = Mathf.Min(rep, CapToday() - earnedToday);
             if (rep <= 0) return;
             earnedToday += rep;
             GameManager.Instance.AddReputation(rep);
+            hero.AddMascotFame(rep);
             GameEvents.RaiseMascotGreeted();
         }
 
@@ -114,7 +123,7 @@ namespace DogShop.Dogs
             Dog hero = DogManager.Instance != null ? DogManager.Instance.Hero : null;
             if (hero == null) return;
             bool unwell = hero.Stats.GrowthBlocked;
-            if (unwell ? lostToday >= DailyPenaltyCap : earnedToday >= DailyCap) return;
+            if (unwell ? lostToday >= DailyPenaltyCap : earnedToday >= CapToday()) return;
 
             DogRoamer roamer = hero.GetComponent<DogRoamer>();
             if (roamer == null || !roamer.enabled || roamer.Busy) return;
@@ -203,7 +212,7 @@ namespace DogShop.Dogs
             if (rep > 0)
             {
                 if (grade >= MascotGrade.Thresholds.Length - 1) rep++;   // 챔피언 후보는 다들 알아본다
-                rep = Mathf.Min(rep, DailyCap - earnedToday);
+                rep = Mathf.Min(rep, CapToday() - earnedToday);
                 earnedToday += rep;
                 Sound.Play(Sfx.DogBark);
             }
@@ -213,7 +222,7 @@ namespace DogShop.Dogs
                 Sound.Play(Sfx.Warning);
             }
             if (rep != 0) GameManager.Instance.AddReputation(rep);
-            if (rep > 0) GameEvents.RaiseMascotGreeted();
+            if (rep > 0) { hero.AddMascotFame(rep); GameEvents.RaiseMascotGreeted(); }
 
             bubbleWho = who;
             bubbleText = line;
@@ -246,7 +255,8 @@ namespace DogShop.Dogs
             {
                 if (bubbleKind == Reaction.Unwell) GUI.color = new Color(1f, 0.82f, 0.8f, a);
                 float w = bubbleStyle.CalcSize(new GUIContent(bubbleText)).x + 28f;
-                GUI.Box(new Rect(head.x - w * 0.5f, Screen.height - head.y - 36f, w, 34f), bubbleText, bubbleStyle);
+                var bubble = new Rect(head.x - w * 0.5f, Screen.height - head.y - 36f, w, 34f);
+                if (!UI.GameHud.Covers(bubble)) GUI.Box(bubble, bubbleText, bubbleStyle);
                 GUI.color = new Color(1f, 1f, 1f, a);
             }
 

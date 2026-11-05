@@ -53,16 +53,19 @@ namespace DogShop.Shop
 
         // ---- 안 뜯은 상자 ----
 
-        /// <summary>상자 한 변. VARCO 로 뽑은 모델이 39cm 각이다.</summary>
-        const float ParcelSize = 0.40f;
+        /// <summary>상자를 모델(39cm 각)보다 이만큼 키워 둔다 — 가게 앞에서 너무 작아 안 보였다(2026-11-04).</summary>
+        const float ParcelScale = 1.5f;
+
+        /// <summary>상자 한 변(키운 뒤). VARCO 로 뽑은 모델이 39cm 각이다.</summary>
+        const float ParcelSize = 0.40f * ParcelScale;
 
         /// <summary>왼쪽 벽에 붙여 쌓는 자리. 손님 통로(z -0.85~0)보다 뒤다.</summary>
-        const float ParcelX = 0.48f;
+        const float ParcelX = 0.58f;   // 0.48 -> 0.58: 상자가 커진 만큼 왼쪽 벽에서 뗀다
         const float ParcelFirstZ = -1.15f;
 
-        /// <summary>세 단까지 올리고 그 위로는 앞으로 나간다.</summary>
-        const int ParcelTiers = 3;
-        const float ParcelSpacingZ = 0.46f;
+        /// <summary>두 단까지 올리고 그 위로는 앞으로 나간다(키운 상자로 세 단이면 1.8m 라 두 단).</summary>
+        const int ParcelTiers = 2;
+        const float ParcelSpacingZ = ParcelSize + 0.06f;
 
         /// <summary>뜯은 내용물을 상자 기둥에서 이만큼 떼어 내려놓는다. 팔레트 폭의 한 칸이다.</summary>
         const float SpillOffsetX = 0.95f;
@@ -162,6 +165,7 @@ namespace DogShop.Shop
 
             var hud = FindAnyObjectByType<UI.GameHud>();
             if (hud != null) hud.Toast(inv.Catalog.Get(product).nameKo + " " + quantity + "개 창고에 정리했다", new Color(1f, 0.9f, 0.55f));
+            Core.GameEvents.RaiseParcelOpened();
             MarkDirty();
             return null;
         }
@@ -259,6 +263,7 @@ namespace DogShop.Shop
                 {
                     GameObject instance = Instantiate(parcelPrefab, transform);
                     instance.name = "Parcel_" + catalog.Get(product).nameKo;
+                    instance.transform.localScale = parcelPrefab.transform.localScale * ParcelScale;
                     box = instance.GetComponent<DeliveryParcel>();
                     if (box == null) box = instance.AddComponent<DeliveryParcel>();
                     box.Bind(id, product);

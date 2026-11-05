@@ -267,7 +267,7 @@ namespace DogShop.Show
             // ---- 명성 ----
             int repGain = g.Reputation - g.ReputationAtDayStart;
             ShopLevelDef next = ShopLevelManager.Instance != null ? ShopLevelManager.Instance.Next : null;
-            string repSub = "누적 " + g.Reputation + (next == null ? "  /  최대 레벨" : next.requiredReputation > g.Reputation ? "  /  다음 레벨까지 " + (next.requiredReputation - g.Reputation) : "  /  다음 레벨 명성 충분");
+            string repSub = "누적 " + g.Reputation.ToString("N0") + (next == null ? "  /  최대 레벨, 명성은 계속 쌓인다" : next.requiredReputation > g.Reputation ? "  /  다음 레벨까지 " + (next.requiredReputation - g.Reputation) : "  /  다음 레벨 명성 충분");
             Row(ref y, x, w, iconReputation, "오늘 오른 명성", (repGain >= 0 ? "+" : "") + repGain, repGain >= 0 ? Gold : Bad, repSub);
 
             // ---- 손님 ----
@@ -324,7 +324,16 @@ namespace DogShop.Show
 
         bool seasonChoice;
         int seasonRank = -1;
-        GUIStyle wrapStyle;
+
+        // 다음 시즌 강아지 고르기(2026-11-04) — 시즌마다 새 강아지를 처음 능력치로 키운다
+        bool dogPick;
+        int pickBreed;
+        string pickName = "";
+        GUIStyle pickFieldStyle;
+        float seasonOpenedAt, pickOpenedAt;
+        float pickRejectedAt = -10f;
+        DogNames.Reject pickReject;
+        int hallPlace = -1;   // 마지막 시즌 결산 판: 이 판이 명예의 전당 몇 위에 드는가(0 = 밖, -1 = 아직 안 셈)
 
         /// <summary>엔딩을 다 본 뒤 부를 것. 본편만 시즌 결산 판, 시연은 null(견종 고르기로).</summary>
         System.Action AfterEnding => Exhibition.Active ? null : (System.Action)OpenSeasonChoice;
@@ -333,77 +342,178 @@ namespace DogShop.Show
         {
             ChampionshipManager.Instance.RecordSeason(seasonRank);
             seasonChoice = true;
+            seasonOpenedAt = Time.unscaledTime;
+            hallPlace = -1;
             PointerMenus.SetOpen(this, true);
+            Sound.Play(seasonRank == 1 ? Sfx.Fanfare : Sfx.Sparkle);
         }
 
+        /// <summary>
+        /// 시즌 결산판(2026-11-04 다시 그림). 금빛 나무 액자 위에 빨간 리본 제목, 이번 시즌 결과(트로피, 메달),
+        /// 다섯 시즌 기록 칸, 다음 시즌에 달라지는 것, 그림 버튼. 마지막 시즌이면 완주 화면과 다시 시작 버튼.
+        /// </summary>
         void DrawSeasonChoice()
         {
             GUI.depth = -100;
             Styles();
-            if (wrapStyle == null || wrapStyle.font != noteStyle.font) wrapStyle = new GUIStyle(noteStyle) { wordWrap = true };
+            if (dogPick) { DrawDogPick(); return; }
 
             Matrix4x4 keep = GUI.matrix;
             float s = Mathf.Min(Screen.width / 1920f, Screen.height / 1080f);
             GUI.matrix = Matrix4x4.Scale(new Vector3(s, s, 1f));
             float sw = Screen.width / s, sh = Screen.height / s;
 
-            GUI.color = new Color(0f, 0f, 0f, 0.6f);
-            GUI.DrawTexture(new Rect(0f, 0f, sw, sh), Texture2D.whiteTexture);
-            GUI.color = Color.white;
-
-            float bh = Mathf.Min(sh * 0.92f, 1000f);
-            float bw = board != null ? bh * board.width / board.height : bh * 0.7f;
-            var b = new Rect((sw - bw) * 0.5f, (sh - bh) * 0.5f, bw, bh);
-            if (board != null) GUI.DrawTexture(b, board, ScaleMode.StretchToFill, true);
-            else GUI.Box(b, GUIContent.none, UiSkin.Tag(new Color(0.98f, 0.95f, 0.87f)));
-            float x = b.x + bw * 0.10f, w = bw * 0.80f, y = b.y + bh * 0.135f, bottom = b.yMax - bh * 0.075f;
-
             ChampionshipManager champ = ChampionshipManager.Instance;
-            GUI.Label(new Rect(x, y, w, 50f), "시즌 " + champ.Season + " 마무리", titleStyle);
-            y += 76f;
+            bool won = seasonRank == 1;
+            bool last = champ.IsLastSeason;
+            SeasonArt.Backdrop(sw, sh, won || last, seasonOpenedAt);
 
-            string result = seasonRank == 1 ? "챔피언! 우승 트로피를 받았다"
-                          : seasonRank > 1 ? "이번 시즌 " + seasonRank + "위"
-                          : "이번 시즌은 무대에 서지 못했다";
-            GUI.Label(new Rect(x, y, w, 40f), result, labelStyle);
-            y += 52f;
-            if (seasonRank == 1)
+            Texture2D art = SeasonArt.Board;
+            float bh = Mathf.Min(sh * 0.96f, 1040f);
+            float bw = art != null ? bh * art.width / art.height : bh * 0.7f;
+            var b = new Rect((sw - bw) * 0.5f, (sh - bh) * 0.5f, bw, bh);
+
+            float pop = SeasonArt.Pop(seasonOpenedAt);
+            GUIUtility.ScaleAroundPivot(new Vector2(pop, pop), b.center);
+            GUI.color = new Color(1f, 1f, 1f, SeasonArt.Fade(seasonOpenedAt));
+
+            if (art != null) GUI.DrawTexture(b, art, ScaleMode.StretchToFill, true);
+            else GUI.Box(b, GUIContent.none, UiSkin.Tag(new Color(0.98f, 0.95f, 0.87f)));
+
+            // 리본 제목: 판보다 조금 넓게, 트로피 아래 종이 윗자리에 걸친다
+            float rw = bw * 1.1f, rh = rw * 0.2234f;
+            SeasonArt.RibbonTitle(new Rect(b.center.x - rw * 0.5f, b.y + bh * 0.165f, rw, rh),
+                last ? ChampionshipManager.MaxSeasons + "시즌 완주!" : "시즌 " + champ.Season + " / " + ChampionshipManager.MaxSeasons + " 마무리", 46);
+
+            float x = b.x + bw * 0.12f, w = bw * 0.76f, y = b.y + bh * 0.345f, bottom = b.y + bh * 0.918f;
+
+            // ---- 이번 시즌 결과: 트로피나 메달과 큰 글씨 ----
+            Texture2D icon = SeasonArt.RankIcon(seasonRank);
+            const float Ic = 124f;
+            float tx = x, tw = w;
+            if (icon != null)
             {
-                GUI.Label(new Rect(x, y, w, 30f), "우승 상금 +" + ChampionshipManager.ChampionPrize.ToString("N0") + "원  /  가게 벽에 우승 액자가 걸렸다", noteStyle);
-                y += 36f;
+                float bob = Mathf.Sin(Time.unscaledTime * 2.4f) * 4f;
+                if (won && SeasonArt.Sparkle != null)
+                {
+                    float twinkle = 0.6f + 0.4f * Mathf.Sin(Time.unscaledTime * 5f);
+                    Color k = GUI.color;
+                    GUI.color = new Color(1f, 0.9f, 0.4f, twinkle * k.a);
+                    GUI.DrawTexture(new Rect(x - 6f, y - 4f, 40f, 40f), SeasonArt.Sparkle, ScaleMode.ScaleToFit, true);
+                    GUI.DrawTexture(new Rect(x + Ic - 30f, y + Ic * 0.55f, 30f, 30f), SeasonArt.Sparkle, ScaleMode.ScaleToFit, true);
+                    GUI.color = k;
+                }
+                GUI.DrawTexture(new Rect(x, y + bob, Ic, Ic), icon, ScaleMode.ScaleToFit, true);
+                tx = x + Ic + 18f;
+                tw = w - Ic - 18f;
             }
-            GUI.Label(new Rect(x, y, w, 30f), "우승 트로피 " + champ.Trophies + "개"
-                + (ChampionshipManager.SaleBonus > 0f ? "  /  매장 판매가 +" + Mathf.RoundToInt(ChampionshipManager.SaleBonus * 100f) + "%" : ""), noteStyle);
+
+            string head, sub;
+            Color headColor;
+            if (won) { head = "챔피언!"; sub = "우승 상금 +" + ChampionshipManager.ChampionPrize.ToString("N0") + "원\n벽에 우승 액자가 걸렸다"; headColor = SeasonArt.Gold; }
+            else if (seasonRank >= 2 && seasonRank <= 3) { head = seasonRank + "위 입상!"; sub = "우승까지 딱 한 걸음\n다음 시즌엔 꼭 정상에 서자"; headColor = seasonRank == 2 ? new Color(0.82f, 0.86f, 0.92f) : new Color(0.93f, 0.62f, 0.36f); }
+            else if (seasonRank > 3) { head = seasonRank + "위"; sub = "아쉬웠지만 괜찮아\n다음 시즌을 노려 보자"; headColor = new Color(0.95f, 0.9f, 0.8f); }
+            else { head = "출전 못함"; sub = "이번 시즌은 무대에 서지 못했다\n다음엔 같이 서자"; headColor = new Color(0.95f, 0.9f, 0.8f); }
+
+            if (last && !won) sub = seasonRank > 0 ? "마지막 시즌까지 함께 달렸다\n정말 수고했어!" : "마지막 시즌까지 함께했다\n정말 수고했어!";
+
+            var headStyle = SeasonArt.Text(SeasonArt.Fit(head, 58, tw), icon != null ? TextAnchor.MiddleLeft : TextAnchor.MiddleCenter, headColor);
+            SeasonArt.Outlined(new Rect(tx, y + 2f, tw, 66f), head, headStyle, SeasonArt.Outline, 3f);
+            GUI.Label(new Rect(tx, y + 70f, tw, 60f), sub, SeasonArt.Text(21, icon != null ? TextAnchor.UpperLeft : TextAnchor.UpperCenter, SeasonArt.SoftInk, true));
+            y += 130f;
+
+            Line(new Rect(x + 20f, y, w - 40f, 2f));
+            y += 12f;
+
+            // ---- 다섯 시즌 기록 칸 ----
+            GUI.Label(new Rect(x, y, w, 30f), "시즌 기록", SeasonArt.Text(24, TextAnchor.MiddleCenter, SeasonArt.Ink));
+            y += 36f;
+            int n = ChampionshipManager.MaxSeasons;
+            const float Gap = 12f;
+            float slot = Mathf.Min(76f, (w - Gap * (n - 1)) / n);
+            float sx = x + (w - (slot * n + Gap * (n - 1))) * 0.5f;
+            for (int i = 0; i < n; i++)
+            {
+                var c = new Rect(sx + i * (slot + Gap), y, slot, slot);
+                bool done = i < champ.SeasonRanks.Count;
+                bool now = i == champ.Season - 1;
+                if (now)
+                {
+                    float glow = 0.55f + 0.45f * Mathf.Sin(Time.unscaledTime * 4f);
+                    Color k = GUI.color;
+                    GUI.color = new Color(1f, 1f, 1f, glow * k.a);
+                    GUI.Box(new Rect(c.x - 6f, c.y - 6f, c.width + 12f, c.height + 12f), GUIContent.none, UiSkin.Tag(new Color(1f, 0.76f, 0.2f)));
+                    GUI.color = k;
+                }
+                GUI.Box(c, GUIContent.none, UiSkin.Tag(done ? SeasonArt.Cream : new Color(0.83f, 0.77f, 0.68f)));
+                if (done)
+                {
+                    int r = champ.SeasonRanks[i];
+                    Texture2D m = SeasonArt.RankIcon(r);
+                    if (m != null) GUI.DrawTexture(new Rect(c.x + 8f, c.y + 8f, c.width - 16f, c.height - 16f), m, ScaleMode.ScaleToFit, true);
+                    else GUI.Label(c, r > 0 ? r + "위" : "불참", SeasonArt.Text(r > 0 ? 28 : 22, TextAnchor.MiddleCenter, SeasonArt.SoftInk));
+                }
+                else GUI.Label(c, "?", SeasonArt.Text(36, TextAnchor.MiddleCenter, new Color(0.62f, 0.55f, 0.46f)));
+                GUI.Label(new Rect(c.x - 10f, c.yMax + 4f, c.width + 20f, 24f), (i + 1) + "시즌", SeasonArt.Text(18, TextAnchor.MiddleCenter, now ? SeasonArt.DeepGold : SeasonArt.SoftInk));
+            }
+            y += slot + 32f;
+
+            string chips = "우승 트로피 " + champ.Trophies + "개";
+            if (ChampionshipManager.SaleBonus > 0f) chips += "     매장 판매가 +" + Mathf.RoundToInt(ChampionshipManager.SaleBonus * 100f) + "%";
+            // 이번 시즌 가게 명성(2026-11-05) — 시즌마다 0 에서 다시 쌓으므로 시즌끼리 견줄 수 있다
+            int fameNow = champ.SeasonLogs.Count > 0 ? champ.SeasonLogs[champ.SeasonLogs.Count - 1].shopFame : 0;
+            string fameLine = "이번 시즌 가게 명성 " + fameNow.ToString("N0") + "   (합계 " + champ.TotalShopFame.ToString("N0") + ")";
+            GUI.Label(new Rect(x, y, w, 30f), fameLine, SeasonArt.Text(SeasonArt.Fit(fameLine, 23, w), TextAnchor.MiddleCenter, SeasonArt.Ink));
+            y += 30f;
+            GUI.Label(new Rect(x, y, w, 30f), chips, SeasonArt.Text(SeasonArt.Fit(chips, 21, w), TextAnchor.MiddleCenter, SeasonArt.DeepGold));
+            y += 30f;
+
+            // 순위 보너스(2026-11-05): 1등 10%, 2등 7.5%, 3등 5% 를 시즌마다 더한다
+            float rankBonus = ChampionshipManager.RankBonus;
+            string bonusLine = rankBonus > 0f ? "순위 보너스  명성, 훈련, 운동 " + ChampionshipManager.RankBonusText(rankBonus) : "1~3등을 하면 명성, 훈련, 운동 보너스가 붙는다";
+            GUI.Label(new Rect(x, y, w, 30f), bonusLine, SeasonArt.Text(SeasonArt.Fit(bonusLine, 21, w), TextAnchor.MiddleCenter, new Color(0.2f, 0.55f, 0.3f)));
             y += 36f;
 
-            // 지난 시즌들 — 많아지면 최근 6개만
-            var history = new System.Text.StringBuilder();
-            int from = Mathf.Max(0, champ.SeasonRanks.Count - 6);
-            for (int i = from; i < champ.SeasonRanks.Count; i++)
+            var box = new Rect(x, y, w, bottom - 104f - y);
+            GUI.Box(box, GUIContent.none, UiSkin.Tag(new Color(0.96f, 0.9f, 0.76f)));
+            float bx = box.x + 18f, bwid = box.width - 36f;
+
+            // ---- 다섯 시즌을 다 마쳤다: 더 이어 갈 시즌이 없다 ----
+            if (last)
             {
-                int r = champ.SeasonRanks[i];
-                if (history.Length > 0) history.Append("   ");
-                history.Append(i + 1).Append("시즌 ").Append(r > 0 ? r + "위" : "불참");
+                if (hallPlace < 0) hallPlace = HallOfFame.PreviewPlace(champ.BuildHallEntry());
+                string hallLine = hallPlace > 0 ? "명예의 전당 " + hallPlace + "위에 이름을 올렸다!" : "이번에는 명예의 전당 5위 안에 못 들었다";
+                GUI.Label(new Rect(bx, box.y + 10f, bwid, 32f), hallLine, SeasonArt.Text(SeasonArt.Fit(hallLine, 26, bwid), TextAnchor.MiddleCenter, hallPlace > 0 ? SeasonArt.DeepGold : SeasonArt.Ink));
+                GUI.Label(new Rect(bx, box.y + 48f, bwid, box.height - 54f),
+                    "기록은 타이틀 화면의 명예의 전당에 남는다\n새 게임으로 다시 도전해 보자", SeasonArt.Text(20, TextAnchor.UpperCenter, SeasonArt.SoftInk, true));
+                if (SeasonArt.Button(new Rect(x, bottom - 88f, w, 84f), "새 게임으로 다시 도전", true, 32)) FinishAllSeasons();
+                GUI.color = Color.white;
+                GUI.matrix = keep;
+                return;
             }
-            GUI.Label(new Rect(x, y, w, 30f), history.ToString(), noteStyle);
-            y += 60f;
 
             int nextStart = ChampionshipManager.LastDay + 1;
-            GUI.Label(new Rect(x, y, w, 120f),
-                "다음 시즌은 Day " + nextStart + " ~ " + (nextStart + ChampionshipManager.FinalDay - 1) + ". "
-                + "가게와 " + (DogManager.Instance != null && DogManager.Instance.Hero != null ? DogManager.Instance.Hero.DisplayName : "강아지")
-                + "는 그대로 이어지고, 라이벌들은 더 강해져서 돌아온다.", wrapStyle);
-            y += 64f;
+            GUI.Label(new Rect(bx, box.y + 8f, bwid, 32f), "다음 시즌  Day " + nextStart + " ~ " + (nextStart + ChampionshipManager.FinalDay - 1),
+                SeasonArt.Text(25, TextAnchor.MiddleCenter, SeasonArt.Ink));
+            GUI.Label(new Rect(bx, box.y + 38f, bwid, 26f), "새 강아지와 가게를 1레벨부터 다시 키운다", SeasonArt.Text(20, TextAnchor.MiddleCenter, SeasonArt.SoftInk));
+            GUI.Label(new Rect(bx, box.y + 62f, bwid, 26f), "돈, 가구, 훈련 단계, 순위 보너스는 그대로", SeasonArt.Text(20, TextAnchor.MiddleCenter, SeasonArt.SoftInk));
 
-            // 다음 시즌에 무엇이 어려워지는가 — 만점과 라이벌
+            // 다음 시즌에 무엇이 어려워지는가: 만점과 라이벌
             int fullNow = ChampionshipManager.StatFullFor(champ.Season), fullNext = ChampionshipManager.StatFullFor(champ.Season + 1);
             int rivalNext = Mathf.Min(ChampionshipManager.MaxRivalBonus, champ.Season * ChampionshipManager.RivalBonusPerSeason) - champ.RivalBonus;
             string harder = (fullNext > fullNow ? "능력치 만점 " + fullNow + "에서 " + fullNext + "으로" : "능력치 만점 " + fullNow + " (최대)")
-                          + (rivalNext > 0 ? "   /   라이벌 점수 +" + rivalNext : "   /   라이벌은 최고 수준");
-            GUI.Label(new Rect(x, y, w, 30f), "다음 시즌: " + harder, noteStyle);
+                          + (rivalNext > 0 ? "   라이벌 점수 +" + rivalNext : "   라이벌은 최고 수준");
+            GUI.Label(new Rect(bx, box.y + 88f, bwid, 28f), harder,
+                SeasonArt.Text(SeasonArt.Fit(harder, 20, bwid), TextAnchor.MiddleCenter, new Color(0.78f, 0.3f, 0.24f)));
 
-            if (UiSkin.Click(new Rect(x, bottom - 120f, w, 50f), "다음 시즌 도전하기", Big(UiSkin.Green))) StartNextSeason(false);
-            if (UiSkin.Click(new Rect(x, bottom - 56f, w, 50f), "저장하고 타이틀로", Big(UiSkin.Coral))) StartNextSeason(true);
+            if (SeasonArt.Button(new Rect(x, bottom - 88f, w, 84f), "다음 시즌 강아지 고르기", true, 32))
+            {
+                dogPick = true;
+                pickOpenedAt = Time.unscaledTime;
+                pickBreed = DogManager.Instance != null && DogManager.Instance.Hero != null ? DogManager.Instance.Hero.BreedIndex : 0;
+                pickName = "";
+            }
+            GUI.color = Color.white;
             GUI.matrix = keep;
         }
 
@@ -413,11 +523,141 @@ namespace DogShop.Show
             seasonChoice = false;
             PointerMenus.SetOpen(this, false);
             ChampionshipManager.Instance.BeginNextSeason();
+            // 새 시즌은 가게도 1레벨, 명성 0 에서 다시 키운다(2026-11-05). 넓이, 가구, 돈, 재고, 훈련 단계, 순위 보너스는 그대로
+            if (ShopLevelManager.Instance != null) ShopLevelManager.Instance.ResetForNewSeason();
+            if (GameManager.Instance != null) GameManager.Instance.ResetReputationForNewSeason();
+            Input.imeCompositionMode = IMECompositionMode.Auto;
+            if (DogManager.Instance != null) DogManager.Instance.ReplaceHero(pickBreed, (pickName ?? "").Trim());
+            dogPick = false;
             finished = false;
             isFinal = false;
             open = false;
             GameManager.Instance.BeginNextDay();
             if (toTitle) StartCoroutine(SaveAndLeave());
+        }
+
+        /// <summary>다섯 시즌을 다 마친 판: 이어 할 것이 없으니 세이브를 지우고 타이틀로.</summary>
+        void FinishAllSeasons()
+        {
+            seasonChoice = false;
+            PointerMenus.SetOpen(this, false);
+            // 명예의 전당에 이 판을 남긴다(세이브와 따로 저장). 타이틀은 바로 전당을 연다
+            HallOfFame.Add(ChampionshipManager.Instance.BuildHallEntry());
+            HallOfFame.OpenOnTitle = true;
+            SaveManager.DeleteSave();
+            if (Cutscene.Instance != null) Cutscene.Instance.ReturnToTitle();
+        }
+
+        /// <summary>
+        /// 다음 시즌에 함께할 강아지(2026-11-04 다시 그림). 리본 제목 아래 견종 카드가 한 줄로 늘어서고,
+        /// 고른 카드는 금빛 카드로 바뀌어 살짝 떠서 숨 쉰다. 아래에 이름 칸과 그림 버튼 둘.
+        /// </summary>
+        void DrawDogPick()
+        {
+            if (pickFieldStyle == null || pickFieldStyle.font != UiSkin.Font)
+            {
+                // 기본 입력칸 스타일을 복사하면 어두운 바탕(scaledBackgrounds)이 따라와 흰 칸 위가 검게 덮였다 — 바탕 없는 새 스타일로
+                pickFieldStyle = new GUIStyle { font = UiSkin.Font, fontSize = 32, alignment = TextAnchor.MiddleLeft, padding = new RectOffset(14, 14, 4, 4), clipping = TextClipping.Clip };
+                pickFieldStyle.normal.textColor = pickFieldStyle.hover.textColor = pickFieldStyle.focused.textColor = pickFieldStyle.active.textColor = SeasonArt.Ink;
+            }
+
+            Matrix4x4 keep = GUI.matrix;
+            float s = Mathf.Min(Screen.width / 1920f, Screen.height / 1080f);
+            GUI.matrix = Matrix4x4.Scale(new Vector3(s, s, 1f));
+            float sw = Screen.width / s, sh = Screen.height / s;
+
+            ChampionshipManager champ = ChampionshipManager.Instance;
+            int next = champ.Season + 1;
+            SeasonArt.Backdrop(sw, sh, false, pickOpenedAt);
+
+            float pop = SeasonArt.Pop(pickOpenedAt);
+            GUIUtility.ScaleAroundPivot(new Vector2(pop, pop), new Vector2(sw * 0.5f, sh * 0.5f));
+            GUI.color = new Color(1f, 1f, 1f, SeasonArt.Fade(pickOpenedAt));
+
+            float rw = Mathf.Min(880f, sw * 0.62f), rh = rw * 0.2234f;
+            SeasonArt.RibbonTitle(new Rect((sw - rw) * 0.5f, 20f, rw, rh), "시즌 " + next + " 함께할 강아지", 48);
+            float y = 20f + rh;
+            SeasonArt.Outlined(new Rect(0f, y, sw, 38f), "새 강아지와 가게를 1레벨부터 다시 키운다. 돈, 가구, 훈련 단계, 순위 보너스는 그대로",
+                SeasonArt.Text(26, TextAnchor.MiddleCenter, Color.white), SeasonArt.Outline, 2f);
+            y += 62f;
+
+            // ---- 견종 카드 ----
+            DogManager dogs = DogManager.Instance;
+            int count = dogs != null ? dogs.BreedCount : 0;
+            int rows = count <= 6 ? 1 : 2;
+            int cols = Mathf.Max(1, Mathf.CeilToInt(count / (float)rows));
+            const float Gap = 24f, Aspect = 1.535f;
+            float availH = sh - y - 330f;
+            float cardW = Mathf.Min(260f, (sw - 160f - Gap * (cols - 1)) / cols, (availH - Gap * (rows - 1)) / rows / Aspect);
+            float cardH = cardW * Aspect;
+            float sx = (sw - (cols * cardW + (cols - 1) * Gap)) * 0.5f;
+
+            // 고른 카드를 마지막에 그려 옆 카드 위로 올라오게
+            for (int pass = 0; pass < 2; pass++)
+            for (int i = 0; i < count; i++)
+            {
+                bool on = i == pickBreed;
+                if ((pass == 0) == on) continue;
+                var r = new Rect(sx + (i % cols) * (cardW + Gap), y + (i / cols) * (cardH + Gap), cardW, cardH);
+                bool hover = r.Contains(Event.current.mousePosition);
+                float k = on ? 1.08f + 0.015f * Mathf.Sin(Time.unscaledTime * 4f) : hover ? 1.04f : 1f;
+                float lift = on ? -10f : hover ? -4f : 0f;
+                var d = new Rect(r.center.x - r.width * k * 0.5f, r.center.y - r.height * k * 0.5f + lift, r.width * k, r.height * k);
+
+                Texture2D cardArt = on ? SeasonArt.PickCardOn : SeasonArt.PickCard;
+                if (cardArt != null) GUI.DrawTexture(d, cardArt, ScaleMode.StretchToFill, true);
+                else GUI.Box(d, GUIContent.none, UiSkin.Tag(on ? new Color(1f, 0.84f, 0.3f) : Color.white));
+
+                Texture2D tex = ChampionWall.PortraitOf(i);
+                float pic = d.width * 0.74f;
+                if (tex != null) GUI.DrawTexture(new Rect(d.center.x - pic * 0.5f, d.y + d.height * 0.13f, pic, pic), tex, ScaleMode.ScaleToFit, true);
+
+                string breed = dogs.BreedName(i);
+                var nameRect = new Rect(d.x + d.width * 0.1f, d.y + d.height * 0.69f, d.width * 0.8f, d.height * 0.15f);
+                GUI.Label(nameRect, breed, SeasonArt.Text(SeasonArt.Fit(breed, Mathf.RoundToInt(28 * k), nameRect.width), TextAnchor.MiddleCenter, SeasonArt.Ink));
+
+                if (UiSkin.Click(r, GUIContent.none, GUIStyle.none) && pickBreed != i)
+                {
+                    pickBreed = i;
+                    Sound.Play(Sfx.DogBark);
+                }
+            }
+            y += rows * cardH + (rows - 1) * Gap + 44f;
+
+            // ---- 이름 ----
+            const float FieldW = 640f, FieldH = 72f;
+            var plate = new Rect((sw - FieldW) * 0.5f, y, FieldW, FieldH);
+            GUI.Box(plate, GUIContent.none, UiSkin.Tag(SeasonArt.Cream));
+            GUI.Label(new Rect(plate.x + 22f, plate.y, 100f, FieldH), "이름", SeasonArt.Text(30, TextAnchor.MiddleLeft, SeasonArt.DeepGold));
+            var field = new Rect(plate.x + 120f, plate.y + 10f, FieldW - 140f, FieldH - 20f);
+            GUI.Box(field, GUIContent.none, UiSkin.Tag(Color.white));
+            Color cursor = GUI.skin.settings.cursorColor;
+            GUI.skin.settings.cursorColor = SeasonArt.Ink;
+            // 한글은 IME 가 켜져 있어야 친다. 글꼴에 없는 글자, 숫자, 기호는 바로 지우고 안내한다(2026-11-05)
+            GUI.SetNextControlName("SeasonDogName");
+            bool typing = GUI.GetNameOfFocusedControl() == "SeasonDogName";
+            Input.imeCompositionMode = typing ? IMECompositionMode.On : IMECompositionMode.Auto;
+            string typed = GUI.TextField(field, pickName ?? "", Dog.MaxNameLength, pickFieldStyle);
+            DogNames.Reject reject;
+            pickName = DogNames.Clean(typed, out reject);
+            if (reject != DogNames.Reject.None) { pickReject = reject; pickRejectedAt = Time.unscaledTime; }
+            GUI.skin.settings.cursorColor = cursor;
+            if (string.IsNullOrEmpty(pickName) && dogs != null)
+                GUI.Label(new Rect(field.x + 14f, field.y, field.width - 28f, field.height), dogs.BreedName(pickBreed), SeasonArt.Text(30, TextAnchor.MiddleLeft, new Color(0.7f, 0.64f, 0.56f)));
+            bool rejected = Time.unscaledTime - pickRejectedAt < 2.5f;
+            string note = rejected ? DogNames.Message(pickReject) : "비워 두면 견종 이름으로 부른다 (최대 " + Dog.MaxNameLength + "글자)";
+            SeasonArt.Outlined(new Rect(0f, plate.yMax + 6f, sw, 30f), note,
+                SeasonArt.Text(21, TextAnchor.MiddleCenter, rejected ? new Color(1f, 0.62f, 0.5f) : Color.white), SeasonArt.Outline, 2f);
+            y = plate.yMax + 56f;
+
+            // ---- 버튼 ----
+            const float MainW = 560f, SubW = 360f, BtnH = 92f, BtnGap = 34f;
+            float bx = (sw - (MainW + SubW + BtnGap)) * 0.5f;
+            if (SeasonArt.Button(new Rect(bx, y, MainW, BtnH), "이 강아지와 시즌 " + next + " 시작", true, 32)) StartNextSeason(false);
+            else if (SeasonArt.Button(new Rect(bx + MainW + BtnGap, y, SubW, BtnH), "저장하고 타이틀로", false, 28)) StartNextSeason(true);
+
+            GUI.color = Color.white;
+            GUI.matrix = keep;
         }
 
         System.Collections.IEnumerator SaveAndLeave()

@@ -234,7 +234,7 @@ namespace DogShop.Shop
             if (hoursFactor <= 0f) return;
 
             float dirtFactor = CleanlinessManager.Instance != null ? CleanlinessManager.Instance.CustomerFactor : 1f;
-            pending += ShopLevelManager.Instance.Current.customersPerDay / TimeManager.HoursPerDay
+            pending += CustomersPerDayNow / (float)TimeManager.HoursPerDay
                      * dirtFactor * hoursFactor * elapsed;
 
             int arrivals = Mathf.FloorToInt(pending + ArrivalEpsilon);
@@ -242,6 +242,48 @@ namespace DogShop.Shop
 
             for (int i = 0; i < arrivals; i++) Spawn();
         }
+
+        /// <summary>시연에서 계산할 손님을 부르는 간격(초). 한꺼번에 몰려오지 않게 한 명씩.</summary>
+        const float DemoCallGap = 1.5f;
+        float demoCallTimer;
+
+        /// <summary>
+        /// 시연 할 일이 '손님 계산하기'(또는 그 바로 앞 '진열하기')인데 계산할 손님이 모자라면 바로 부른다(2026-11-04 직접 플레이 의견).
+        /// 상자 담기·진열을 하는 동안 손님이 한 명도 안 와서 다음 할 일에서 멈췄다 — 할 일 순서대로 흘러가게,
+        /// 남은 계산 수만큼은 가게 안이나 오는 길에 손님이 있게 맞춘다. 본편은 건드리지 않는다.
+        /// </summary>
+        void CallDemoCheckoutCustomers()
+        {
+            if (!Exhibition.Active) return;
+            TutorialQuestManager quests = TutorialQuestManager.Instance;
+            if (quests == null || quests.IsComplete || quests.ReadyToClaim) return;
+            // 계산하기 바로 앞 할 일(진열하기)부터 미리 불러 둔다 — 인도에서 걸어와 물건을 고르기까지 20초쯤 걸려서,
+            // 계산하기가 켜진 뒤에 부르면 그동안 계산대 앞이 비어 있었다
+            TutorialQuestManager.Quest q = quests.Current;
+            if (q == null) return;
+            int need;
+            if (q.goal == TutorialQuestManager.Goal.Checkout) need = q.target - quests.Progress;
+            else if (q.goal == TutorialQuestManager.Goal.Display && quests.Next != null && quests.Next.goal == TutorialQuestManager.Goal.Checkout) need = quests.Next.target;
+            else return;
+            if (TimeManager.Instance == null || TimeManager.Instance.IsDayOver) return;
+            if (ShopHours.Instance != null && !ShopHours.Instance.IsOpen) return;
+
+            demoCallTimer -= Time.deltaTime;
+            if (demoCallTimer > 0f) return;
+
+            int coming = 0;
+            Customer[] all = GetComponentsInChildren<Customer>();   // 인도에서 걸어오는 손님도 여기 자식이다
+            for (int i = 0; i < all.Length; i++) if (all[i].State != CustomerState.ToExit) coming++;
+            if (coming >= need) return;
+
+            demoCallTimer = DemoCallGap;
+            Spawn();
+        }
+
+        /// <summary>오늘 하루 손님 수. 본편은 레벨표, 시연은 짧은 하루에 맞춘 날짜별 값(<see cref="Exhibition.CustomersPerDay"/>).</summary>
+        static int CustomersPerDayNow => Exhibition.Active && GameManager.Instance != null
+            ? Exhibition.CustomersPerDay(GameManager.Instance.Day)
+            : ShopLevelManager.Instance.Current.customersPerDay;
 
         void Spawn()
         {
@@ -299,12 +341,12 @@ namespace DogShop.Shop
             // 그 연령대가 좋아하는 장식이 매장에 있으면 더 붙는다. 소수점은 다음 손님에게 이월한다 —
             // 아이 1 x 1.5 를 매번 반올림하면 +50% 가 +100% 로 둔갑한다
             CustomerAge age = AgeOf(appearance);
-            reputationCarry += (int)age * (1f + DecorBonus.For(age));
+            reputationCarry += (int)age * (1f + DecorBonus.For(age) + Show.ChampionshipManager.RankBonus);   // 장식과 순위 보너스는 더한다(합연산)
             int reputation = Mathf.FloorToInt(reputationCarry + 0.0001f);
             reputationCarry -= reputation;
             VisitorsToday++;
             ReputationToday += reputation;
-            GameManager.Instance.AddReputation(reputation);
+            GameManager.Instance.AddReputation(reputation, false);
         }
 
         /// <summary>청년 손님이 오기 시작하는 날. 그 전에는 아이만 온다.</summary>
@@ -390,6 +432,7 @@ namespace DogShop.Shop
         void Update()
         {
             AccrueArrivals();
+            CallDemoCheckoutCustomers();
 
             int speed = TimeManager.Instance.SpeedMultiplier;
             float step = Time.deltaTime * speed;

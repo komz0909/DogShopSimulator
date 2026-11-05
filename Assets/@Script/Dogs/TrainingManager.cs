@@ -55,7 +55,16 @@ namespace DogShop.Dogs
             stage != null && index >= 0 && index < stage.Length ? stage[index] : 1;
 
         /// <summary>지금 단계의 비용.</summary>
-        public int CostOf(int index) => TrainingStages.ValueAt(catalog.Get(index).cost, StageOf(index));
+        public int CostOf(int index) => TrainingStages.ValueAt(BaseCostOf(index), StageOf(index));
+
+        // 훈련 효율 조정(2026-11-05): 본편은 비싼 훈련일수록 1점당 값이 조금씩 비싸다(40 에서 50원). 예전엔 전문 훈련(250원, +11)이
+        // 1점당 23원으로 가장 싸고 한 번에 가장 많이 올라서, 열리면 다른 훈련을 쓸 까닭이 없었다.
+        // 이제 싼 훈련은 돈을, 비싼 훈련은 하루 훈련 칸을 아낀다. 시연은 사흘 판이라 카탈로그 값 그대로.
+        // 카탈로그 순서: 산책, 털관리, 고급 훈련, 스타일링, 놀아주기, 전문 훈련, 전문 미용
+        static readonly int[] MainBaseCost = { 40, 40, 85, 135, 380, 550, 550 };
+
+        /// <summary>1단계 비용.</summary>
+        public int BaseCostOf(int index) => !Exhibition.Active && index >= 0 && index < MainBaseCost.Length ? MainBaseCost[index] : catalog.Get(index).cost;
 
         /// <summary>지금 단계의 획득량. 시연 모드는 <see cref="Exhibition.GrowthMultiplier"/> 배 — 사흘 안에 쇼를 준비할 수 있게.</summary>
         public int GainOf(int index) => TrainingStages.ValueAt(catalog.Get(index).gain, StageOf(index)) * GrowthScale;
@@ -64,6 +73,28 @@ namespace DogShop.Dogs
         public static int ExerciseGainOf(int index) => Exercises[index].gain * GrowthScale;
 
         static int GrowthScale => Exhibition.Active ? Exhibition.GrowthMultiplier : 1;
+
+        // 순위 보너스(2026-11-05): 지난 시즌 1~3등이면 훈련, 운동으로 오르는 양에 보너스가 붙는다(ChampionshipManager.RankBonus, 시즌끼리 합연산).
+        // 한 번에 1~10 정도 오르니 그냥 반올림하면 +10% 가 사라진다. 소수점을 쌓아 두었다가 1이 되면 얹는다. 창에 보이는 숫자는 기본값이다
+        float trainingCarry, exerciseCarry;
+
+        /// <summary>창에 적는 오르는 양: 순위 보너스까지 더한 값. 소수점이 생기면 한 자리까지(실제로는 소수점이 쌓였다가 1씩 붙는다).</summary>
+        public static string GainText(int baseGain)
+        {
+            float b = Show.ChampionshipManager.RankBonus;
+            if (b <= 0f || baseGain <= 0) return baseGain.ToString();
+            return (baseGain * (1f + b)).ToString("0.#");
+        }
+
+        static int Boost(int gain, ref float carry)
+        {
+            float b = Show.ChampionshipManager.RankBonus;
+            if (b <= 0f || gain <= 0) return gain;
+            carry += gain * b;
+            int extra = Mathf.FloorToInt(carry + 0.0001f);
+            carry -= extra;
+            return gain + extra;
+        }
 
         /// <summary>강화 중이면 남은 날, 아니면 0.</summary>
         public int UpgradeDaysLeft(int index) =>
@@ -252,7 +283,7 @@ namespace DogShop.Dogs
             ExerciseDef def = Exercises[index];
             if (!GameManager.Instance.TrySpend(def.cost, GameManager.SpendKind.Dog)) return false;
 
-            dog.Stats.AddGrowth(GrowthAxis.Agility, ExerciseGainOf(index), out int gained);
+            dog.Stats.AddGrowth(GrowthAxis.Agility, Boost(ExerciseGainOf(index), ref exerciseCarry), out int gained);
             ExercisedToday = true;
             Sound.Play(Sfx.Train);
             ShowGain(dog, GainText("어질리티", gained));
@@ -406,7 +437,7 @@ namespace DogShop.Dogs
             if (!GameManager.Instance.TrySpend(cost, GameManager.SpendKind.Dog)) return false;
 
             int beauty0 = dog.Stats.Beauty, training0 = dog.Stats.Training;
-            dog.Stats.AddGrowth(def.axis, GainOf(index));
+            dog.Stats.AddGrowth(def.axis, Boost(GainOf(index), ref trainingCarry));
             Sound.Play(Sfx.Train);
             ShowGain(dog, GainText("미모", dog.Stats.Beauty - beauty0) + GainText("훈련도", dog.Stats.Training - training0));
             ShowTraining(dog, def);

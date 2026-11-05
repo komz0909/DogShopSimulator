@@ -16,7 +16,7 @@ namespace DogShop.UI
     /// </summary>
     public class MainMenu : MonoBehaviour
     {
-        enum Page { Home, Breeds }
+        enum Page { Home, Breeds, Hall }
 
         [SerializeField] Font uiFont;
         [SerializeField] string shopScene = "Shop";
@@ -101,6 +101,14 @@ namespace DogShop.UI
                 exhibitionPick = true;
                 page = Page.Breeds;
             }
+
+            // 다섯 시즌을 다 마치고 돌아왔다 — 바로 명예의 전당을 연다(2026-11-05)
+            if (HallOfFame.OpenOnTitle)
+            {
+                HallOfFame.OpenOnTitle = false;
+                page = Page.Hall;
+                hallOpenedAt = Time.unscaledTime;
+            }
         }
 
         // 메인 화면도 가게와 같은 배경음. 이어하기로 가게에 들어가면 곡이 끊기지 않고 이어진다(같은 곡이면 다시 틀지 않는다)
@@ -113,6 +121,7 @@ namespace DogShop.UI
             bool esc = keyboard != null && keyboard.escapeKey.wasPressedThisFrame;
             if (settingsOpen && esc) settingsOpen = false;
             else if (cardOpen && esc) CloseCard();
+            else if (page == Page.Hall && esc) { page = Page.Home; HallOfFame.JustAdded = -1; }
         }
 
         void OnDestroy() => ClearPreview();
@@ -127,6 +136,7 @@ namespace DogShop.UI
             // 클릭을 먼저 받으므로, 뒤에 그리는 설정 창의 가림판으로는 이 버튼들을 막을 수 없다
             GUI.enabled = !settingsOpen && !cardOpen;
             if (page == Page.Home) DrawHome();
+            else if (page == Page.Hall) DrawHall();
             else if (!cardOpen) DrawBreedPage();   // 카드가 뜨면 견종 목록은 숨긴다 — 카드 가장자리가 흐려지며 비쳐 어수선했다
             GUI.enabled = !settingsOpen;
             if (page == Page.Breeds && cardOpen) DrawIntroCard();
@@ -219,7 +229,17 @@ namespace DogShop.UI
                 GUI.DrawTexture(new Rect(Screen.width * HomeTitleLeft, Screen.height * HomeTitleTop, tw, th), logo, ScaleMode.StretchToFill);
             }
 
-            const int count = 5;
+            // 전시 빌드(2026-11-02, 지스타 부스 PC): 시연 모드·게임 설정·게임 종료 셋만 — 본편 시작·이어하기를 숨긴다.
+            // EXHIBITION_BUILD 는 프로젝트 설정이 아니라 전시 빌드를 뽑을 때만 빌드 옵션(extraScriptingDefines)으로 붙는다.
+            // 그래서 에디터와 일반 빌드는 다섯 개 그대로다.
+#if EXHIBITION_BUILD
+            const int count = 3;
+#else
+            const int count = 6;   // 명예의 전당 버튼(2026-11-05)
+#endif
+            // 버튼이 여섯이 되며 1080p 에서 맨 위 버튼이 화면 위로 넘쳤다 — 줄 전체가 화면 안(위 4% 여백)에 들도록 같이 줄인다
+            float room = Screen.height * (1f - HomeButtonsBottom) - Screen.height * 0.04f;
+            s = Mathf.Min(s, room / (HomeButtonStep * (count - 1) + HomeButtonH));
             float width = HomeButtonW * s, height = HomeButtonH * s, step = HomeButtonStep * s;
             float x = Screen.width * (1f - HomeButtonsRight) - width;
             float y = Screen.height * (1f - HomeButtonsBottom) - (step * (count - 1) + height);   // 맨 위 버튼
@@ -229,18 +249,153 @@ namespace DogShop.UI
             if (BoneButton(new Rect(x, y, width, height), "시연 모드", true, true)) { exhibitionPick = true; page = Page.Breeds; }
             y += step;
 
+#if !EXHIBITION_BUILD
             if (BoneButton(new Rect(x, y, width, height), "게임 시작", true, true)) { exhibitionPick = false; page = Page.Breeds; }
+            y += step;
 
             bool hasSave = SaveManager.HasSaveFile;
-            if (BoneButton(new Rect(x, y + step, width, height), "이어하기", hasSave, true))
+            if (BoneButton(new Rect(x, y, width, height), "이어하기", hasSave, true))
             {
                 GameStart.Resume();
                 SceneManager.LoadScene(shopScene);
             }
+            y += step;
 
-            if (BoneButton(new Rect(x, y + step * 2f, width, height), "게임 설정", true, true)) settingsOpen = true;
+            if (BoneButton(new Rect(x, y, width, height), "명예의 전당", true, true))
+            {
+                page = Page.Hall;
+                hallOpenedAt = Time.unscaledTime;
+                HallOfFame.JustAdded = -1;
+            }
+            y += step;
+#endif
 
-            if (BoneButton(new Rect(x, y + step * 3f, width, height), "게임 종료", true, true)) Quit();
+            if (BoneButton(new Rect(x, y, width, height), "게임 설정", true, true)) settingsOpen = true;
+            y += step;
+
+            if (BoneButton(new Rect(x, y, width, height), "게임 종료", true, true)) Quit();
+        }
+
+        // ---- 명예의 전당(2026-11-05) ----
+        // 본편 다섯 시즌을 끝까지 마친 판이 한 줄씩, 상위 5개. 바르코로 뽑은 왕관 월계관 판과 명판(1위는 금빛) 그림을 쓴다.
+        // 순위: 우승 횟수, 2등 횟수, 3등 횟수, 가게 명성 합계 순(HallOfFame.Compare).
+
+        float hallOpenedAt;
+
+        void DrawHall()
+        {
+            Matrix4x4 keep = GUI.matrix;
+            float s = Mathf.Min(Screen.width / 1920f, Screen.height / 1080f);
+            GUI.matrix = Matrix4x4.Scale(new Vector3(s, s, 1f));
+            float sw = Screen.width / s, sh = Screen.height / s;
+
+            GUI.color = new Color(0f, 0f, 0f, 0.45f);
+            GUI.DrawTexture(new Rect(0f, 0f, sw, sh), Texture2D.whiteTexture);
+            GUI.color = Color.white;
+
+            Texture2D art = SeasonArt.HallBoard;
+            float aspect = art != null ? art.height / (float)art.width : 0.56f;
+            float bw = Mathf.Min(1640f, sw - 60f), bh = bw * aspect;
+            if (bh > sh - 130f) { bh = sh - 130f; bw = bh / aspect; }
+            var b = new Rect((sw - bw) * 0.5f, 12f, bw, bh);
+
+            Matrix4x4 beforePop = GUI.matrix;
+            float pop = SeasonArt.Pop(hallOpenedAt);
+            GUIUtility.ScaleAroundPivot(new Vector2(pop, pop), b.center);
+            if (art != null) GUI.DrawTexture(b, art, ScaleMode.StretchToFill, true);
+            else GUI.Box(b, GUIContent.none, UiSkin.Tag(new Color(0.98f, 0.95f, 0.87f)));
+
+            // 리본 제목: 왕관 장식 아래, 종이 윗자리에 걸친다
+            float rw = bw * 0.36f, rh = rw * 0.2234f;
+            SeasonArt.RibbonTitle(new Rect(b.center.x - rw * 0.5f, b.y + bh * 0.13f, rw, rh), "명예의 전당", 46);
+
+            // 판 안쪽(그림 기준 좌우 6.6~93.4%, 아래 88%)에 명판 다섯 줄
+            float ix = b.x + bw * 0.085f, iw = bw * 0.83f;
+            float top = Mathf.Max(b.y + bh * 0.13f + rh + 4f, b.y + bh * 0.30f), bottom = b.y + bh * 0.88f;
+            const float RowGap = 4f;
+            float rowH = Mathf.Min(104f, (bottom - top - RowGap * (HallOfFame.Max - 1)) / HallOfFame.Max);
+            var entries = HallOfFame.Entries;
+            for (int i = 0; i < HallOfFame.Max; i++)
+            {
+                var r = new Rect(ix, top + i * (rowH + RowGap), iw, rowH);
+                DrawHallRow(r, i, i < entries.Count ? entries[i] : null, i == HallOfFame.JustAdded);
+            }
+            GUI.matrix = beforePop;
+
+            var back = new Rect(sw * 0.5f - 170f, b.yMax + 8f, 340f, Mathf.Min(100f, sh - b.yMax - 14f));
+            if (SeasonArt.Button(back, "뒤로", false, 30))
+            {
+                page = Page.Home;
+                HallOfFame.JustAdded = -1;
+            }
+            GUI.matrix = keep;
+        }
+
+        /// <summary>명판 한 줄: 등수, 시즌 순위 다섯 칸, 우승 횟수와 함께한 강아지와 날짜, 오른쪽에 가게 명성 합계.</summary>
+        void DrawHallRow(Rect r, int index, HallOfFame.Entry e, bool fresh)
+        {
+            Color keepColor = GUI.color;
+            if (fresh)
+            {
+                float glow = 0.5f + 0.5f * Mathf.Sin(Time.unscaledTime * 5f);
+                GUI.color = new Color(1f, 1f, 1f, 0.35f + 0.45f * glow);
+                GUI.Box(new Rect(r.x - 8f, r.y - 5f, r.width + 16f, r.height + 10f), GUIContent.none, UiSkin.Tag(new Color(1f, 0.8f, 0.25f)));
+                GUI.color = keepColor;
+            }
+
+            Texture2D plate = index == 0 && e != null ? SeasonArt.HallPlaqueGold : SeasonArt.HallPlaque;
+            if (e == null) GUI.color = new Color(1f, 1f, 1f, 0.6f);
+            if (plate != null) UiSkin.Draw9(r, plate, plate.height * 0.62f, plate.height * 0.3f, plate.height * 0.62f, plate.height * 0.3f, r.height / plate.height);
+            else GUI.Box(r, GUIContent.none, UiSkin.Tag(SeasonArt.Cream));
+
+            float cap = r.height * 0.62f;   // 양끝 장식
+            float x = r.x + cap, right = r.xMax - cap, cy = r.center.y;
+
+            // 등수: 1~3위는 트로피와 메달
+            Texture2D icon = SeasonArt.RankIcon(index + 1);
+            var placeRect = new Rect(x, cy - 30f, 60f, 60f);
+            if (index < 3 && icon != null) GUI.DrawTexture(placeRect, icon, ScaleMode.ScaleToFit, true);
+            else GUI.Label(placeRect, (index + 1) + "위", SeasonArt.Text(30, TextAnchor.MiddleCenter, SeasonArt.Ink));
+            x += 76f;
+
+            if (e == null)
+            {
+                string empty = index == 0 ? "아직 기록이 없다. 본편 5시즌을 끝까지 마치면 여기에 남는다" : "비어 있다";
+                GUI.Label(new Rect(x, r.y, right - x, r.height), empty, SeasonArt.Text(SeasonArt.Fit(empty, 24, right - x), TextAnchor.MiddleLeft, SeasonArt.SoftInk));
+                GUI.color = keepColor;
+                return;
+            }
+
+            // 시즌 순위 칸
+            const float Slot = 46f, Gap = 6f;
+            int seasons = e.ranks != null ? e.ranks.Length : 0;
+            for (int i = 0; i < seasons; i++)
+            {
+                var c = new Rect(x + i * (Slot + Gap), cy - Slot * 0.5f, Slot, Slot);
+                GUI.Box(c, GUIContent.none, UiSkin.Tag(SeasonArt.Cream));
+                int rank = e.ranks[i];
+                Texture2D m = SeasonArt.RankIcon(rank);
+                if (m != null) GUI.DrawTexture(new Rect(c.x + 5f, c.y + 5f, c.width - 10f, c.height - 10f), m, ScaleMode.ScaleToFit, true);
+                else GUI.Label(c, rank > 0 ? rank + "위" : "불참", SeasonArt.Text(rank > 0 ? 18 : 15, TextAnchor.MiddleCenter, SeasonArt.SoftInk));
+            }
+            x += seasons * (Slot + Gap) + 18f;
+
+            // 오른쪽: 가게 명성 합계
+            const float FameW = 290f, NumW = 180f;
+            GUI.Label(new Rect(right - FameW, r.y, FameW - NumW - 6f, r.height), "가게 명성", SeasonArt.Text(18, TextAnchor.MiddleRight, SeasonArt.SoftInk));
+            GUI.Label(new Rect(right - NumW, r.y, NumW, r.height), e.totalFame.ToString("N0"), SeasonArt.Text(SeasonArt.Fit(e.totalFame.ToString("N0"), 34, NumW), TextAnchor.MiddleRight, SeasonArt.DeepGold));
+
+            // 가운데: 우승 횟수, 함께한 강아지, 날짜
+            float mw = right - FameW - 16f - x;
+            string dogs = e.dogNames != null ? string.Join(", ", e.dogNames) : "";
+            GUI.Label(new Rect(x, cy - 30f, mw, 30f), "우승 " + HallOfFame.CountOf(e, 1) + "번", SeasonArt.Text(26, TextAnchor.MiddleLeft, SeasonArt.Ink));
+            string sub = dogs + "   " + e.date;
+            GUI.Label(new Rect(x, cy + 2f, mw, 26f), sub, SeasonArt.Text(SeasonArt.Fit(sub, 19, mw, 12), TextAnchor.MiddleLeft, SeasonArt.SoftInk));
+
+            if (fresh)
+                SeasonArt.Outlined(new Rect(r.x + cap - 18f, r.y - 16f, 120f, 30f), "새 기록!", SeasonArt.Text(22, TextAnchor.MiddleLeft, new Color(1f, 0.42f, 0.32f)), Color.white, 2f);
+
+            GUI.color = keepColor;
         }
 
         // ---- 견종 고르기 ----
@@ -287,12 +442,15 @@ namespace DogShop.UI
         /// 이름에는 글자(한글·영어)와 띄어쓰기만 남긴다. 숫자·기호는 버린다.
         /// 비워 두고 시작하면 견종 이름으로 부른다(<see cref="Dogs.Dog.DisplayName"/>).
         /// </summary>
-        static string CleanName(string s)
+        /// 글꼴(BMJUA)에 없는 드문 글자도 지운다 — 이름표에 빈칸으로 보였다(2026-11-05, Dogs.DogNames).
+        Dogs.DogNames.Reject nameReject;
+
+        string CleanName(string s)
         {
-            var sb = new System.Text.StringBuilder(s.Length);
-            foreach (char c in s)
-                if (char.IsLetter(c) || c == ' ') sb.Append(c);
-            return sb.ToString();
+            Dogs.DogNames.Reject reject;
+            string clean = Dogs.DogNames.Clean(s, out reject);
+            if (reject != Dogs.DogNames.Reject.None) nameReject = reject;
+            return clean;
         }
 
         void DrawBreeds(float x, float y)
@@ -553,7 +711,7 @@ namespace DogShop.UI
                 GUI.Label(field, "비워 두면 " + breed.nameKo, cardHint);
             // 숫자·기호를 쳤을 때 아무 반응이 없으면 키보드가 고장 난 줄 안다
             if (Time.unscaledTime - nameRejectedAt < 2f)
-                GUI.Label(new Rect(field.x, field.yMax, field.width, line * 0.6f), "한글과 영어만 쓸 수 있다", cardSmallNote);
+                GUI.Label(new Rect(field.x, field.yMax, field.width, line * 0.6f), Dogs.DogNames.Message(nameReject), cardSmallNote);
 
             // 확인 — 바로 가게로
             Rect ok = R(0.33f, 0.835f, 0.67f, 0.945f);

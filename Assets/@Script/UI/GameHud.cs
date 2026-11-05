@@ -67,6 +67,7 @@ namespace DogShop.UI
         RawImage mascotBadge;
         Text mascotNeedText;
         Image reputationBar;
+        RectTransform reputationIcon;   // 명성 글자 길이에 맞춰 바로 왼쪽으로 옮긴다
         Text todayText;
         Text cleanText;
         Text deliveryText;
@@ -89,6 +90,59 @@ namespace DogShop.UI
 
         float refreshTimer;
         float toastTimer;
+
+        // 화면 판들(시계, 상태창, 할 일, 오늘 실적)의 화면 사각형(OnGUI 좌표, 위가 0).
+        // 진열대·손님 이름표가 판 위에 겹쳐 할 일 설명을 가렸다 — 이름표는 여기와 겹치면 그리지 않는다(2026-11-04)
+        static readonly System.Collections.Generic.List<Rect> blocks = new System.Collections.Generic.List<Rect>();
+        public static System.Collections.Generic.IReadOnlyList<Rect> Blocks => blocks;
+
+        /// <summary>화면 사각형(OnGUI 좌표)이 HUD 판이나 시연 안내판과 겹치는가 — 머리 위 이름표·말풍선을 판 위에 그리지 않게.</summary>
+        public static bool Covers(Rect r)
+        {
+            for (int i = 0; i < blocks.Count; i++) if (blocks[i].Overlaps(r)) return true;
+            Rect guide = ExhibitionGuide.ScreenRect;
+            return guide.width > 0f && guide.Overlaps(r);
+        }
+        RectTransform clockPanel, walletPanel, todayPanel;
+
+        void UpdateBlocks()
+        {
+            blocks.Clear();
+            AddBlock(clockPanel);
+            AddBlock(walletPanel);
+            AddBlock(todayPanel);
+            AddBlock(questPanel);
+            AddBlock(dailyPanel);
+        }
+
+        static void AddBlock(RectTransform r)
+        {
+            if (r == null || !r.gameObject.activeInHierarchy) return;
+            var c = new Vector3[4];
+            r.GetWorldCorners(c);   // 오버레이 캔버스라 화면 픽셀(왼쪽 아래 0)
+            blocks.Add(new Rect(c[0].x, Screen.height - c[1].y, c[2].x - c[0].x, c[1].y - c[0].y));
+        }
+
+        void OnDisable() => blocks.Clear();
+
+        /// <summary>
+        /// 알림 칸 = 왼쪽 판(시계, 시연 안내판이 떠 있으면 그 판)의 오른쪽 끝부터 우상단 상태창 왼쪽 끝까지.
+        /// 글자를 키운 뒤(2026-11-04) 긴 알림(마스코트 등급 오름, 55자)이 상태창과 안내판에 닿았다.
+        /// </summary>
+        void PlaceToast()
+        {
+            if (toastText == null || string.IsNullOrEmpty(toastText.text)) return;
+            var area = (RectTransform)toastText.rectTransform.parent;
+            Canvas canvas = area.GetComponent<Canvas>();
+            float unit = canvas != null && canvas.scaleFactor > 0f ? canvas.scaleFactor : 1f;   // 화면 픽셀 -> 캔버스 단위
+            float left = 24f + 306f;
+            Rect guide = ExhibitionGuide.ScreenRect;
+            if (guide.width > 0f) left = Mathf.Max(left, guide.xMax / unit);
+            float right = area.rect.width - 24f - QuestWidth;
+            float width = Mathf.Max(240f, right - left - 16f);
+            toastText.rectTransform.anchoredPosition = new Vector2(left + 8f, -66f);
+            toastText.rectTransform.sizeDelta = new Vector2(width, 64f);
+        }
 
         void Awake()
         {
@@ -121,6 +175,8 @@ namespace DogShop.UI
             UpdateQuest();
             UpdateDaily();
             UpdateOrderAlert();
+            UpdateBlocks();
+            PlaceToast();
 
             refreshTimer += Time.unscaledDeltaTime;
             if (refreshTimer < RefreshInterval) return;
@@ -156,9 +212,12 @@ namespace DogShop.UI
             }
             else
             {
-                reputationText.text = "명성 " + g.Reputation + "   최대 레벨";
+                reputationText.text = "명성 " + g.Reputation.ToString("N0") + "  (최대)";   // 최대 레벨 뒤에도 계속 쌓인다(마스코트 명성처럼)
                 reputationBar.fillAmount = 1f;
             }
+
+            if (reputationIcon != null)
+                reputationIcon.anchoredPosition = new Vector2(-16f - Mathf.Min(reputationText.preferredWidth, QuestWidth - 200f) - 8f, reputationIcon.anchoredPosition.y);
 
             // 마스코트 등급과, 다음 레벨업이 요구하는 등급(모자랄 때만)
             Dogs.Dog hero = Dogs.DogManager.Instance != null ? Dogs.DogManager.Instance.Hero : null;
@@ -172,8 +231,9 @@ namespace DogShop.UI
                 mascotBadge.texture = art;
                 mascotBadge.enabled = art != null;
                 bool need = next != null && next.heroStatGate > 0 && total < next.heroStatGate;
-                mascotNeedText.text = need ? Dogs.MascotGrade.NameForThreshold(next.heroStatGate) + " 필요" : "";
-                mascotNeedText.color = new Color(1f, 0.62f, 0.5f);
+                // 모자란 것이 없으면 마스코트 명성(손님 반기기로 번 명성 합계)을 보여 준다 — 등급이 끝이어도 계속 오른다
+                mascotNeedText.text = need ? Dogs.MascotGrade.NameForThreshold(next.heroStatGate) + " 필요" : "마스코트 명성 " + hero.MascotFame.ToString("N0");
+                mascotNeedText.color = need ? new Color(1f, 0.62f, 0.5f) : MoneyColor;
             }
             else { mascotText.text = ""; mascotNeedText.text = ""; mascotBadge.enabled = false; }
 
@@ -196,7 +256,8 @@ namespace DogShop.UI
 
             // 배달은 가게 밖에 쌓인다. 화면 안에 없는 것은 잊어버리므로 남은 개수를 적어 둔다
             InventoryManager inv = InventoryManager.Instance;
-            int waitingOutside = inv != null ? inv.DeliveredTotal : 0;
+            // 배달 상자(발주한 물건이 상자째 온 것)도 센다 — 예전엔 낱개 배달만 세서 상자가 와 있어도 알림이 없었다(2026-11-04)
+            int waitingOutside = inv != null ? inv.DeliveredTotal + inv.ParcelTotal : 0;
             deliveryText.text = waitingOutside > 0 ? "가게 앞에 배달 " + waitingOutside + "개" : "";
         }
 
@@ -271,10 +332,10 @@ namespace DogShop.UI
 
         const float WalletBottom = 24f + WalletHeight;
         const float WalletHeight = 150f;   // 우상단 상태창 높이 — 돈, 레벨·명성, 마스코트 등급 세 줄
-        const float QuestWidth = 344f;
-        const float QuestRowHeight = 64f;
+        const float QuestWidth = 400f;      // 344 -> 400. 우상단 상태창도 같은 폭(할 일 글자가 작다는 의견, 2026-11-04)
+        const float QuestRowHeight = 76f;
         const float QuestGap = 8f;
-        const float QuestClaimHeight = 40f;
+        const float QuestClaimHeight = 46f;
         static readonly Color ClaimColor = new Color(0.553f, 0.753f, 0.635f);   // UiSkin.Green — 다른 창의 확인 버튼과 같은 초록
 
         /// <summary>
@@ -292,20 +353,20 @@ namespace DogShop.UI
             starImage.texture = questStarTexture;
             starImage.raycastTarget = false;
             if (questStarTexture == null) starImage.color = MoneyColor;
-            Anchor(starImage.rectTransform, new Vector2(0f, 1f), new Vector2(10f, -10f), new Vector2(44f, 44f));
+            Anchor(starImage.rectTransform, new Vector2(0f, 1f), new Vector2(10f, -11f), new Vector2(54f, 54f));
 
-            questHeader = Label(inner, "Header", font, 15, TextAnchor.MiddleLeft, CalmColor);
-            Anchor(questHeader.rectTransform, new Vector2(0f, 1f), new Vector2(62f, -8f), new Vector2(180f, 20f));
+            questHeader = Label(inner, "Header", font, 18, TextAnchor.MiddleLeft, CalmColor);
+            Anchor(questHeader.rectTransform, new Vector2(0f, 1f), new Vector2(74f, -8f), new Vector2(230f, 24f));
 
-            questObjective = Label(inner, "Objective", font, 21, TextAnchor.MiddleLeft, TextColor);
-            Anchor(questObjective.rectTransform, new Vector2(0f, 1f), new Vector2(62f, -30f), new Vector2(QuestWidth - 74f, 26f));
+            questObjective = Label(inner, "Objective", font, 25, TextAnchor.MiddleLeft, TextColor);
+            Anchor(questObjective.rectTransform, new Vector2(0f, 1f), new Vector2(74f, -36f), new Vector2(QuestWidth - 86f, 32f));
 
             questToggle = Block(inner, "Toggle", new Color(1f, 1f, 1f, 0.14f));
-            Anchor(questToggle, new Vector2(1f, 1f), new Vector2(-10f, -8f), new Vector2(58f, 22f));
-            questToggleLabel = Label(questToggle, "Label", font, 14, TextAnchor.MiddleCenter, TextColor);
+            Anchor(questToggle, new Vector2(1f, 1f), new Vector2(-10f, -8f), new Vector2(66f, 26f));
+            questToggleLabel = Label(questToggle, "Label", font, 16, TextAnchor.MiddleCenter, TextColor);
             Stretch(questToggleLabel.rectTransform, Vector2.zero, Vector2.zero);
 
-            questDetail = Label(inner, "Detail", font, 17, TextAnchor.UpperLeft, new Color(0.85f, 0.87f, 0.9f));
+            questDetail = Label(inner, "Detail", font, 21, TextAnchor.UpperLeft, new Color(0.85f, 0.87f, 0.9f));
             questDetail.horizontalOverflow = HorizontalWrapMode.Wrap;
             questDetail.lineSpacing = 1.1f;
             Anchor(questDetail.rectTransform, new Vector2(0f, 1f), new Vector2(14f, -QuestRowHeight), new Vector2(QuestWidth - 28f, 20f));
@@ -313,7 +374,7 @@ namespace DogShop.UI
             questClaim = Block(inner, "Claim", ClaimColor);
             Anchor(questClaim, new Vector2(0f, 1f), new Vector2(12f, -QuestRowHeight + 2f), new Vector2(QuestWidth - 24f, QuestClaimHeight));
             questClaimImage = questClaim.GetComponent<Image>();
-            Text claimLabel = Label(questClaim, "Label", font, 20, TextAnchor.MiddleCenter, new Color(0.16f, 0.19f, 0.22f));
+            Text claimLabel = Label(questClaim, "Label", font, 23, TextAnchor.MiddleCenter, new Color(0.16f, 0.19f, 0.22f));
             Stretch(claimLabel.rectTransform, Vector2.zero, Vector2.zero);
             claimLabel.text = "퀘스트 완료   +" + TutorialQuestManager.Reward + "원 받기";
             questClaim.gameObject.SetActive(false);
@@ -559,7 +620,7 @@ namespace DogShop.UI
             orderAlertGroup.blocksRaycasts = false;
             orderAlertGroup.interactable = false;
             // 상태창(폭 344, 높이 120, 위 여백 24)의 가운데 아래
-            Anchor(orderAlert, new Vector2(1f, 1f), new Vector2(-24f - (344f - 220f) * 0.5f, -24f - 120f - 8f), new Vector2(220f, 105f));
+            Anchor(orderAlert, new Vector2(1f, 1f), new Vector2(-24f - (QuestWidth - 220f) * 0.5f, -24f - 120f - 8f), new Vector2(220f, 105f));
 
             var bone = new GameObject("Bone", typeof(RectTransform), typeof(CanvasRenderer), typeof(RawImage));
             bone.transform.SetParent(orderAlert, false);
@@ -593,6 +654,7 @@ namespace DogShop.UI
         void BuildClock(RectTransform root, Font font)
         {
             RectTransform panel = Panel(root, "Clock", new Vector2(0f, 1f), new Vector2(24f, -24f), new Vector2(306f, 66f));
+            clockPanel = (RectTransform)panel.parent;
 
             Icon(panel, iconClock, new Vector2(0f, 1f), new Vector2(12f, -11f), 44f);
 
@@ -606,7 +668,8 @@ namespace DogShop.UI
         /// <summary>우상단 — 돈·레벨·명성.</summary>
         void BuildWallet(RectTransform root, Font font)
         {
-            RectTransform panel = Panel(root, "Wallet", new Vector2(1f, 1f), new Vector2(-24f, -24f), new Vector2(344f, WalletHeight));
+            RectTransform panel = Panel(root, "Wallet", new Vector2(1f, 1f), new Vector2(-24f, -24f), new Vector2(QuestWidth, WalletHeight));
+            walletPanel = (RectTransform)panel.parent;
 
             Icon(panel, iconMoney, new Vector2(0f, 1f), new Vector2(14f, -10f), 40f);
 
@@ -616,10 +679,12 @@ namespace DogShop.UI
             levelText = Label(panel, "Level", font, 20, TextAnchor.MiddleLeft, TextColor);
             Anchor(levelText.rectTransform, new Vector2(0f, 1f), new Vector2(16f, -56f), new Vector2(140f, 24f));
 
+            int before = panel.childCount;
             Icon(panel, iconReputation, new Vector2(1f, 1f), new Vector2(-150f, -54f), 28f);
+            reputationIcon = panel.childCount > before ? (RectTransform)panel.GetChild(panel.childCount - 1) : null;
 
             reputationText = Label(panel, "Reputation", font, 20, TextAnchor.MiddleRight, CalmColor);
-            Anchor(reputationText.rectTransform, new Vector2(1f, 1f), new Vector2(-16f, -56f), new Vector2(126f, 24f));
+            Anchor(reputationText.rectTransform, new Vector2(1f, 1f), new Vector2(-16f, -56f), new Vector2(200f, 24f));
 
             // 마스코트 등급 — 강아지가 커야 가게가 큰다. 다음 레벨업이 등급을 요구하면 오른쪽에 무엇이 필요한지
             var badgeGo = new GameObject("MascotBadge", typeof(RectTransform), typeof(RawImage));
@@ -634,7 +699,7 @@ namespace DogShop.UI
 
             RectTransform track = Block(panel, "RepTrack", new Color(1f, 1f, 1f, 0.12f));
             track.GetComponent<Image>().sprite = null;
-            Anchor(track, new Vector2(0f, 0f), new Vector2(16f, 16f), new Vector2(312f, 6f));
+            Anchor(track, new Vector2(0f, 0f), new Vector2(16f, 16f), new Vector2(QuestWidth - 32f, 6f));
             track.pivot = new Vector2(0f, 0.5f);
 
             reputationBar = Block(track, "RepFill", BarFill).GetComponent<Image>();
@@ -649,6 +714,7 @@ namespace DogShop.UI
         void BuildToday(RectTransform root, Font font)
         {
             RectTransform panel = Panel(root, "Today", new Vector2(0f, 0f), new Vector2(24f, 24f), new Vector2(452f, 150f));
+            todayPanel = (RectTransform)panel.parent;
 
             todayText = Label(panel, "Today", font, 20, TextAnchor.MiddleLeft, TextColor);
             Anchor(todayText.rectTransform, new Vector2(0f, 1f), new Vector2(16f, -14f), new Vector2(420f, 24f));
@@ -672,8 +738,15 @@ namespace DogShop.UI
         void BuildToast(RectTransform root, Font font)
         {
             // 강아지 상태창 리본(화면 위 140 근처)에 가리지 않게 조금 위로 — 훈련하다 마스코트 등급이 오르는 알림이 여기 뜬다
-            toastText = Label(root, "Toast", font, 26, TextAnchor.MiddleCenter, MoneyColor);
-            Anchor(toastText.rectTransform, new Vector2(0.5f, 1f), new Vector2(0f, -74f), new Vector2(900f, 34f));
+            // 글자를 키운 뒤(2026-11-04) 긴 알림이 오른쪽 상태창에 닿았다 — 시계 판(오른쪽 끝 330)과 상태창(폭 QuestWidth + 여백 24) 사이 빈 칸 가운데에 두고, 넘치면 줄을 바꾼다
+            // 칸은 매 프레임 PlaceToast 가 정한다 — 시계 판(또는 시연 안내판)과 상태창 사이. 두 줄까지 접고, 그래도 넘치면 글자를 줄인다(26 -> 최소 16)
+            toastText = Label(root, "Toast", font, 26, TextAnchor.UpperCenter, MoneyColor);
+            toastText.horizontalOverflow = HorizontalWrapMode.Wrap;
+            toastText.verticalOverflow = VerticalWrapMode.Truncate;
+            toastText.resizeTextForBestFit = true;
+            toastText.resizeTextMinSize = 16;
+            toastText.resizeTextMaxSize = 26;
+            Anchor(toastText.rectTransform, new Vector2(0f, 1f), new Vector2(338f, -66f), new Vector2(700f, 64f));
 
             var outline = toastText.gameObject.AddComponent<Shadow>();
             outline.effectColor = new Color(0f, 0f, 0f, 0.85f);

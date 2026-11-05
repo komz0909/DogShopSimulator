@@ -111,10 +111,18 @@ namespace DogShop.Player
             return true;
         }
 
-        /// <summary>조준한 지점에 내려놓는다. 바닥 높이는 레이캐스트로 맞춘다.</summary>
+        /// <summary>
+        /// 조준한 지점에 내려놓는다. 바닥 높이는 레이캐스트로 맞춘다.
+        /// 그 자리가 벽·가구와 겹치거나 벽 너머면 가까운 빈 바닥으로 옮겨 놓고, 빈 곳이 없으면 놓지 않는다(false) —
+        /// 예전엔 맞은 점에 그대로 놓아 상자가 벽을 뚫거나 가구에 박혔다(2026-11-04).
+        /// </summary>
         public bool DropAt(Vector3 position)
         {
             if (!IsHolding) return false;
+
+            Vector3 spot;
+            if (!FindDropSpot(Held, position, out spot)) return false;
+            position = spot;
 
             CarryCrate crate = Held;
             Held = null;
@@ -153,6 +161,71 @@ namespace DogShop.Player
         {
             foreach (Collider collider in crate.GetComponentsInChildren<Collider>(true))
                 collider.enabled = active;
+        }
+
+        static readonly Collider[] overlapHits = new Collider[16];
+
+        /// <summary>바닥으로 치는 높이(매장·창고 바닥 y=0). 이보다 높으면 가구 위다.</summary>
+        const float FloorTolerance = 0.06f;
+
+        /// <summary>
+        /// 상자를 놓을 빈 바닥을 찾는다. 조준점부터 보고, 막혔으면 주인 쪽으로 당기며, 그래도 안 되면 둘레를 돈다.
+        /// 빈 곳 = 바닥 높이이고, 상자 크기 상자 안에 벽·가구·다른 상자가 없고, 주인 몸에서 그 자리까지 막힘이 없다(벽 너머가 아니다).
+        /// </summary>
+        bool FindDropSpot(CarryCrate crate, Vector3 aim, out Vector3 spot)
+        {
+            // 상자 크기 — 들고 있는 동안 콜라이더는 꺼져 있으므로 그림 크기로 잰다. 돌려 놓아도 맞게 정사각으로 본다
+            Bounds b = new Bounds(crate.transform.position, Vector3.zero);
+            bool any = false;
+            foreach (Renderer r in crate.GetComponentsInChildren<Renderer>())
+            {
+                if (!any) { b = r.bounds; any = true; } else b.Encapsulate(r.bounds);
+            }
+            float side = any ? Mathf.Max(b.extents.x, b.extents.z) * 0.92f : 0.25f;
+            float halfH = any ? Mathf.Max(0.08f, b.extents.y * 0.9f) : 0.15f;
+            var half = new Vector3(side, halfH, side);
+
+            Vector3 me = transform.position; me.y = aim.y;
+            Vector3 toMe = me - aim;
+            float back = toMe.magnitude;
+            Vector3 dirToMe = back > 0.001f ? toMe / back : Vector3.zero;
+
+            // 1) 조준점  2) 주인 쪽으로 15cm 씩  3) 조준점 둘레 두 바퀴
+            if (TrySpot(aim, half, out spot)) return true;
+            for (float d = 0.15f; d < back - 0.3f; d += 0.15f)
+                if (TrySpot(aim + dirToMe * d, half, out spot)) return true;
+            for (int ring = 1; ring <= 2; ring++)
+                for (int k = 0; k < 8; k++)
+                {
+                    float a = k * Mathf.PI * 0.25f;
+                    if (TrySpot(aim + new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)) * (0.22f * ring), half, out spot)) return true;
+                }
+            spot = aim;
+            return false;
+        }
+
+        bool TrySpot(Vector3 at, Vector3 half, out Vector3 spot)
+        {
+            spot = at;
+            spot.y = GroundHeight(at);
+            if (spot.y > FloorTolerance) return false;   // 가구 위(또는 주인 몸 위)
+
+            Vector3 center = spot + Vector3.up * (half.y + 0.04f);   // 바닥 면은 안 닿게 살짝 띄운다
+            int n = Physics.OverlapBoxNonAlloc(center, half, overlapHits, Quaternion.identity, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
+            for (int i = 0; i < n; i++)
+            {
+                Collider c = overlapHits[i];
+                if (c == null || c.transform.IsChildOf(transform)) continue;   // 주인 몸은 상관없다
+                return false;
+            }
+
+            // 벽 너머가 아닌가 — 주인 허리에서 그 자리까지 막힘이 없어야 한다
+            RaycastHit hit;
+            Vector3 from = transform.position + Vector3.up * 0.5f;
+            if (Physics.Linecast(from, center, out hit, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore)
+                && !hit.collider.transform.IsChildOf(transform))
+                return false;
+            return true;
         }
 
         float GroundHeight(Vector3 position)

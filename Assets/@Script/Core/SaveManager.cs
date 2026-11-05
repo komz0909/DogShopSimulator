@@ -23,6 +23,8 @@ namespace DogShop.Core
         public float beautyCarry;
         public float trainingCarry;
         public float agilityCarry;
+        /// <summary>이 강아지가 손님 반기기로 번 명성 합계(마스코트 명성).</summary>
+        public int mascotFame;
     }
 
     /// <summary>플레이어가 사서 놓아 둔 가구 하나. 무엇을 어디에 놓았는지만 있으면 다시 세울 수 있다.</summary>
@@ -56,6 +58,8 @@ namespace DogShop.Core
         public int reputation;
         public int day;
         public int shopLevel = 1;
+        /// <summary>지금까지 오른 가장 높은 레벨. 가게 넓이가 이것을 따른다(새 시즌에 레벨이 1로 돌아가도 벽은 그대로, 2026-11-05). 옛 세이브는 0.</summary>
+        public int shopFloorLevel;
         public int trainingSlotsUsed;
 
         /// <summary>오늘 운동을 했는가(하루 한 번). 없으면 저장·로드만으로 운동이 다시 열린다.</summary>
@@ -123,6 +127,8 @@ namespace DogShop.Core
         public int[] seasonRanks;
         /// <summary>우승 기록(명예의 벽 액자).</summary>
         public DogShop.Show.ChampionshipManager.ChampionRecord[] champions;
+        /// <summary>시즌마다 순위, 가게 명성, 함께한 강아지(2026-11-05).</summary>
+        public DogShop.Show.ChampionshipManager.SeasonLog[] seasonLogs;
         public int[] shelf = new int[0];
         public int[] incoming = new int[0];
 
@@ -238,6 +244,12 @@ namespace DogShop.Core
         /// "이어하기"를 켤지 꺼둘지는 거기서 정해야 한다.
         /// </summary>
         public static bool HasSaveFile => File.Exists(SavePath);
+
+        /// <summary>세이브를 지운다 — 다섯 시즌을 다 마친 판은 이어 할 것이 없다.</summary>
+        public static void DeleteSave()
+        {
+            if (File.Exists(SavePath)) File.Delete(SavePath);
+        }
 
         public bool HasSave => HasSaveFile;
 

@@ -35,6 +35,14 @@ namespace DogShop.Show
         readonly List<Material> owned = new List<Material>();
         int shown = -1;
 
+        static ChampionWall instance;
+        void OnEnable() { instance = this; }
+        void OnDisable() { if (instance == this) instance = null; }
+
+        /// <summary>견종 초상화 — 우승 기록 창과 다음 시즌 강아지 고르기가 쓴다. 없으면 null.</summary>
+        public static Texture2D PortraitOf(int breed) =>
+            instance != null && breed >= 0 && breed < instance.breedPortraits.Length ? instance.breedPortraits[breed] : null;
+
         void Update()
         {
             ChampionshipManager champ = ChampionshipManager.Instance;
@@ -65,6 +73,11 @@ namespace DogShop.Show
             root.transform.position = position;
 
             float h = FrameHeight, w = FrameHeight * FrameAspect;
+
+            // E 로 기록 창을 열 수 있게 액자 판 크기의 콜라이더와 기록을 단다(2026-11-04)
+            var hitBox = root.AddComponent<BoxCollider>();
+            hitBox.size = new Vector3(w, h, 0.06f);
+            root.AddComponent<ChampionFrame>().Record = record;
 
             // 구멍 자리(액자 가운데 기준)
             Vector2 holeCenter = new Vector2((Hole.center.x - 0.5f) * w, (Hole.center.y - 0.5f) * h);

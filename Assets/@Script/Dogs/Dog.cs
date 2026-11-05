@@ -59,11 +59,19 @@ namespace DogShop.Dogs
 
         public void SetName(string name)
         {
-            string n = (name ?? "").Trim();
+            string n = DogNames.Clean(name ?? "").Trim();   // 글꼴에 없는 글자는 이름표에 빈칸으로 보인다(2026-11-05)
             Name = n.Length > MaxNameLength ? n.Substring(0, MaxNameLength) : n;
         }
 
         public void RestoreState(int daysOwned) => DaysOwned = daysOwned;
+
+        /// <summary>
+        /// 마스코트 명성 — 이 강아지가 손님을 반겨 번 명성 합계. 등급(챔피언 후보)이 끝이어도 계속 오른다.
+        /// 얼마나 잘 키웠는지 시즌끼리 견주는 숫자다(우승 액자 기록에 남는다).
+        /// </summary>
+        public int MascotFame { get; private set; }
+        public void AddMascotFame(int amount) { if (amount > 0) MascotFame += amount; }
+        public void RestoreMascotFame(int value) => MascotFame = Mathf.Max(0, value);
 
         public void AdvanceDay() => DaysOwned++;
 

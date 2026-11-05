@@ -87,6 +87,8 @@ namespace DogShop.Dogs
             public GrowthAxis axisKind;
         }
         Card[] cards = new Card[0];
+        /// <summary>훈련 목록에 그리는 순서(카탈로그 번호). 기본 값이 비싼 훈련이 위로(2026-11-04 요청). 단계업으로 값이 올라도 순서는 안 바뀐다.</summary>
+        int[] trainOrder = new int[0];
 
         GUIStyle titleStyle, subStyle, labelStyle, smallStyle, numStyle, starStyle, btnStyle;
 
@@ -246,6 +248,14 @@ namespace DogShop.Dogs
                 }
                 cards[i] = c;
             }
+
+            if (trainOrder.Length != cat.Count)
+            {
+                trainOrder = new int[cat.Count];
+                for (int i = 0; i < trainOrder.Length; i++) trainOrder[i] = i;
+                // 기본 값 내림차순, 같으면 뒤쪽(나중에 열리는) 훈련이 위
+                System.Array.Sort(trainOrder, (a, b) => { int d = cat.Get(b).cost.CompareTo(cat.Get(a).cost); return d != 0 ? d : b.CompareTo(a); });
+            }
         }
 
         /// <summary>두 축을 올리는 훈련은 양쪽을 다 적는다 — 같은 +4라도 값이 두 배다.</summary>
@@ -391,6 +401,9 @@ namespace DogShop.Dogs
             y += h;
         }
 
+        /// <summary>지난 시즌 순위 보너스가 있으면 운동 줄 끝에 붙이는 글(2026-11-05).</summary>
+        static string RankBonusTag => Show.ChampionshipManager.RankBonus > 0f ? "  (보너스 " + Show.ChampionshipManager.RankBonusText(Show.ChampionshipManager.RankBonus) + ")" : "";
+
         /// <summary>오른쪽: 돌보기 / 운동 / 훈련 — 위에서 아래로 "자주 → 계획해서" 순서.</summary>
         void DrawActions(Rect r)
         {
@@ -417,7 +430,7 @@ namespace DogShop.Dogs
             // 운동 — 돈, 하루 한 번(셋 중 하나)
             GUI.Label(new Rect(r.x, y, 200f, 26f), "운동", sectionStyle);
             GUI.Label(new Rect(r.x + 52f, y + 1f, 60f, 24f), (exercisedToday ? 1 : 0) + " / 1", exercisedToday ? exerciseDone : exerciseCount);
-            GUI.Label(new Rect(r.x, y, r.width, 26f), "하루 한 번, 어질리티", rightSmall);
+            GUI.Label(new Rect(r.x, y, r.width, 26f), "하루 한 번, 어질리티" + RankBonusTag, rightSmall);
             y += 30f;
             for (int i = 0; i < TrainingManager.Exercises.Length; i++)
             {
@@ -426,7 +439,7 @@ namespace DogShop.Dogs
                 bool unlocked = TrainingManager.Instance.IsExerciseUnlocked(i);
                 string line = !unlocked ? "Lv " + def.unlockLevel + " 해금"
                             : exercisedToday ? "오늘 완료"
-                            : exerciseEnabled[i] ? def.cost.ToString("N0") + "원 / +" + TrainingManager.ExerciseGainOf(i)
+                            : exerciseEnabled[i] ? def.cost.ToString("N0") + "원 / +" + TrainingManager.GainText(TrainingManager.ExerciseGainOf(i))
                             : exerciseReason[i];
                 bool warn = unlocked && !exercisedToday && !exerciseEnabled[i];
                 Texture2D icon = i < exerciseIcons.Length ? exerciseIcons[i] : null;
@@ -521,6 +534,7 @@ namespace DogShop.Dogs
         {
             TrainingManager tm = TrainingManager.Instance;
             GUI.Label(new Rect(r.x, r.y, 200f, 26f), "훈련", sectionStyle);
+            if (Show.ChampionshipManager.RankBonus > 0f) GUI.Label(new Rect(r.x + 52f, r.y + 1f, 220f, 24f), "순위 보너스 " + Show.ChampionshipManager.RankBonusText(Show.ChampionshipManager.RankBonus), exerciseCount);
 
             // 오늘 남은 훈련 — 글 + 발바닥 도장
             if (tm != null)
@@ -539,7 +553,11 @@ namespace DogShop.Dogs
             if (n == 0) return;
             float top = r.y + 32f;
             float rowH = Mathf.Min(40f, (r.yMax - top) / n);
-            for (int i = 0; i < n; i++) DrawTrainingRow(i, new Rect(r.x, top + i * rowH, r.width, rowH - 3f));
+            for (int i = 0; i < n; i++)
+            {
+                int index = i < trainOrder.Length ? trainOrder[i] : i;
+                DrawTrainingRow(index, new Rect(r.x, top + i * rowH, r.width, rowH - 3f));
+            }
         }
 
         void DrawTrainingRow(int i, Rect row)
@@ -577,7 +595,7 @@ namespace DogShop.Dogs
                 if (chipBoth == null || chipBoth.normal.background == null) chipBoth = new GUIStyle(chipStyle) { fontSize = 12 };
                 chipStyle = chipBoth;
             }
-            GUI.Box(new Rect(row.x + 210f, cy - 11f, 92f, 22f), d.axis + " +" + d.gain, chipStyle);
+            GUI.Box(new Rect(row.x + 210f, cy - 11f, 92f, 22f), d.axis + " +" + TrainingManager.GainText(d.gain), chipStyle);
 
             // 값 — 못 하는 까닭(돈·슬롯·컨디션)이 있으면 그 자리에 빨갛게
             bool showReason = !d.enabled && !d.used && !d.upgrading && d.reason.Length > 0;

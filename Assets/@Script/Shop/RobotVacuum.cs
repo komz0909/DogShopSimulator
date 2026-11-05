@@ -21,7 +21,7 @@ namespace DogShop.Shop
         /// <summary>이 레벨부터 작동한다.</summary>
         [SerializeField] int unlockLevel = 7;
 
-        [SerializeField] float speed = 1.3f;   // 씬 청소기 0.95 → 1.3: 너무 느리다는 의견(2026-10-29). 씬 오브젝트가 프리팹과 끊겨 있어 씬 값이 실제 값이다
+        [SerializeField] float speed = 2.0f;   // 0.95 → 1.3(2026-10-29) → 2.0(2026-11-04): 너무 느리다는 의견. 씬 오브젝트가 프리팹과 끊겨 있어 씬 값이 실제 값이다
 
         /// <summary>한 지점을 빨아들이는 데 걸리는 시간.</summary>
         [SerializeField] float cleanSeconds = 1.2f;
@@ -76,11 +76,12 @@ namespace DogShop.Shop
                 // 손님이 못 가는 직원 구역(3)도 청소한다 — 바닥은 어디든 더러워진다
                 agent.areaMask = NavMesh.AllAreas;
 
-                // 사람·강아지가 우선이다. 유니티 회피는 자기보다 우선순위 숫자가 큰(덜 중요한) 상대는 피하지 않는데,
-                // 예전 값 80 은 손님(99)·강아지(90)보다 작아서 오히려 청소기가 아무도 안 피하고 밀고 지나갔다.
-                // 가장 덜 중요한 99 로 두고 회피 품질을 올린다(2026-10-29)
+                // 사람·강아지와 서로 비키지 않는다(2026-11-04). 서로 피하려다 계산 줄·통로에서 청소기와 손님이 맞물려
+                // 둘 다 못 지나갔다. 청소기는 아무도 피하지 않고(회피 끔), 몸 반경을 거의 0 으로 둬
+                // 다른 에이전트의 회피 계산에도 걸리지 않게 한다 — 바닥을 스치듯 지나가는 것으로 보인다
                 agent.avoidancePriority = 99;
-                agent.obstacleAvoidanceType = ObstacleAvoidanceType.HighQualityObstacleAvoidance;
+                agent.obstacleAvoidanceType = ObstacleAvoidanceType.NoObstacleAvoidance;
+                agent.radius = 0.01f;
             }
         }
 
@@ -128,12 +129,6 @@ namespace DogShop.Shop
             target = null;
         }
 
-        /// <summary>앞을 살피는 거리와 반경. 청소기 몸(반경 0.18)보다 넉넉히.</summary>
-        const float LookAhead = 0.35f, LookRadius = 0.45f;
-        /// <summary>앞을 막은 상대가 안 비키면 이만큼 기다린 뒤 옆으로 돌아간다(회피가 길을 찾는다). 영영 멈추지 않게.</summary>
-        const float YieldSeconds = 1.5f;
-        static readonly Collider[] nearby = new Collider[12];
-        float yieldTimer;
 
         /// <summary>
         /// 이만큼 넘게 거의 못 움직이면 그 얼룩은 건너뛴다. 계산 줄처럼 손님이 촘촘히 서 있으면 청소기(폭 0.36m)가
@@ -147,13 +142,9 @@ namespace DogShop.Shop
         {
             if (!running || agent == null || !agent.isOnNavMesh) return;
 
-            // 달리는 중에 앞에 손님·강아지·주인이 있으면 멈춰 기다린다 — 사람 다리 사이로 밀고 들어가 보였다
+            // 앞에 사람이 있어도 멈추지 않는다(2026-11-04) — 멈춰 기다리다 손님과 서로 길을 막았다
             if (state == State.Heading || state == State.Returning)
             {
-                bool blocked = SomeoneAhead();
-                yieldTimer = blocked ? yieldTimer + Time.deltaTime : 0f;
-                agent.isStopped = blocked && yieldTimer < YieldSeconds;
-
                 // 오래 갇혀 있으면 이번 얼룩은 포기한다(돌아가는 중이면 그 자리에서 멈춰 쉰다)
                 bool crawling = agent.velocity.sqrMagnitude < 0.0025f && agent.remainingDistance > reach;
                 stuckTimer = crawling ? stuckTimer + Time.deltaTime : 0f;
@@ -254,26 +245,6 @@ namespace DogShop.Shop
             agent.isStopped = true;
             transform.rotation = homeRotation;
             state = State.Docked;
-        }
-
-        /// <summary>가는 방향 바로 앞에 사람이나 강아지가 있는가(다른 길찾기 에이전트 또는 주인).</summary>
-        bool SomeoneAhead()
-        {
-            Vector3 dir = agent.desiredVelocity;
-            dir.y = 0f;
-            if (dir.sqrMagnitude < 0.0001f) dir = transform.forward;
-            Vector3 probe = transform.position + dir.normalized * LookAhead;
-
-            int count = Physics.OverlapSphereNonAlloc(probe, LookRadius, nearby, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
-            for (int i = 0; i < count; i++)
-            {
-                Collider c = nearby[i];
-                if (c == null || c.transform.IsChildOf(transform)) continue;
-                NavMeshAgent other = c.GetComponentInParent<NavMeshAgent>();
-                if (other != null && other != agent) return true;
-                if (c.GetComponentInParent<CharacterController>() != null) return true;
-            }
-            return false;
         }
 
         /// <summary>가장 가까운 오염 지점. 없으면 null.</summary>

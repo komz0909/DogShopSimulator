@@ -14,6 +14,9 @@ namespace DogShop.Shop
 
         public int Level { get; private set; } = 1;
 
+        /// <summary>지금까지 오른 가장 높은 레벨. 가게 넓이는 이것을 따른다 — 새 시즌에 레벨이 1로 돌아가도 벽과 가구는 그대로(2026-11-05).</summary>
+        public int FloorLevel { get; private set; } = 1;
+
         /// <summary>주인공견 (미모 + 훈련도). DogManager가 D9-13에 채운다.</summary>
         public int HeroGrowthStat { get; set; }
 
@@ -31,7 +34,7 @@ namespace DogShop.Shop
             Instance = this;
 
             // 시연 모드는 Exhibition.StartLevel(Lv 7) 에서 시작한다(훈련이 다 열린 가게, Lv 8 레벨업 직전). Start 의 ApplyFloor 가 넓이를 맞춘다
-            if (Exhibition.Active) Level = Exhibition.StartLevel;
+            if (Exhibition.Active) Level = FloorLevel = Exhibition.StartLevel;
         }
 
         void Start()
@@ -52,7 +55,7 @@ namespace DogShop.Shop
         void ApplyFloor()
         {
             if (ShopSpace.Instance == null) return;
-            ShopSpace.Instance.ApplyWidth(Current.floorWidth);
+            ShopSpace.Instance.ApplyWidth(table.Get(Mathf.Clamp(Mathf.Max(Level, FloorLevel), 1, table.MaxLevel)).floorWidth);
         }
 
         public ShopLevelDef Next => IsMaxLevel ? null : table.Get(Level + 1);
@@ -102,6 +105,7 @@ namespace DogShop.Shop
             if (!GameManager.Instance.TrySpend(Next.upgradeCost)) return false;
 
             Level++;
+            if (Level > FloorLevel) FloorLevel = Level;
             Sound.Play(Sfx.LevelUp);
             ShowCelebration();
 
@@ -125,7 +129,23 @@ namespace DogShop.Shop
             return true;
         }
 
-        public void CaptureInto(SaveData data) => data.shopLevel = Level;
+        /// <summary>
+        /// 새 시즌(2026-11-05): 가게를 1레벨부터 다시 키운다. 넓이와 가구는 그대로 둔다 — 벽을 다시 좁히면
+        /// 이미 놓은 진열대가 벽 밖으로 밀려난다. 레벨에 묶인 것(상품, 손님 수, 훈련 칸, 해금)만 처음으로 돌아간다.
+        /// </summary>
+        public void ResetForNewSeason()
+        {
+            if (Exhibition.Active) return;
+            Level = 1;
+            ApplyFloor();
+            OnLevelUp?.Invoke(Level);
+        }
+
+        public void CaptureInto(SaveData data)
+        {
+            data.shopLevel = Level;
+            data.shopFloorLevel = FloorLevel;
+        }
 
         /// <summary>가장 먼저 — 가게 넓이·칸 수·상자 크기가 레벨에서 나온다(가구·진열·상자 복원이 이 값을 본다).</summary>
         public int RestoreOrder => -2;
@@ -133,11 +153,12 @@ namespace DogShop.Shop
         public void RestoreFrom(SaveData data)
         {
             int target = Mathf.Clamp(data.shopLevel, 1, table.MaxLevel);
-            if (target == Level) return;
-
+            // 옛 세이브는 넓이 레벨이 없다(0) — 그때는 레벨이 곧 넓이였다
+            FloorLevel = Mathf.Clamp(Mathf.Max(data.shopFloorLevel, target), 1, table.MaxLevel);
+            bool changed = target != Level;
             Level = target;
             ApplyFloor();
-            OnLevelUp?.Invoke(Level);
+            if (changed) OnLevelUp?.Invoke(Level);
         }
 
         /// <summary>레벨업을 액션으로 감싸 거절 사유를 UI로 흘린다.</summary>

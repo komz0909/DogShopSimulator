@@ -81,7 +81,7 @@ namespace DogShop.Core
         public const float StartYaw = 180f;
 
         /// <summary>시작 자금. 발주·훈련·운동을 망설이지 않고 해 볼 만큼(본편 900원).</summary>
-        public const int StartMoney = 3000;
+        public const int StartMoney = 8000;   // 3,000 -> 8,000(2026-11-04): 1일차 발주해 보기를 넣어 넉넉하게
 
         /// <summary>마스코트를 승급시키고 가게를 키우는 날(오늘 할 일 "가게 레벨업").</summary>
         public const int LevelUpDay = 2;
@@ -126,6 +126,14 @@ namespace DogShop.Core
         /// 그보다 빨리 끝내고 싶으면 안내판의 [오늘 마치기]로 언제든 잘 수 있다.
         /// </summary>
         static readonly float[] DaySeconds = { 150f, 100f, 100f };
+
+        /// <summary>
+        /// 시연 하루 손님 수(1·2·3일차, 2026-11-02). 레벨표(Lv 7 27명, Lv 8 30명)를 그대로 쓰면 하루가 150·100초로 짧아
+        /// 본편보다 2~3배 촘촘하게(2일차는 3초에 한 명) 몰려와, 처음 하는 관람객이 조급해지고 가게 운영을 둘러볼 틈이 없었다(직접 플레이).
+        /// 12~15초에 한 명꼴 — 본편 Lv 7(11초에 한 명)보다 조금 느긋하게. 레벨업은 명성·응원금으로 보장돼 손님 수와 상관없다.
+        /// </summary>
+        static readonly int[] CustomersPerDayByDay = { 16, 10, 6 };   // 12/8 -> 16/10: 너무 줄여 상자 담기·진열 동안 손님이 한 명도 안 왔다(2026-11-04)
+        public static int CustomersPerDay(int day) => CustomersPerDayByDay[Mathf.Clamp(day - 1, 0, CustomersPerDayByDay.Length - 1)];
 
         public static float SecondsPerGameHour(int day)
         {

@@ -36,7 +36,7 @@ namespace DogShop.Shop
         const float CheckEvery = 0.5f;
 
         /// <summary>퀘스트가 세는 일. 같은 신호를 본편 튜토리얼과 시연 할 일이 함께 쓴다.</summary>
-        public enum Goal { Crate, Display, Order, Online, Train, Checkout, Care, Exercise, Health, Mascot, LevelUp }
+        public enum Goal { Crate, Display, Order, Online, Train, Checkout, Care, Exercise, Health, Mascot, LevelUp, Unpack }
 
         public sealed class Quest
         {
@@ -57,55 +57,72 @@ namespace DogShop.Shop
         static readonly Quest[] Quests =
         {
             new Quest(Goal.Crate, "창고 물건 상자에 담기",
-                "상자를 보고 E 로 들어 올린 뒤, 창고 선반을 보고 E 를 눌러 물건을 상자에 담자."),
+                "1) 창고 가운데 상자를 보고 E 로 들기\n2) 창고 선반을 보고 E 로 물건 담기"),
             new Quest(Goal.Display, "진열하기",
-                "상자를 든 채 진열대 가까이에서 R 을 눌러 상자 속 물건을 진열대에 올리자."),
+                "1) 상자를 든 채 가게로 가기\n2) 진열대를 보고 R 로 물건 올리기\n큰 물건(사료, 배변패드)은 진열대\n작은 물건은 벽 진열대나 간식 매대"),
             new Quest(Goal.Order, "POS 로 발주하기",
-                "계산대의 POS 기계를 E 로 열어 가게에 팔 물건을 담고 주문하자. 손님 계산이 아니라 물건 발주다."),
+                "1) 계산대 POS 를 보고 E 로 열기\n2) 가게에 팔 물건을 골라 담고 주문\n3) 다음 날 아침 가게 앞에 배달 온다\n손님 계산이 아니라 물건 발주다"),
             new Quest(Goal.Online, "온라인 주문 배송",
-                "12시에 첫 온라인 주문이 들어온다. 계산대 옆 모니터에서 주문을 수락하고, 창고 포장대에서 물건을 담아 테이프로 포장한 뒤 배송하자."),
+                "1) 12시에 첫 온라인 주문이 들어온다\n2) 계산대 옆 모니터를 보고 E 로 수락\n3) 창고 앞 포장대로 가기\n4) 포장대를 보고 E 로 물건 담기\n5) E 로 테이프를 들고 상자에 E 로 포장\n6) 화면의 [배송하기] 누르기"),
             new Quest(Goal.Train, "강아지 훈련하기",
-                "강아지가 멀리 있으면 T 로 불러오자. 강아지를 보고 E 를 눌러 상태를 확인하고, 훈련을 하나 골라 끝까지 해 보자."),
+                "1) T 로 강아지 부르기\n2) 강아지를 보고 E 로 상태창 열기\n3) 훈련 칸에서 하나 골라 끝까지 하기"),
         };
 
         /// <summary>
         /// 시연 하루마다의 할 일. 1일차 가게 운영 → 2일차 강아지 키우기 → 3일차 도그쇼 준비.
         /// 3일차 마지막 줄이 끝나면 왼쪽 안내판의 [도그쇼 시작]으로 간다.
         /// </summary>
+        // 시연 할 일 설명은 단계마다 줄을 나눠 '어디서 무슨 키'를 적는다(2026-11-04 직접 플레이 의견 — 한 문장으로 이어 쓰면 처음 하는 관람객이 못 따라왔다)
         static readonly Quest[][] DemoDays =
         {
             new[]
             {
                 new Quest(Goal.Crate, "창고 물건 상자에 담기",
-                    "상자를 보고 E 로 들어 올린 뒤, 창고 선반을 보고 E 를 눌러 물건을 상자에 담자."),
+                    "1) 창고 가운데 상자를 보고 E 로 들기\n2) 창고 선반을 보고 E 로 물건 담기"),
                 new Quest(Goal.Display, "진열하기",
-                    "상자를 든 채 진열대 가까이에서 R 을 눌러 상자 속 물건을 진열대에 올리자."),
+                    "1) 상자를 든 채 가게로 가기\n2) 진열대를 보고 R 로 물건 올리기\n큰 물건(사료, 배변패드)은 진열대\n작은 물건은 벽 진열대나 간식 매대"),
                 new Quest(Goal.Checkout, "손님 계산하기",
-                    "물건을 고른 손님이 계산대 앞에 줄을 선다. 맨 앞 손님을 보고 E 를 눌러 계산하자.", 2),
+                    "1) 물건을 고른 손님이 계산대 앞에 줄을 선다\n2) 맨 앞 손님을 보고 E 로 계산", 2),
                 new Quest(Goal.Online, "온라인 주문 배송",
-                    "12시에 온라인 주문이 들어온다. 계산대 옆 모니터에서 수락하고, 창고 포장대에서 물건을 담아 테이프로 포장한 뒤 배송하자."),
+                    "1) 12시에 온라인 주문이 들어온다\n2) 계산대 옆 모니터를 보고 E 로 수락\n3) 창고 앞 포장대로 가기\n4) 포장대를 보고 E 로 물건 담기\n5) E 로 테이프를 들고 상자에 E 로 포장\n6) 화면의 [배송하기] 누르기"),
+                // 발주해 보기 -> 2일차 아침 배달 상자 정리로 이어진다(2026-11-04 요청)
+                new Quest(Goal.Order, "발주하기",
+                    "1) 계산대 POS 를 보고 E 로 열기\n2) 반짝이는 '" + DemoOrderProduct + "'를 담기\n3) 장바구니 아래 [주문한다] 누르기\n주문한 물건은 다음 날 아침 가게 앞에 배달 온다"),
             },
             new[]
             {
+                new Quest(Goal.Unpack, "배달 상자 정리",
+                    "1) 어제 발주한 물건이 가게 문밖에 와 있다\n2) 배달 상자를 보고 E 로 뜯어 창고에 정리"),
                 new Quest(Goal.Care, "강아지 돌보기",
-                    "T 로 강아지를 불러오고, 강아지를 보고 E 를 눌러 상태창을 열자. 밥, 목욕, 약 중 하나를 해 주자. 청결이나 건강이 40 아래면 훈련해도 자라지 않는다."),
+                    "1) T 로 강아지 부르기\n2) 강아지를 보고 E 로 상태창 열기\n3) 밥, 목욕, 약 중 하나 해 주기"),
                 new Quest(Goal.Train, "강아지 훈련하기",
-                    "상태창 훈련 칸에서 골라 훈련시키자. 미모와 훈련도가 오르고, 자란 강아지는 손님을 반겨 명성을 올려 준다.", 2),
+                    "1) 상태창 훈련 칸에서 하나 골라 훈련\n미모와 훈련도가 오르고, 자란 강아지는 손님을 반겨 명성을 올려 준다", 2),
                 new Quest(Goal.Mascot, "마스코트 등급 올리기",
-                    "미모, 훈련도, 어질리티를 합쳐 260이 되면 '스타 강아지'로 승급한다. 모자라면 훈련을 더 하자."),
+                    "미모 + 훈련도 + 어질리티 합이 260 이면 '스타 강아지'\n모자라면 훈련을 더 하자"),
                 new Quest(Goal.LevelUp, "가게 레벨업",
-                    "가게를 키우려면 명성과 함께 마스코트 등급이 필요하다. 계산대 POS 를 E 로 열고 [Lv8 레벨업]을 누르자."),
+                    "1) 계산대 POS 를 보고 E 로 열기\n2) [Lv8 레벨업] 누르기\n명성과 마스코트 등급이 있어야 오른다"),
                 new Quest(Goal.Exercise, "강아지 운동시키기",
-                    "상태창 운동 칸에서 하나를 골라 시키자. 운동은 하루 한 번, 어질리티가 오른다."),
+                    "1) 상태창 운동 칸에서 하나 골라 운동\n하루 한 번, 어질리티가 오른다"),
             },
             new[]
             {
+                // 도그쇼 전 마지막 준비 — 몸 상태, 훈련, 운동(2026-11-04 요청). 건강 70 은 맨 끝에서 확인만(넘으면 바로 지나간다)
+                new Quest(Goal.Care, "강아지 몸 상태 챙기기",
+                    "1) T 로 강아지 부르고 E 로 상태창 열기\n2) 밥, 목욕, 약 중 하나 해 주기\n도그쇼는 건강 70 이상이어야 나갈 수 있다"),
                 new Quest(Goal.Train, "마지막 훈련",
-                    "도그쇼 전 마지막 훈련이다. 능력치가 높을수록 도그쇼 종목이 쉬워진다."),
+                    "1) 상태창 훈련 칸에서 하나 골라 훈련\n능력치가 높을수록 도그쇼 종목이 쉬워진다"),
+                new Quest(Goal.Exercise, "마지막 운동",
+                    "1) 상태창 운동 칸에서 하나 골라 운동\n어질리티가 오르면 장애물 종목이 쉬워진다"),
                 new Quest(Goal.Health, "건강 70 이상 만들기",
-                    "도그쇼는 건강 70 이상이어야 나갈 수 있다. T 로 강아지를 불러 상태창에서 밥이나 약으로 건강을 올리자."),
+                    "1) T 로 강아지 부르고 E 로 상태창 열기\n2) 밥이나 약으로 건강 올리기\n도그쇼는 건강 70 이상이어야 나갈 수 있다"),
             },
         };
+
+        /// <summary>시연 1일차 '발주하기'에서 시켜 볼 물건. POS 창에서 이 카드가 반짝인다(ShopOrderMenu). 동물먹이 탭 맨 앞, 가장 싸다.</summary>
+        public const string DemoOrderProduct = "기본 사료";
+
+        /// <summary>시연에서 지금 '발주하기' 차례인가 — POS 창이 시켜 볼 물건을 반짝이게 한다.</summary>
+        public bool WantsDemoOrder => Demo && !IsComplete && Current != null && Current.goal == Goal.Order;
 
         public static TutorialQuestManager Instance { get; private set; }
 
@@ -125,6 +142,8 @@ namespace DogShop.Shop
         public int Progress { get; private set; }
         public bool IsComplete => Step >= List.Length;
         public Quest Current => IsComplete ? null : List[Step];
+        /// <summary>지금 다음 할 일. 마지막이면 null. 시연에서 계산할 손님을 미리 부르는 데 쓴다.</summary>
+        public Quest Next => !IsComplete && Step + 1 < List.Length ? List[Step + 1] : null;
 
         /// <summary>마지막 퀘스트를 끝낸 시각(unscaled). 화면이 "튜토리얼 완료"를 잠깐 보여 주는 데 쓴다. 음수면 이번 플레이에서 안 끝냈다.</summary>
         public float FinishedAt { get; private set; } = -1f;
@@ -155,6 +174,7 @@ namespace DogShop.Shop
             GameEvents.DogCared += OnDogCared;
             GameEvents.DogExercised += OnDogExercised;
             GameEvents.ShopLeveledUp += OnShopLeveledUp;
+            GameEvents.ParcelOpened += OnParcelOpened;
         }
 
         void OnDisable()
@@ -168,6 +188,7 @@ namespace DogShop.Shop
             GameEvents.DogCared -= OnDogCared;
             GameEvents.DogExercised -= OnDogExercised;
             GameEvents.ShopLeveledUp -= OnShopLeveledUp;
+            GameEvents.ParcelOpened -= OnParcelOpened;
         }
 
         void OnDestroy()
@@ -184,6 +205,7 @@ namespace DogShop.Shop
         void OnDogCared() => Advance(Goal.Care);
         void OnDogExercised() => Advance(Goal.Exercise);
         void OnShopLeveledUp() => Advance(Goal.LevelUp);
+        void OnParcelOpened() => Advance(Goal.Unpack);
 
         /// <summary>목표는 채웠고 [퀘스트 완료]를 눌러 보상을 받기만 하면 되는 상태. 시연 할 일은 보상 없이 바로 넘어가므로 늘 false.</summary>
         public bool ReadyToClaim => !Demo && !IsComplete && Progress >= List[Step].target;
@@ -309,6 +331,9 @@ namespace DogShop.Shop
             }
             else if (goal == Goal.Mascot && MascotGateMet) Advance(Goal.Mascot);
             else if (goal == Goal.LevelUp && LeveledUpThisRun) Advance(Goal.LevelUp);
+            // 뜯을 배달 상자가 없으면(어제 발주를 안 했거나 이미 뜯었다) 넘어간다 — 아침 배달이 깔릴 틈을 두고 10시부터 본다
+            else if (goal == Goal.Unpack && InventoryManager.Instance != null && InventoryManager.Instance.ParcelCount == 0 && InventoryManager.Instance.DeliveredTotal == 0
+                     && Core.TimeManager.Instance != null && Core.TimeManager.Instance.CurrentHour >= 10f) Advance(Goal.Unpack);
         }
 
         /// <summary>시연에서 가게를 이미 한 번 이상 키웠나(시작 레벨보다 높다). 본편 튜토리얼에는 레벨업 할 일이 없다.</summary>

@@ -6,27 +6,28 @@ namespace DogShop.UI
 {
     /// <summary>
     /// 시연 모드 안내판(왼쪽, 시계 아래). 오늘이 3일 중 며칠째인지, 오늘 할 일 두 줄, 버튼 하나.
-    ///   1·2일차: 오늘 할 일을 다 하면 3초 뒤 저절로 다음 날로. 할 일이 남았을 때의 [오늘 마치기]는 스태프용(한 번 더 눌러야 마친다)
+    ///   1·2일차: 오늘 할 일을 다 하면 3초 뒤 저절로 다음 날로(버튼 없음)
     ///   3일차:   [도그쇼 시작] (G) — 본편 30일차와 같은 도그쇼 시작 화면을 연다
     /// 본편에서는 아무것도 그리지 않는다. 창(강아지 상태창·상점 등)이 열려 있거나 쇼·컷신·마감 중에도 숨는다.
     /// </summary>
     public class ExhibitionGuide : MonoBehaviour
     {
         // 1080p 설계 좌표. 시계 판(왼쪽 위 25~90) 바로 아래
-        const float X = 25f, Y = 102f, Width = 470f;
+        const float X = 25f, Y = 102f, Width = 530f;
         const float Pad = 14f;
 
-        /// <summary>[오늘 마치기]를 한 번 누른 시각. 이 안에 다시 누르면 마친다.</summary>
-        float confirmUntil = -1f;
-        const float ConfirmSeconds = 3f;
+        GUIStyle title, body, button, countdown;
 
-        GUIStyle title, body, button;
+        /// <summary>안내판이 차지한 화면 사각형(픽셀, 위가 0). 안 보이면 크기 0. 진열대 이름표가 이 위에 겹쳐 그려지지 않게 쓴다.</summary>
+        public static Rect ScreenRect { get; private set; }
+
+        void OnDisable() => ScreenRect = new Rect();
 
         static readonly string[][] Goals =
         {
             new[] { "가게 운영",
                     "오른쪽 위 '오늘 할 일'을 하나씩 따라 하자",
-                    "강아지를 클릭하면 상태창이 열린다 (훈련은 2일차부터)" },
+                    "T 로 강아지를 부르고 E 로 상태창 열기 (훈련은 2일차부터)" },
             new[] { "마스코트 키우기",
                     "오른쪽 위 '오늘 할 일'을 하나씩 따라 하자",
                     "자란 강아지는 손님을 반겨 명성을 올려 준다" },
@@ -77,7 +78,7 @@ namespace DogShop.UI
 
         void OnGUI()
         {
-            if (!Visible || GameManager.Instance == null) return;
+            if (!Visible || GameManager.Instance == null) { ScreenRect = new Rect(); return; }
             Styles();
 
             Matrix4x4 keep = GUI.matrix;
@@ -87,11 +88,16 @@ namespace DogShop.UI
             int day = Mathf.Clamp(GameManager.Instance.Day, 1, Exhibition.Days);
             string[] goal = Goals[day - 1];
             bool showDay = Exhibition.ShowPending;
+            // [오늘 마치기] 버튼은 뺐다(2026-11-04 직접 플레이 의견 — 할 일을 순서대로 하면 저절로 넘어가니 필요 없다).
+            // 할 일을 다 하면 버튼 자리에 '몇 초 뒤 다음 날로'만 띄운다. 3일차 [도그쇼 시작]은 쇼 입구라 그대로 둔다
+            Shop.TutorialQuestManager quests = Shop.TutorialQuestManager.Instance;
+            bool counting = !showDay && day < Exhibition.Days && autoAt > 0f && quests != null && quests.IsComplete;
 
-            const float lineH = 26f, btnH = 44f;
-            float h = Pad * 2f + 34f + lineH * 2f + 8f + btnH;
+            const float lineH = 28f, btnH = 46f;
+            float h = Pad * 2f + 34f + lineH * 2f + (showDay ? 8f + btnH : 0f) + (counting ? lineH + 4f : 0f);
             var panel = new Rect(X, Y, Width, h);
             GUI.Box(panel, GUIContent.none, UiSkin.Panel_);
+            ScreenRect = new Rect(panel.x * s, panel.y * s, panel.width * s, panel.height * s);
 
             float x = panel.x + Pad, w = Width - Pad * 2f, y = panel.y + Pad;
             GUI.Label(new Rect(x, y, w, 34f), "시연 " + day + "일차 / " + Exhibition.Days + "   " + goal[0], title);
@@ -99,27 +105,16 @@ namespace DogShop.UI
             GUI.Label(new Rect(x, y, w, lineH), goal[1], body);
             y += lineH;
             GUI.Label(new Rect(x, y, w, lineH), goal[2], body);
-            y += lineH + 8f;
+            y += lineH;
 
-            var btn = new Rect(x, y, w, btnH);
             if (showDay)
             {
-                if (UiSkin.Click(btn, "도그쇼 시작  (G)", button)) Exhibition.StartShow();
+                if (UiSkin.Click(new Rect(x, y + 8f, w, btnH), "도그쇼 시작  (G)", button)) Exhibition.StartShow();
             }
-            else if (day < Exhibition.Days)
+            else if (counting)
             {
-                // 오늘 할 일을 다 끝냈으면 한 번에 넘어간다 — 확인은 할 일이 남았을 때 실수로 넘기지 않게 하려는 것이다
-                Shop.TutorialQuestManager quests = Shop.TutorialQuestManager.Instance;
-                bool done = quests != null && quests.IsComplete;
-                bool confirming = Time.unscaledTime < confirmUntil;
-                int left = autoAt > 0f ? Mathf.Max(1, Mathf.CeilToInt(autoAt - Time.unscaledTime)) : (int)AutoNextSeconds;
-                string label = done ? left + "초 뒤 다음 날로  (바로 가기)"
-                    : confirming ? "한 번 더 누르면 " + (day + 1) + "일차로" : "오늘 마치기";
-                if (UiSkin.Click(btn, label, button))
-                {
-                    if (done || confirming) EndToday();
-                    else confirmUntil = Time.unscaledTime + ConfirmSeconds;
-                }
+                int left = Mathf.Max(1, Mathf.CeilToInt(autoAt - Time.unscaledTime));
+                GUI.Label(new Rect(x, y + 4f, w, lineH), "오늘 할 일 완료!  " + left + "초 뒤 " + (day + 1) + "일차로 넘어간다", countdown);
             }
 
             GUI.matrix = keep;
@@ -128,7 +123,6 @@ namespace DogShop.UI
         /// <summary>침대에서 자는 것과 같은 길 — 마감 정산이 뜨고 거기서 다음 날로 넘어간다.</summary>
         void EndToday()
         {
-            confirmUntil = -1f;
             Sound.Play(Sfx.Sleep);
             TimeManager.Instance.EndDayNow();
         }
@@ -136,9 +130,11 @@ namespace DogShop.UI
         void Styles()
         {
             if (title != null && title.font == UiSkin.Font) return;
-            title = new GUIStyle(UiSkin.Title) { fontSize = 22, alignment = TextAnchor.MiddleLeft };
-            body = new GUIStyle(UiSkin.Label) { fontSize = 16, alignment = TextAnchor.MiddleLeft, wordWrap = false };
-            button = new GUIStyle(UiSkin.Button(UiSkin.Green)) { fontSize = 20 };
+            title = new GUIStyle(UiSkin.Title) { fontSize = 24, alignment = TextAnchor.MiddleLeft };
+            body = new GUIStyle(UiSkin.Label) { fontSize = 18, alignment = TextAnchor.MiddleLeft, wordWrap = false };
+            button = new GUIStyle(UiSkin.Button(UiSkin.Green)) { fontSize = 21 };
+            countdown = new GUIStyle(body);
+            countdown.normal.textColor = new Color(0.62f, 0.9f, 0.7f);
         }
     }
 }

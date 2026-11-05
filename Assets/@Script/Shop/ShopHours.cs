@@ -165,6 +165,7 @@ namespace DogShop.Shop
         // ---- 화면 ----
 
         GUIStyle statusStyle;
+        GUIStyle statusShadow;
 
         void OnGUI()
         {
@@ -175,8 +176,17 @@ namespace DogShop.Shop
             // 버튼은 없다 — 상태 한 줄만. 넉넉한 칸에 가운데로 찍는다(글자 폭에 칸을 맞추면 줄바꿈으로 뭉갠다)
             string text = Time.unscaledTime < noticeUntil ? notice : StatusText;
             if (statusStyle == null || statusStyle.font != UiSkin.Font)
-                statusStyle = new GUIStyle(UiSkin.Caption) { fontSize = 20 };   // 밝은 거리 위에서 16 은 잘 안 읽혔다
-            GUI.Label(new Rect((Screen.width - 640f) * 0.5f, 20f, 640f, 28f), text, statusStyle);
+            {
+                statusStyle = new GUIStyle(UiSkin.Caption);
+                statusShadow = new GUIStyle(statusStyle);
+                statusShadow.normal.textColor = new Color(0f, 0f, 0f, 0.8f);
+            }
+            // 화면 배율을 따른다(1080p 에서 22 x 1.3). 밝은 천장 위에서 안 읽혀 그림자를 깐다(2026-11-04)
+            float k = Mathf.Max(1f, UiSkin.ScreenScale);
+            statusStyle.fontSize = statusShadow.fontSize = Mathf.RoundToInt(22f * k);
+            var rect = new Rect((Screen.width - 900f * k) * 0.5f, 18f * k, 900f * k, 32f * k);
+            GUI.Label(new Rect(rect.x + 2f, rect.y + 2f, rect.width, rect.height), text, statusShadow);
+            GUI.Label(rect, text, statusStyle);
         }
     }
 }

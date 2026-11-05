@@ -37,6 +37,8 @@ namespace DogShop.Core
         public static event Action MascotGreeted;
         /// <summary>훈련 하나를 마쳤다. 인자는 그 훈련이 올리는 축(GrowthAxis 를 int 로 — 일일 퀘스트 '미모·훈련도 올리는 훈련').</summary>
         public static event Action<int> DogTrainedAxis;
+        /// <summary>가게 앞 배달 상자를 뜯어 창고에 넣었다(시연 2일차 할 일 '배달 상자 정리').</summary>
+        public static event Action ParcelOpened;
 
         // 도메인 리로드를 끈 에디터에서 지난 플레이의 구독자가 남지 않게
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
@@ -55,6 +57,7 @@ namespace DogShop.Core
             DogCareDone = null;
             MascotGreeted = null;
             DogTrainedAxis = null;
+            ParcelOpened = null;
         }
 
         public static void RaiseStorageToCrate() => StorageToCrate?.Invoke();
@@ -70,5 +73,6 @@ namespace DogShop.Core
         public static void RaiseDogCareDone(int care) => DogCareDone?.Invoke(care);
         public static void RaiseMascotGreeted() => MascotGreeted?.Invoke();
         public static void RaiseDogTrainedAxis(int axis) => DogTrainedAxis?.Invoke(axis);
+        public static void RaiseParcelOpened() => ParcelOpened?.Invoke();
     }
 }

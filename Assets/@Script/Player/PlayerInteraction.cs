@@ -45,6 +45,9 @@ namespace DogShop.Player
         [SerializeField] Font uiFont;
 
         GUIStyle labelStyle;
+        /// <summary>이름표·안내 배율 — 화면 크기 x UiSkin.Boost(1080p 에서 1.3). 고정 픽셀이면 큰 화면에서 글자가 작았다(2026-11-04)</summary>
+        float labelK = 1f;
+        int stylesHeight = -1;
         GUIStyle urgentStyle;
         GUIStyle crateStyle;
         GUIStyle hintStyle;
@@ -227,6 +230,16 @@ namespace DogShop.Player
                 return;
             }
 
+            // 명예의 벽 우승 액자 — 그 시즌 기록 창
+            Show.ChampionFrame frame = hit.collider.GetComponentInParent<Show.ChampionFrame>();
+            if (frame != null)
+            {
+                if (!load) return;
+                if (!inRange) { Reject("너무 멀다, 액자에 가까이 갈 것"); return; }
+                Show.ChampionRecordPanel.Open(frame.Record);
+                return;
+            }
+
             if (hit.collider.GetComponentInParent<ShopCounter>() != null)
             {
                 if (!load) return;
@@ -267,7 +280,7 @@ namespace DogShop.Player
             if (!IsGround(hit)) { Reject("바닥에만 내려놓을 수 있다, 발 앞 바닥을 볼 것"); return; }
             if (!inRange) { Reject("너무 멀다, 발 앞 바닥을 볼 것"); return; }
 
-            carry.DropAt(hit.point);
+            if (!carry.DropAt(hit.point)) Reject("여기는 상자를 놓을 빈 바닥이 없다");
         }
 
         /// <summary>바닥 높이 허용 오차. 매장·창고 바닥은 둘 다 y=0 이다.</summary>
@@ -339,6 +352,7 @@ namespace DogShop.Player
                 hint = n > 0 ? "[E] 온라인 주문 (새 주문 " + n + ")" : "[E] 온라인 주문";
             }
             else if (hit.collider.GetComponentInParent<PackingStation>() != null) hint = hit.collider.GetComponentInParent<PackingStation>().HintFor(hit.collider);
+            else if (hit.collider.GetComponentInParent<Show.ChampionFrame>() != null) hint = "[E] 우승 기록 보기";
             else if (hit.collider.GetComponentInParent<ShopCounter>() != null) hint = "[E] 발주";
             else if (hit.collider.GetComponentInParent<Dog>() != null) hint = "[E] 강아지 관리";
             else if (hit.collider.GetComponentInParent<Bed>() != null) hint = "[E] 잠자기";
@@ -662,9 +676,11 @@ namespace DogShop.Player
 
         void EnsureStyles()
         {
-            if (labelStyle != null) return;
+            if (labelStyle != null && stylesHeight == Screen.height) return;
+            stylesHeight = Screen.height;
+            labelK = Mathf.Max(1f, DogShop.UI.UiSkin.ScreenScale);
 
-            labelStyle = new GUIStyle(GUI.skin.box) { fontSize = 16 };
+            labelStyle = new GUIStyle(GUI.skin.box) { fontSize = Mathf.RoundToInt(16f * labelK) };
             labelStyle.normal.textColor = Color.white;
             if (uiFont != null) labelStyle.font = uiFont;
 
@@ -674,7 +690,7 @@ namespace DogShop.Player
             crateStyle = new GUIStyle(labelStyle);
             crateStyle.normal.textColor = new Color(0.75f, 1f, 0.8f);
 
-            hintStyle = new GUIStyle(GUI.skin.box) { fontSize = 21 };
+            hintStyle = new GUIStyle(GUI.skin.box) { fontSize = Mathf.RoundToInt(21f * labelK) };
             hintStyle.normal.textColor = new Color(1f, 0.93f, 0.6f);
             if (uiFont != null) hintStyle.font = uiFont;
         }
@@ -694,7 +710,7 @@ namespace DogShop.Player
 
             // 폭을 글자에 맞춘다 — 260 고정이라 "[E] 상자에 1개 담기   [R] 창고에 1개 내리기" 같은 두 줄 안내가 양옆이 잘렸다
             float hw = Mathf.Min(Screen.width - 40f, Mathf.Max(260f, hintStyle.CalcSize(new GUIContent(hint)).x + 32f));
-            GUI.Label(new Rect((Screen.width - hw) * 0.5f, Screen.height - 92f, hw, 28f), hint, hintStyle);
+            GUI.Label(new Rect((Screen.width - hw) * 0.5f, Screen.height - 92f * labelK, hw, 30f * labelK), hint, hintStyle);
         }
 
         void DrawCustomerLabels()
@@ -791,9 +807,14 @@ namespace DogShop.Player
 
             // 글자 길이만큼만 넓히고, 먼저 놓인 이름표와 겹치면 한 줄씩 아래로 비킨다 —
             // 창고 선반이 나란히 서 있으면 "기본 사료 11 (2칸)" 과 옆 선반 "목줄 10" 이 서로를 가렸다
-            float width = Mathf.Clamp(style.CalcSize(new GUIContent(text)).x + 16f, 80f, LabelWidth * 1.4f);
-            var rect = new Rect(screen.x - width * 0.5f, Screen.height - screen.y - 24f, width, 22f);
+            float width = Mathf.Clamp(style.CalcSize(new GUIContent(text)).x + 16f, 80f * labelK, LabelWidth * 1.4f * labelK);
+            var rect = new Rect(screen.x - width * 0.5f, Screen.height - screen.y - 24f * labelK, width, 23f * labelK);
             for (int tries = 0; tries < 4 && Overlaps(rect); tries++) rect.y += rect.height + 2f;
+            // 화면 판(할 일, 상태창 등) 위에는 그리지 않는다 — 이름표가 할 일 설명을 가렸다
+            var hud = DogShop.UI.GameHud.Blocks;
+            for (int b = 0; b < hud.Count; b++) if (hud[b].Overlaps(rect)) return;
+            Rect guide = DogShop.UI.ExhibitionGuide.ScreenRect;
+            if (guide.width > 0f && guide.Overlaps(rect)) return;
             placedLabels.Add(rect);
             GUI.Label(rect, text, style);
         }
