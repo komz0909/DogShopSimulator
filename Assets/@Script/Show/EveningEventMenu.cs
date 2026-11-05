@@ -80,6 +80,14 @@ namespace DogShop.Show
             // 정산서 숫자는 그릴 때마다 각 매니저에서 바로 읽는다(OnGUI) — 하루 끝 취소 벌점처럼
             // 이 이벤트 뒤에 붙는 변화까지 맞게 보이도록
 
+            // 튜토리얼 마지막 날(2일차)이 저물었다 — 3일차는 없다. 할 일을 다 못 했어도 타이틀로(2026-11-05)
+            if (Exhibition.IsTutorialLastDay(g.Day))
+            {
+                Exhibition.ReturnToPicker = false;
+                if (Cutscene.Instance != null) Cutscene.Instance.ReturnToTitle();
+                return;
+            }
+
             Dog hero = DogManager.Instance.Hero;
             isFinal = champ.IsFinalDay(g.Day);
             mockLine = "";

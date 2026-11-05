@@ -235,7 +235,7 @@ namespace DogShop.UI
 #if EXHIBITION_BUILD
             const int count = 3;
 #else
-            const int count = 6;   // 명예의 전당 버튼(2026-11-05)
+            const int count = 5;   // 명예의 전당은 오른쪽 아래 구석에 따로(2026-11-05)
 #endif
             // 버튼이 여섯이 되며 1080p 에서 맨 위 버튼이 화면 위로 넘쳤다 — 줄 전체가 화면 안(위 4% 여백)에 들도록 같이 줄인다
             float room = Screen.height * (1f - HomeButtonsBottom) - Screen.height * 0.04f;
@@ -246,7 +246,7 @@ namespace DogShop.UI
 
             // 시안처럼 뼈를 칸에 꽉 채워(조금 납작하게) 그린다
             // 시연 모드(3일, 전시용) — 게임 시작 위. 견종 고르기는 본편과 같은 화면을 쓴다
-            if (BoneButton(new Rect(x, y, width, height), "시연 모드", true, true)) { exhibitionPick = true; page = Page.Breeds; }
+            if (BoneButton(new Rect(x, y, width, height), Exhibition.IsTutorial ? "튜토리얼" : "시연 모드", true, true)) { exhibitionPick = true; page = Page.Breeds; }
             y += step;
 
 #if !EXHIBITION_BUILD
@@ -261,19 +261,27 @@ namespace DogShop.UI
             }
             y += step;
 
-            if (BoneButton(new Rect(x, y, width, height), "명예의 전당", true, true))
-            {
-                page = Page.Hall;
-                hallOpenedAt = Time.unscaledTime;
-                HallOfFame.JustAdded = -1;
-            }
-            y += step;
 #endif
 
             if (BoneButton(new Rect(x, y, width, height), "게임 설정", true, true)) settingsOpen = true;
             y += step;
 
             if (BoneButton(new Rect(x, y, width, height), "게임 종료", true, true)) Quit();
+
+#if !EXHIBITION_BUILD
+            // 명예의 전당(2026-11-05): 버튼 줄에 넣으니 줄이 너무 길어 보였다 — 왼쪽 아래 구석에 따로, 다른 색(금빛 알약 + 트로피)으로 크게
+            float hs = UiSkin.ScreenScale;
+            float hw = 360f * hs, hh = 100f * hs;
+            var hall = new Rect(Screen.width * 0.012f + hh * 0.1f, Screen.height - hh - Screen.height * 0.02f, hw, hh);
+            bool hallClicked = SeasonArt.Button(new Rect(hall.x + hh * 0.35f, hall.y, hall.width - hh * 0.35f, hall.height), "명예의 전당", true, Mathf.RoundToInt(34f * hs));
+            if (SeasonArt.Trophy != null) GUI.DrawTexture(new Rect(hall.x - hh * 0.1f, hall.y - hh * 0.2f, hh * 1.2f, hh * 1.2f), SeasonArt.Trophy, ScaleMode.ScaleToFit, true);
+            if (hallClicked)
+            {
+                page = Page.Hall;
+                hallOpenedAt = Time.unscaledTime;
+                HallOfFame.JustAdded = -1;
+            }
+#endif
         }
 
         // ---- 명예의 전당(2026-11-05) ----
@@ -408,7 +416,7 @@ namespace DogShop.UI
             var guide = new GUIStyle(UiSkin.Caption) { fontSize = Mathf.RoundToInt(22f * UiSkin.ScreenScale) };
             guide.normal.textColor = UiSkin.Ink;
             GUI.Label(new Rect(0f, Screen.height * 0.21f, Screen.width, 40f * UiSkin.ScreenScale),
-                exhibitionPick ? "시연 모드 (3일): 함께할 강아지를 골라 보자. 3일차에 도그쇼에 나간다"
+                exhibitionPick ? (Exhibition.IsTutorial ? "튜토리얼 (2일): 함께할 강아지를 골라 보자. 가게 일과 강아지 키우기를 배운다" : "시연 모드 (3일): 함께할 강아지를 골라 보자. 3일차에 도그쇼에 나간다")
                                : "함께 지낼 강아지를 골라 보자. 누르면 자세히 볼 수 있다", guide);
 
             float width = breeds.Length * CardWidth + (breeds.Length - 1) * Gap;

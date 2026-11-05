@@ -22,8 +22,25 @@ namespace DogShop.Core
         /// <summary>지금 판이 시연 모드인가. 메인 화면에서 고른 값이 가게 씬까지 넘어온다(<see cref="GameStart"/>).</summary>
         public static bool Active => GameStart.FromMenu && GameStart.Exhibition;
 
-        /// <summary>시연은 3일. 3일차가 도그쇼 날이다(본편은 30일차).</summary>
-        public const int Days = 3;
+        /// <summary>
+        /// 튜토리얼 모드(2026-11-05): 본편 빌드에서는 [시연 모드]가 [튜토리얼]이 된다. 같은 가게, 같은 할 일로 2일 동안
+        /// 가게 일과 강아지 돌보기, 훈련을 배우고, 2일차 할 일을 다 마치면 "본게임으로 들어가보자!" 뒤 타이틀로 돌아간다. 도그쇼는 없다.
+        /// 지스타 전시 빌드(EXHIBITION_BUILD)는 예전 그대로 3일, 3일차 도그쇼.
+        /// </summary>
+#if EXHIBITION_BUILD
+        public static readonly bool IsTutorial = false;
+#else
+        public static readonly bool IsTutorial = true;
+#endif
+
+        /// <summary>시연은 3일(3일차가 도그쇼 날), 튜토리얼은 2일(도그쇼 없음). 본편은 30일차.</summary>
+        public static int Days => IsTutorial ? 2 : 3;
+
+        /// <summary>화면에 쓰는 모드 이름("시연" 또는 "튜토리얼").</summary>
+        public static string ModeName => IsTutorial ? "튜토리얼" : "시연";
+
+        /// <summary>튜토리얼 마지막 날(2일차)인가 — 할 일을 다 마치면 본게임으로(타이틀로) 간다.</summary>
+        public static bool IsTutorialLastDay(int day) => Active && IsTutorial && day >= Days;
 
         /// <summary>
         /// 가게 Lv 7 에서 시작한다. Lv 1 은 상품이 사료·샴푸 두 가지뿐이라 가게를 맛보기엔 너무 비었다.
@@ -198,7 +215,7 @@ namespace DogShop.Core
         }
 
         /// <summary>시연 마지막 날(도그쇼 날)인가.</summary>
-        public static bool IsShowDay(int day) => Active && day >= Days;
+        public static bool IsShowDay(int day) => Active && !IsTutorial && day >= Days;
 
         /// <summary>
         /// 시연 3일차인데 아직 쇼를 치르지 않았다. 이때 잠자기 자리(침대·21시 안내)는 [도그쇼 시작]이 된다 —

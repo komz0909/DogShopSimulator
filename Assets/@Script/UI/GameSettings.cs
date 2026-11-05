@@ -93,7 +93,7 @@ namespace DogShop.UI
                     // 시연 모드는 저장이 없다 — 대신 메인 화면으로 돌아가 다음 사람이 처음부터 시작할 수 있게 한다
                     if (Exhibition.Active)
                     {
-                        int demoPick = SettingsPanel.DrawMenu("시연 종료", "시연 진행은 저장되지 않는다",
+                        int demoPick = SettingsPanel.DrawMenu(Exhibition.ModeName + " 종료", Exhibition.ModeName + " 진행은 저장되지 않는다",
                             DemoQuitButtons, closeImage, frameImage);
                         if (demoPick == 0) { Close(); UnityEngine.SceneManagement.SceneManager.LoadScene(MainMenuScene); }
                         else if (demoPick == 1) Quit();

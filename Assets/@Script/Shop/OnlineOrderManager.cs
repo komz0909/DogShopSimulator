@@ -203,6 +203,8 @@ namespace DogShop.Shop
         {
             if (hour < FirstHour || hour > LastHour) return;
             if (TutorialBlocksRandom) return;
+            // 튜토리얼 모드(2026-11-05)는 아무 때나 오는 주문이 없다 — 할 일 '온라인 주문 배송' 차례에 한 건만(TutorialQuestManager)
+            if (Exhibition.Active && Exhibition.IsTutorial) return;
             if (ShopHours.Instance != null && !ShopHours.Instance.IsOpen) return;
             if (InventoryManager.Instance == null || ShopLevelManager.Instance == null) return;
             // 기대 건수만이 아니라 실제 건수도 막는다 — 시간마다 따로 굴리니 운이 좋으면 7건 넘게 와서

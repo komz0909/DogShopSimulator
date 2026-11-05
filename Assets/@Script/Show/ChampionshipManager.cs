@@ -263,7 +263,7 @@ namespace DogShop.Show
             if (data.seasonLogs != null) seasonLogs.AddRange(data.seasonLogs);
         }
 
-        public bool IsFinalDay(int day) => day >= LastDay;
+        public bool IsFinalDay(int day) => day >= LastDay && !(Exhibition.Active && Exhibition.IsTutorial);   // 튜토리얼은 도그쇼, 엔딩 없이 끝난다
 
         public bool CanEnter(Dog dog, out string reason)
         {

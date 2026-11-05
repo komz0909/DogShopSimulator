@@ -84,7 +84,7 @@ namespace DogShop.Shop
                 new Quest(Goal.Checkout, "손님 계산하기",
                     "1) 물건을 고른 손님이 계산대 앞에 줄을 선다\n2) 맨 앞 손님을 보고 E 로 계산", 2),
                 new Quest(Goal.Online, "온라인 주문 배송",
-                    "1) 12시에 온라인 주문이 들어온다\n2) 계산대 옆 모니터를 보고 E 로 수락\n3) 창고 앞 포장대로 가기\n4) 포장대를 보고 E 로 물건 담기\n5) E 로 테이프를 들고 상자에 E 로 포장\n6) 화면의 [배송하기] 누르기"),
+                    (Exhibition.IsTutorial ? "1) 온라인 주문이 바로 들어온다" : "1) 12시에 온라인 주문이 들어온다") + "\n2) 계산대 옆 모니터를 보고 E 로 수락\n3) 창고 앞 포장대로 가기\n4) 포장대를 보고 E 로 물건 담기\n5) E 로 테이프를 들고 상자에 E 로 포장\n6) 화면의 [배송하기] 누르기"),
                 // 발주해 보기 -> 2일차 아침 배달 상자 정리로 이어진다(2026-11-04 요청)
                 new Quest(Goal.Order, "발주하기",
                     "1) 계산대 POS 를 보고 E 로 열기\n2) 반짝이는 '" + DemoOrderProduct + "'를 담기\n3) 장바구니 아래 [주문한다] 누르기\n주문한 물건은 다음 날 아침 가게 앞에 배달 온다"),
@@ -236,6 +236,7 @@ namespace DogShop.Shop
                 Sound.Play(Sfx.TrackSuccess);
                 Toast(Exhibition.IsShowDay(Today)
                     ? "준비 완료! 왼쪽 [도그쇼 시작]을 누르자 (G)"
+                    : Exhibition.IsTutorialLastDay(Today) ? "튜토리얼 완료! 본게임으로 들어가보자!"
                     : "오늘 할 일 완료! 잠시 뒤 다음 날로 넘어간다");
             }
             else
@@ -253,7 +254,7 @@ namespace DogShop.Shop
             {
                 if (Demo)
                 {
-                    string head = "시연 " + Mathf.Clamp(Today, 1, Exhibition.Days) + "일차  오늘 할 일";
+                    string head = Exhibition.ModeName + " " + Mathf.Clamp(Today, 1, Exhibition.Days) + "일차  오늘 할 일";
                     return IsComplete ? head : head + " " + (Step + 1) + "/" + QuestCount;
                 }
                 if (IsComplete) return "튜토리얼";
@@ -262,9 +263,10 @@ namespace DogShop.Shop
         }
 
         /// <summary>다 끝냈을 때 판에 띄우는 한 줄과 그 아래 설명(시연만, 본편은 설명 없음).</summary>
-        public string CompleteText => Demo ? (Exhibition.IsShowDay(Today) ? "준비 완료!" : "오늘 할 일 완료!") : "튜토리얼 완료!";
+        public string CompleteText => Demo ? (Exhibition.IsShowDay(Today) ? "준비 완료!" : Exhibition.IsTutorialLastDay(Today) ? "튜토리얼 완료!" : "오늘 할 일 완료!") : "튜토리얼 완료!";
         public string CompleteDetail => !Demo ? null
             : Exhibition.IsShowDay(Today) ? "왼쪽 [도그쇼 시작]을 누르거나 G 를 누르자."
+            : Exhibition.IsTutorialLastDay(Today) ? "본게임으로 들어가보자! 잠시 뒤 타이틀 화면으로 간다."
             : "잠시 뒤 다음 날로 넘어간다.";
 
         /// <summary>
@@ -417,7 +419,9 @@ namespace DogShop.Shop
             if (Exhibition.IsShowDay(game.Day)) return;
 
             float hour = time.CurrentHour;
-            bool due = !orderIssued
+            bool due = Exhibition.Active && Exhibition.IsTutorial
+                ? Step == OnlineIndex   // 튜토리얼 모드: 그 할 일 차례가 되면 바로, 한 건만(2026-11-05)
+                : !orderIssued
                 ? hour >= (game.Day <= 1 ? TutorialOrderHour : TimeManager.OpenHour)
                 : Step == OnlineIndex && hour >= TimeManager.OpenHour;   // 놓친 경우 다시
             if (!due) return;

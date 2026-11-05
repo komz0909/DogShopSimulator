@@ -42,6 +42,9 @@ namespace DogShop.UI
         /// <summary>할 일을 다 끝내고 다음 날로 넘어가기까지 기다리는 시간(초). 완료 알림을 읽을 틈.</summary>
         const float AutoNextSeconds = 3f;
 
+        /// <summary>튜토리얼 2일차를 다 마치고 타이틀로 가기까지(2026-11-05). "본게임으로 들어가보자!"를 읽을 틈.</summary>
+        const float FinishSeconds = 5f;
+
         void Update()
         {
             // 창(강아지 상태창 등)이 열려 있으면 기다림을 멈춘다 — 운동 창을 닫기도 전에 정산이 뜨지 않게.
@@ -56,11 +59,12 @@ namespace DogShop.UI
         void TickAutoNext()
         {
             Shop.TutorialQuestManager quests = Shop.TutorialQuestManager.Instance;
+            bool finishing = GameManager.Instance != null && Exhibition.IsTutorialLastDay(GameManager.Instance.Day);
             bool done = quests != null && quests.IsComplete
-                        && GameManager.Instance != null && GameManager.Instance.Day < Exhibition.Days && !Exhibition.ShowPending;
+                        && GameManager.Instance != null && (GameManager.Instance.Day < Exhibition.Days || finishing) && !Exhibition.ShowPending;
             if (!done) { autoAt = -1f; return; }
-            if (autoAt < 0f) autoAt = Time.unscaledTime + AutoNextSeconds;
-            else if (Time.unscaledTime >= autoAt) { autoAt = -1f; EndToday(); }
+            if (autoAt < 0f) autoAt = Time.unscaledTime + (finishing ? FinishSeconds : AutoNextSeconds);
+            else if (Time.unscaledTime >= autoAt) { autoAt = -1f; if (finishing) FinishTutorial(); else EndToday(); }
         }
 
         static bool Visible
@@ -91,16 +95,17 @@ namespace DogShop.UI
             // [오늘 마치기] 버튼은 뺐다(2026-11-04 직접 플레이 의견 — 할 일을 순서대로 하면 저절로 넘어가니 필요 없다).
             // 할 일을 다 하면 버튼 자리에 '몇 초 뒤 다음 날로'만 띄운다. 3일차 [도그쇼 시작]은 쇼 입구라 그대로 둔다
             Shop.TutorialQuestManager quests = Shop.TutorialQuestManager.Instance;
-            bool counting = !showDay && day < Exhibition.Days && autoAt > 0f && quests != null && quests.IsComplete;
+            bool finishing = Exhibition.IsTutorialLastDay(GameManager.Instance.Day);
+            bool counting = !showDay && (day < Exhibition.Days || finishing) && autoAt > 0f && quests != null && quests.IsComplete;
 
             const float lineH = 28f, btnH = 46f;
-            float h = Pad * 2f + 34f + lineH * 2f + (showDay ? 8f + btnH : 0f) + (counting ? lineH + 4f : 0f);
+            float h = Pad * 2f + 34f + lineH * 2f + (showDay ? 8f + btnH : 0f) + (counting ? (finishing ? lineH * 2f : lineH) + 4f : 0f);
             var panel = new Rect(X, Y, Width, h);
             GUI.Box(panel, GUIContent.none, UiSkin.Panel_);
             ScreenRect = new Rect(panel.x * s, panel.y * s, panel.width * s, panel.height * s);
 
             float x = panel.x + Pad, w = Width - Pad * 2f, y = panel.y + Pad;
-            GUI.Label(new Rect(x, y, w, 34f), "시연 " + day + "일차 / " + Exhibition.Days + "   " + goal[0], title);
+            GUI.Label(new Rect(x, y, w, 34f), Exhibition.ModeName + " " + day + "일차 / " + Exhibition.Days + "   " + goal[0], title);
             y += 34f;
             GUI.Label(new Rect(x, y, w, lineH), goal[1], body);
             y += lineH;
@@ -114,13 +119,27 @@ namespace DogShop.UI
             else if (counting)
             {
                 int left = Mathf.Max(1, Mathf.CeilToInt(autoAt - Time.unscaledTime));
-                GUI.Label(new Rect(x, y + 4f, w, lineH), "오늘 할 일 완료!  " + left + "초 뒤 " + (day + 1) + "일차로 넘어간다", countdown);
+                if (finishing)
+                {
+                    GUI.Label(new Rect(x, y + 4f, w, lineH), "튜토리얼 완료! 본게임으로 들어가보자!", countdown);
+                    GUI.Label(new Rect(x, y + 4f + lineH, w, lineH), left + "초 뒤 타이틀 화면으로, [게임 시작]을 누르자", countdown);
+                }
+                else GUI.Label(new Rect(x, y + 4f, w, lineH), "오늘 할 일 완료!  " + left + "초 뒤 " + (day + 1) + "일차로 넘어간다", countdown);
             }
 
             GUI.matrix = keep;
         }
 
         /// <summary>침대에서 자는 것과 같은 길 — 마감 정산이 뜨고 거기서 다음 날로 넘어간다.</summary>
+        /// <summary>튜토리얼을 다 마쳤다 — 타이틀 화면으로(견종 고르기로 바로 가지 않는다). 거기서 [게임 시작]으로 본편을 시작한다.</summary>
+        void FinishTutorial()
+        {
+            Sound.Play(Sfx.Fanfare);
+            Exhibition.ReturnToPicker = false;
+            if (Show.Cutscene.Instance != null) Show.Cutscene.Instance.ReturnToTitle();
+            else UnityEngine.SceneManagement.SceneManager.LoadScene("MainMenu");
+        }
+
         void EndToday()
         {
             Sound.Play(Sfx.Sleep);
