@@ -65,12 +65,23 @@ namespace DogShop.Show
         /// <summary>쇼가 진행 중이다(시작 버튼 대기 포함).</summary>
         public static bool Running { get; private set; }
 
-        enum Phase { None, Waiting, Intro, Pose, Fetch, AgilitySpec, Agility, CourseGuide, Course, Result, Guide }
+        enum Phase { None, Waiting, Intro, Pose, Fetch, AgilitySpec, Agility, CourseGuide, Course, Result, Guide, ReviewResult }
         bool guideReady;
         // 종목 시작 전 안내창(①~③). ④ 는 장애물 목록을 따로 그린다(DrawCourseGuide)
         string guideTitle = "";
         string[] guideLines = new string[0];
         Phase phase = Phase.None;
+
+        // ---- 마스코트 등급 심사(본편 10일차, 20일차 저녁, MascotReview) ----
+        /// <summary>지금 심사 종목(0 미모, 1 훈련). 도그쇼면 -1.</summary>
+        int reviewEvent = -1;
+        float reviewRate;
+        int reviewScore, reviewBonus, reviewGradeBefore;
+        // 심사가 끝나면 강아지를 가게 그 자리로 돌려놓는다 — 도그쇼는 시즌이 끝나 넘어가지만 심사 다음 날은 가게가 이어진다
+        Vector3 homePos, homeNav;
+        Quaternion homeRot;
+        int reviewNoticeDay = -1;
+        GUIStyle reviewBig, reviewRow, reviewGrade;
 
         Dog hero;
         float beautyN, trainingN, agilityN, totalN;   // 0~1
@@ -116,6 +127,7 @@ namespace DogShop.Show
             Instance = this;
             Running = false;
             if (showCamera != null) showCamera.enabled = false;
+            MascotReview.ResetSession();   // 가게 장면이 새로 열리면 심사 기록도 새로
         }
 
         void OnDestroy()
@@ -133,6 +145,7 @@ namespace DogShop.Show
         {
             if (phase != Phase.None) return;
             CheckNotice();
+            CheckReviewNotice();
             GameManager g = GameManager.Instance;
             TimeManager t = TimeManager.Instance;
             if (g == null || t == null || t.IsDayOver) return;
@@ -261,6 +274,47 @@ namespace DogShop.Show
             return phase != Phase.None;
         }
 
+        /// <summary>
+        /// 마스코트 등급 심사를 연다(<see cref="MascotReview"/>). 도그쇼와 같은 무대에서 한 종목만 — ev 0 미모 심사, 1 훈련 심사.
+        /// 강아지가 있던 자리를 적어 두었다가 끝나면 돌려놓는다.
+        /// </summary>
+        public bool BeginReview(int ev, float rate)
+        {
+            if (phase != Phase.None || Running) return false;
+            if (TimeManager.Instance != null && TimeManager.Instance.IsDayOver) return false;
+            Dog dog = DogManager.Instance != null ? DogManager.Instance.Hero : null;
+            if (dog == null) return false;
+            homePos = dog.transform.position;
+            homeRot = dog.transform.rotation;
+            var ag = dog.GetComponent<UnityEngine.AI.NavMeshAgent>();
+            homeNav = ag != null && ag.isActiveAndEnabled && ag.isOnNavMesh ? ag.nextPosition : homePos;
+            reviewEvent = ev;
+            reviewRate = rate;
+            Begin();
+            if (phase == Phase.None) { reviewEvent = -1; return false; }
+            GameManager g = GameManager.Instance;
+            headline = "Day " + (g != null ? g.Day : 0) + "  마스코트 등급 심사";
+            subline = "오늘 종목은 도그쇼 " + (ev == 0 ? "1. 미모 심사" : "2. 훈련 심사") + ". 30일차 도그쇼를 미리 해 보자";
+            return true;
+        }
+
+        /// <summary>심사 날 아침(가게가 열려 있는 동안) 한 번 알린다. 다른 안내(20일차 건강 안내)가 떠 있으면 닫힌 뒤에.</summary>
+        void CheckReviewNotice()
+        {
+            GameManager g = GameManager.Instance;
+            TimeManager t = TimeManager.Instance;
+            if (g == null || t == null || t.IsDayOver || Exhibition.Active || Running) return;
+            if (reviewNoticeDay == g.Day || noticeTitle != null) return;
+            if (Debugging.MeasurementMode.Instance != null && Debugging.MeasurementMode.Instance.Active) return;
+            int ev = MascotReview.EventOn(g.Day);
+            if (ev < 0 || MascotReview.DoneDay == g.Day) return;
+            reviewNoticeDay = g.Day;
+            OpenNotice("오늘 밤 마스코트 등급 심사",
+                       "영업을 마치고 잠자리에 들면 심사장으로 간다",
+                       "종목은 도그쇼 " + (ev == 0 ? "1. 미모 심사" : "2. 훈련 심사") + ". 30일차 도그쇼를 미리 해 보자",
+                       "점수의 " + Mathf.RoundToInt(MascotReview.RateOf(ev) * 100f) + "%를 마스코트 등급 보너스로 받는다 (최소 " + MascotReview.MinBonus + "점)");
+        }
+
         void Begin()
         {
             hero = DogManager.Instance != null ? DogManager.Instance.Hero : null;
@@ -310,7 +364,8 @@ namespace DogShop.Show
             PointerMenus.SetOpen(this, false);
         }
 
-        IEnumerator RunShow()
+        /// <summary>능력치를 종목 난이도로 펴고, 강아지를 무대로 옮기고, 무대 카메라를 켠다. 도그쇼와 등급 심사가 같이 쓴다.</summary>
+        void PrepareStage()
         {
             DogStats st = hero.Stats;
             beautyN = Mathf.Clamp01(st.Beauty / StatFull);
@@ -330,7 +385,11 @@ namespace DogShop.Show
             if (agent != null) agent.enabled = false;
 
             showCamera.enabled = true;
+        }
 
+        IEnumerator RunShow()
+        {
+            PrepareStage();
             yield return Intro();
             yield return PoseGame();
             yield return FetchGame();
@@ -357,7 +416,7 @@ namespace DogShop.Show
                 "가는 안쪽 띠 = PERFECT(100점), 그 바깥 띠 = GOOD(60점), 놓치면 MISS",
                 "뒤로 갈수록 링이 빨라진다",
                 "미모가 높을수록 띠가 넓어진다  (지금 미모 " + hero.Stats.Beauty + ")",
-                PoseRounds + "번의 평균이 점수, 총점의 20%");
+                ScoreNote(PoseRounds + "번의 평균이 점수", "총점의 20%"));
         }
 
         /// <summary>
@@ -469,7 +528,7 @@ namespace DogShop.Show
                 "강아지가 받침대 줄에서 물건을 찾아 물어 온다",
                 "카드를 맞게 골라도 훈련도가 낮으면 헤매거나 엉뚱한 걸 물어 온다",
                 "훈련도가 높을수록 정확하다  (지금 훈련도 " + hero.Stats.Training + ")",
-                "맞게 물어 온 횟수가 점수, 총점의 25%");
+                ScoreNote("맞게 물어 온 횟수가 점수", "총점의 25%"));
 
             // 카드를 맞게 골랐을 때 제대로 물어 올 확률. 예전 Lerp(0.35, 0.95) 는 훈련도 중간(0.5)에서 65% —
             // 3번 다 맞힐 확률이 27% 라 평균으로 키운 강아지도 거의 늘 틀렸다. 제곱근 곡선으로 중간을 끌어올린다.
@@ -1314,6 +1373,116 @@ namespace DogShop.Show
             TimeManager.Instance.EndDayNow();
         }
 
+        // ---- 마스코트 등급 심사 진행 ----
+
+        IEnumerator RunReview()
+        {
+            PrepareStage();
+            if (reviewEvent == 0)
+            {
+                yield return Intro();
+                yield return PoseGame();
+            }
+            else yield return FetchGame();
+            yield return ReviewResult();
+        }
+
+        /// <summary>종목 점수로 등급 보너스를 주고 결과판을 띄운다. [확인]을 누르면 강아지를 가게로 돌려놓고 하루를 마친다.</summary>
+        IEnumerator ReviewResult()
+        {
+            phase = Phase.ReviewResult;
+            float raw = reviewEvent == 0 ? poseScore : fetchScore;
+            reviewScore = Mathf.RoundToInt(raw * 100f);
+            reviewBonus = MascotReview.BonusFor(reviewScore, reviewRate);
+            reviewGradeBefore = MascotGrade.GradeOf(hero.Stats.MascotTotal);
+            hero.Stats.AddMascotBonus(reviewBonus);
+            GameManager g = GameManager.Instance;
+            MascotReview.Record(g != null ? g.Day : 0, reviewEvent, reviewScore, reviewBonus);
+
+            PlaceDog(posePoint.position, posePoint.rotation);
+            hero.Animator.Play(DogAnim.WagTail);
+            AimCamera(posePoint.position, 3.2f, 1.4f, 0f);
+            headline = "마스코트 등급 심사 결과";
+            subline = MascotReview.EventName(reviewEvent) + " " + reviewScore + "점";
+            Sound.Play(Sfx.Ranking);
+            Cheer(reviewScore >= 80);
+
+            resultReady = true;
+            while (resultReady) yield return null;
+
+            reviewEvent = -1;
+            Running = false;
+            phase = Phase.None;
+            if (showCamera != null) showCamera.enabled = false;
+            ReturnDog();
+            Restore();
+            Sound.PlayBgm(Bgm.Shop);
+            TimeManager.Instance.EndDayNow();
+        }
+
+        /// <summary>심사 전에 있던 가게 자리로 강아지를 돌려놓고 길찾기·배회를 다시 켠다.</summary>
+        void ReturnDog()
+        {
+            if (hero == null) return;
+            hero.transform.SetPositionAndRotation(homePos, homeRot);
+            var agent = hero.GetComponent<UnityEngine.AI.NavMeshAgent>();
+            if (agent != null)
+            {
+                agent.enabled = true;
+                if (agent.isOnNavMesh) agent.Warp(homeNav);
+            }
+            var roamer = hero.GetComponent<DogRoamer>();
+            if (roamer != null) roamer.enabled = true;
+            hero.Animator.SetPlaybackSpeed(1f);
+            hero.Animator.Play(DogAnim.Idle);
+        }
+
+        /// <summary>종목 안내창 마지막 줄. 도그쇼는 총점 비중, 등급 심사는 보너스 비율을 적는다.</summary>
+        string ScoreNote(string basis, string weight) =>
+            basis + ", " + (reviewEvent >= 0 ? "점수의 " + Mathf.RoundToInt(reviewRate * 100f) + "%가 마스코트 등급 보너스" : weight);
+
+        /// <summary>등급 심사 결과판: 받은 보너스, 점수, 능력치 합과 보너스, 지금 등급과 다음 등급까지.</summary>
+        void DrawReviewResult()
+        {
+            if (reviewBig == null || reviewBig.font != UiSkin.Font)
+            {
+                reviewBig = new GUIStyle(UiSkin.Title) { fontSize = 42, alignment = TextAnchor.MiddleCenter };
+                reviewBig.normal.textColor = new Color(1f, 0.84f, 0.38f);
+                reviewRow = new GUIStyle(UiSkin.Label) { fontSize = 20, alignment = TextAnchor.MiddleCenter, wordWrap = true };
+                reviewGrade = new GUIStyle(UiSkin.Title) { fontSize = 26, alignment = TextAnchor.MiddleLeft };
+            }
+            DogStats st = hero.Stats;
+            int total = st.MascotTotal;
+            int grade = MascotGrade.GradeOf(total);
+            const float W = 640f, Pad = 26f, Row = 34f;
+            float h = Pad * 2f + 60f + Row * 2f + 8f + 64f + Row + 12f + 56f;
+            var panel = new Rect((SW - W) * 0.5f, (SH - h) * 0.5f + 40f, W, h);
+            GUI.Box(panel, GUIContent.none, UiSkin.Panel_);
+            float x = panel.x + Pad, w = W - Pad * 2f, y = panel.y + Pad;
+
+            GUI.Label(new Rect(x, y, w, 60f), "등급 보너스 +" + reviewBonus, reviewBig);
+            y += 60f;
+            bool floor = reviewScore * reviewRate < MascotReview.MinBonus;
+            GUI.Label(new Rect(x, y, w, Row), MascotReview.EventName(reviewEvent) + " " + reviewScore + "점  x  " + Mathf.RoundToInt(reviewRate * 100f) + "%"
+                      + (floor ? "  (최소 " + MascotReview.MinBonus + "점)" : ""), reviewRow);
+            y += Row;
+            GUI.Label(new Rect(x, y, w, Row), "능력치 합 " + (st.Beauty + st.Training + st.Agility) + "  +  심사 보너스 " + st.MascotBonus + "  =  " + total, reviewRow);
+            y += Row + 8f;
+
+            Texture2D badge = MascotGrade.Badge(grade);
+            float bx = panel.center.x - 160f;
+            if (badge != null) GUI.DrawTexture(new Rect(bx, y, 56f, 56f), badge, ScaleMode.ScaleToFit);
+            reviewGrade.normal.textColor = MascotGrade.Colors[grade];
+            GUI.Label(new Rect(bx + 66f, y, 320f, 56f), "마스코트 " + MascotGrade.Names[grade] + (grade > reviewGradeBefore ? "  승급!" : ""), reviewGrade);
+            y += 64f;
+            string next = MascotGrade.IsMax(grade) ? "최고 등급이다" : MascotGrade.Names[grade + 1] + "까지 " + total + " / " + MascotGrade.Thresholds[grade + 1];
+            GUI.Label(new Rect(x, y, w, Row), next, reviewRow);
+            y += Row + 12f;
+
+            if (UiSkin.Click(new Rect(panel.center.x - 150f, y, 300f, 56f), "확인하고 자러 가기", new GUIStyle(UiSkin.Button(UiSkin.Green)) { fontSize = 22 }))
+                resultReady = false;
+        }
+
         bool resultReady;
         /// <summary>시연에서 순위표를 띄워 두는 시간(초). 그 안에 누르면 바로 넘어간다.</summary>
         const float ExhibitionBoardSeconds = 20f;
@@ -1722,6 +1891,7 @@ namespace DogShop.Show
             if (phase == Phase.CourseGuide && course != null) DrawCourseGuide();
             if (phase == Phase.Guide) DrawGuide();
             if (phase == Phase.Result) { if (cardOpen) DrawScoreCard(); else DrawBoard(); }
+            if (phase == Phase.ReviewResult) DrawReviewResult();
 
             // 카운트다운: "GO!" 는 잠깐만, 숫자는 다음 숫자가 올 때까지
             if (countdown.Length > 0 && (countdown != "GO!" || Time.time < countdownUntil))
@@ -1807,6 +1977,18 @@ namespace DogShop.Show
             float top = recap ? SH * 0.1f : SH * 0.32f;
             GUI.Label(new Rect(0f, top, SW, 44f), headline, bigStyle);
             GUI.Label(new Rect(0f, top + 46f, SW, 30f), subline, smallStyle);
+
+            // 마스코트 등급 심사: 보너스 규칙을 알리고 [심사 시작]
+            if (reviewEvent >= 0)
+            {
+                float ry = top + 100f;
+                GUI.Label(new Rect(0f, ry, SW, 30f), "점수의 " + Mathf.RoundToInt(reviewRate * 100f) + "%를 마스코트 등급 보너스로 받는다  (최소 " + MascotReview.MinBonus + "점)", smallStyle);
+                GUI.Label(new Rect(0f, ry + 30f, SW, 30f), "보너스는 능력치와 따로, 마스코트 등급과 가게 레벨업 조건에 더해진다", smallStyle);
+                var rr = new Rect((SW - 300f) * 0.5f, ry + 84f, 300f, 64f);   // 안내 두 줄 아래(가운데에 두면 둘째 줄과 겹쳤다)
+                if (UiSkin.Click(rr, "심사 시작", new GUIStyle(UiSkin.Button(UiSkin.Green)) { fontSize = 24 }))
+                    StartCoroutine(RunReview());
+                return;
+            }
 
             float buttonY = SH * 0.5f;
             if (recap) buttonY = DrawRecap(top + 92f) + 20f;

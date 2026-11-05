@@ -63,6 +63,12 @@ namespace DogShop.Shop
                 headline = "아직 잘 시간이 아니다";
                 detail = "지금 " + time.ClockText + ". 19:30 에 영업이 끝나면 잘 수 있다.";
             }
+            else if (Show.MascotReview.Pending)
+            {
+                int ev = Show.MascotReview.EventOn(game.Day);
+                headline = "오늘 밤 마스코트 등급 심사";
+                detail = "자기 전에 심사장으로 간다. 종목: " + Show.MascotReview.EventName(ev) + ". 점수에 따라 마스코트 등급 보너스를 받는다.";
+            }
             else
             {
                 headline = "Day " + game.Day + " 잠자리에 들까?";
@@ -114,6 +120,9 @@ namespace DogShop.Shop
             // 시연 3일차: 자는 대신 도그쇼로 간다(쇼가 끝나야 하루가 끝난다)
             if (Exhibition.ShowPending && !cannotEnter) { Exhibition.StartShow(); return; }
 
+            // 본편 10일차, 20일차: 자기 전에 마스코트 등급 심사(심사가 끝나면 하루가 끝난다)
+            if (Show.MascotReview.Pending) { Show.MascotReview.Start(); return; }
+
             // 21시 잠자러 가기(SleepPrompt)와 같은 경로. 마감 화면이 뜨고 거기서 다음 날로 넘어간다.
             Sound.Play(Sfx.Sleep);
             TimeManager.Instance.EndDayNow();
@@ -142,7 +151,7 @@ namespace DogShop.Shop
             }
 
             float half = (w - Pad) * 0.5f;
-            if (UiSkin.Click(new Rect(x, y, half, RowHeight + 6f), !Exhibition.ShowPending ? "잠자기" : cannotEnter ? "출전 포기하고 잠자기" : "도그쇼 시작", UiSkin.Button(UiSkin.Green))) Sleep();
+            if (UiSkin.Click(new Rect(x, y, half, RowHeight + 6f), !Exhibition.ShowPending ? (Show.MascotReview.Pending ? "심사 받으러 가기" : "잠자기") : cannotEnter ? "출전 포기하고 잠자기" : "도그쇼 시작", UiSkin.Button(UiSkin.Green))) Sleep();
             if (UiSkin.Click(new Rect(x + half + Pad, y, half, RowHeight + 6f), "취소", UiSkin.Button(UiSkin.Cream))) Close();
         }
     }

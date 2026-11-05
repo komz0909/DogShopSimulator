@@ -281,7 +281,7 @@ namespace DogShop.Shop
         }
 
         /// <summary>오늘 하루 손님 수. 본편은 레벨표, 시연은 짧은 하루에 맞춘 날짜별 값(<see cref="Exhibition.CustomersPerDay"/>).</summary>
-        static int CustomersPerDayNow => Exhibition.Active && GameManager.Instance != null
+        static int CustomersPerDayNow => Exhibition.Boosted && GameManager.Instance != null
             ? Exhibition.CustomersPerDay(GameManager.Instance.Day)
             : ShopLevelManager.Instance.Current.customersPerDay;
 

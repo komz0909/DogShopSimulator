@@ -44,8 +44,8 @@ namespace DogShop.Core
         {
             if (Instance != null && Instance != this) { Destroy(this); return; }
             Instance = this;
-            Money = Exhibition.Active ? Exhibition.StartMoney : startingMoney;   // 시연 모드는 넉넉히 시작한다
-            if (Exhibition.Active) Reputation = Exhibition.StartReputation;     // 시연은 다음 레벨 문턱 바로 아래에서
+            Money = Exhibition.Boosted ? Exhibition.StartMoney : startingMoney;   // 시연 모드는 넉넉히 시작한다
+            if (Exhibition.Active) Reputation = Exhibition.StartReputationNow;     // 시연은 다음 레벨 문턱 바로 아래에서
             ReputationAtDayStart = Reputation;
         }
 
@@ -146,7 +146,7 @@ namespace DogShop.Core
 
             int next = Mathf.Max(0, Reputation + amount);
             // 시연은 시작 명성(Lv 8 문턱) 밑으로 내려가지 않는다 — 1일차를 일찍 끝내며 손님을 놓치면 -4 로 2일차 레벨업이 막혔다(10-30 빌드 점검)
-            if (Exhibition.Active) next = Mathf.Max(next, Exhibition.StartReputation);
+            if (Exhibition.Active) next = Mathf.Max(next, Exhibition.StartReputationNow);
             if (next == Reputation) return;
 
             Reputation = next;

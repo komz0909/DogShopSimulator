@@ -54,7 +54,7 @@ namespace DogShop.Dogs
                 if (dog != null && GameStart.FromMenu && !GameStart.Continue) dog.SetName(GameStart.DogName);
 
                 // 시연 모드: 어느 정도 자란 강아지로 시작한다(미모·훈련도·어질리티 40). 사흘 훈련으로 쇼를 준비할 출발점
-                if (dog != null && Exhibition.Active)
+                if (dog != null && Exhibition.Boosted)   // 튜토리얼은 본편처럼 능력치 0 에서
                 {
                     int s = Exhibition.StartGrowthStat;
                     // 시작 능력치는 키운 결과가 아니다 — 승급 알림("인기 강아지가 되었다!")이 첫 화면에 뜨지 않게 처음 보는 것으로 친다
@@ -171,7 +171,8 @@ namespace DogShop.Dogs
                     beautyCarry = st.BeautyCarry,
                     trainingCarry = st.TrainingCarry,
                     agilityCarry = st.AgilityCarry,
-                    mascotFame = Hero.MascotFame
+                    mascotFame = Hero.MascotFame,
+                    mascotBonus = st.MascotBonus
                 }
             };
         }
@@ -195,6 +196,7 @@ namespace DogShop.Dogs
             dog.SetName(s.name);
             dog.Stats.Restore(s.cleanliness, s.health, s.beauty, s.training, s.agility, s.beautyCarry, s.trainingCarry, s.agilityCarry);
             dog.RestoreMascotFame(s.mascotFame);
+            dog.Stats.RestoreMascotBonus(s.mascotBonus);
             dog.SyncMood();
 
             PushHeroStatToLevelGate();

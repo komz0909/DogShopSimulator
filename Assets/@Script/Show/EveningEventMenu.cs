@@ -96,6 +96,8 @@ namespace DogShop.Show
 
             if (isFinal) BuildFinalResult(hero, champ, g);
             else if (champ.IsMockDay(g.Day)) BuildMockResult(hero, champ);
+            // 마스코트 등급 심사 날(10일차, 20일차)은 모의 심사 줄 대신 심사 결과를 적는다
+            if (!isFinal && MascotReview.DoneDay == g.Day && MascotReview.ResultLine.Length > 0) mockLine = MascotReview.ResultLine;
 
             // D30 에 도그쇼를 실제로 치렀으면(순위표를 이미 봤으면) 정산서는 건너뛰고 바로 엔딩 그림으로 간다 —
             // 순위 발표 뒤에 하루 정산서가 끼어들어 흐름이 끊겼다. 쇼를 건너뛴 경우(무인 측정·출전 불가)만 정산서로 결과를 보인다

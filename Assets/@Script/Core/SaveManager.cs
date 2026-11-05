@@ -25,6 +25,8 @@ namespace DogShop.Core
         public float agilityCarry;
         /// <summary>이 강아지가 손님 반기기로 번 명성 합계(마스코트 명성).</summary>
         public int mascotFame;
+        /// <summary>마스코트 등급 심사로 받은 보너스 점수(2026-11-05). 없던 시절 세이브는 0.</summary>
+        public int mascotBonus;
     }
 
     /// <summary>플레이어가 사서 놓아 둔 가구 하나. 무엇을 어디에 놓았는지만 있으면 다시 세울 수 있다.</summary>

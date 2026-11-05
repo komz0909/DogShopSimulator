@@ -240,10 +240,20 @@ namespace DogShop.Shop
             return q;
         }
 
+        /// <summary>
+        /// 그 시즌 안에서 며칠째인가(1~30). 시즌 2 의 31일차는 1일차다.
+        /// 예전엔 시즌 2 부터 30일차 크기를 그대로 써서, 1레벨로 돌아간 가게(하루 손님 9명)에 손님 계산 9명을 시켰다(2026-11-05).
+        /// </summary>
+        static int SeasonDay(int day)
+        {
+            int f = Show.ChampionshipManager.FinalDay;
+            return (Mathf.Max(1, day) - 1) % f + 1;
+        }
+
         /// <summary>목표 수치. 날이 갈수록 조금씩 늘어난다(2일차 → 29일차).</summary>
         static int TargetFor(Kind kind, int day)
         {
-            day = Mathf.Min(day, Show.ChampionshipManager.FinalDay);   // 시즌 2 부터는 30일차 크기 그대로
+            day = SeasonDay(day);   // 새 시즌엔 가게가 1레벨로 돌아가므로 목표도 그 시즌 1일차 크기부터(2026-11-05)
             switch (kind)
             {
                 case Kind.Checkout: return 3 + day / 5;          // 3 → 8
@@ -261,7 +271,7 @@ namespace DogShop.Shop
         /// </summary>
         static void RewardFor(Quest q, int day, GrowthAxis weak, System.Random rng)
         {
-            day = Mathf.Min(day, Show.ChampionshipManager.FinalDay);
+            day = SeasonDay(day);
             // 69차(퀘스트 없음)와 68차(퀘스트 있음)를 비교해 줄였다(2026-11-02) — 30일 직접 보상이 돈 4,635·능력치 69 로
             // 성장이 120 → 314, 가게 Lv7 → 9 가 됐다. 능력치는 마스코트 등급(승급 조건)도 당겨서 가장 크게 줄인다
             int money = 40 + day * 3;

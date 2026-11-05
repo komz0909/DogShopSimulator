@@ -32,7 +32,26 @@ namespace DogShop.Dogs
         public int GrowthTotal => Beauty + Training;
 
         /// <summary>마스코트 등급(<see cref="MascotGrade"/>)과 가게 레벨 조건에 쓰는 성장 합 — 어질리티까지 넣는다. 운동도 가게를 키운다.</summary>
-        public int MascotTotal => Beauty + Training + Agility;
+        public int MascotTotal => Beauty + Training + Agility + MascotBonus;
+
+        /// <summary>
+        /// 마스코트 등급 심사(본편 10일차, 20일차 저녁, <see cref="Show.MascotReview"/>)로 받은 보너스 점수(2026-11-05).
+        /// 능력치와 따로 두고 등급 계산(<see cref="MascotTotal"/>)에만 더한다 — 가게 레벨업 문턱은 일찍 풀리고 도그쇼 난이도는 그대로다.
+        /// </summary>
+        public int MascotBonus { get; private set; }
+
+        public void AddMascotBonus(int amount)
+        {
+            if (amount <= 0) return;
+            MascotBonus += amount;
+            OnChanged?.Invoke();
+        }
+
+        public void RestoreMascotBonus(int value)
+        {
+            MascotBonus = Mathf.Max(0, value);
+            OnChanged?.Invoke();
+        }
         public int UpkeepAverage => (Cleanliness + Health) / 2;
         public bool GrowthBlocked => Cleanliness < GrowthBlockThreshold || Health < GrowthBlockThreshold;
 

@@ -64,7 +64,7 @@ namespace DogShop.Shop
             if (rackPrefab != null)
             {
                 // 시연 모드는 Lv 6 상품 13종이 다 들어가게 뒷벽에 4개를 더 세운다
-                int extra = Core.Exhibition.Active ? Mathf.Min(Core.Exhibition.ExtraStorageRacks, ExhibitionSpots.Length) : 0;
+                int extra = Core.Exhibition.Boosted ? Mathf.Min(Core.Exhibition.ExtraStorageRacks, ExhibitionSpots.Length) : 0;
                 for (int i = 0; i < BaseSpots.Length + extra; i++)
                 {
                     GameObject instance = Instantiate(rackPrefab, transform);

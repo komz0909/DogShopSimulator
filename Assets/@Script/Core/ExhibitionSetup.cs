@@ -18,8 +18,12 @@ namespace DogShop.Core
         {
             yield return null;
 
-            PlaceShelves();
-            Prestock();
+            // 튜토리얼은 본편 새 게임과 같은 가게로 — 진열대를 더 세우거나 미리 진열하지 않는다(2026-11-05)
+            if (Exhibition.Boosted)
+            {
+                PlaceShelves();
+                Prestock();
+            }
             FaceEntrance();
 
             if (GameManager.Instance != null) GameManager.Instance.OnDayChanged += HandleDayChanged;

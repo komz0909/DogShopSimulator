@@ -33,6 +33,26 @@ namespace DogShop.Core
         public static readonly bool IsTutorial = true;
 #endif
 
+        /// <summary>
+        /// 시연판(지스타)만의 출발 조건을 쓰는가 — 7레벨 가게, 8,000원, 능력치 86, 성장 5배, 미리 세운 진열대.
+        /// 튜토리얼은 본편 새 게임과 같은 조건(1레벨, 900원, 능력치 0, 보통 성장)에서 시작한다(2026-11-05).
+        /// 튜토리얼에서 훈련 한 번에 수십씩 오르다가 본편에서 +1 이 떠 크게 약해진 느낌이었다.
+        /// 하루 길이, 할 일 따라가기, 저장 안 함은 둘이 같다.
+        /// </summary>
+        public static bool Boosted => Active && !IsTutorial;
+
+        /// <summary>
+        /// 튜토리얼 시작 명성. Lv2 문턱(23) 아래에서 시작해 1일차 손님(한 명에 1)과 온라인 주문으로 넘긴다 —
+        /// 2일차 할 일 'Lv2 레벨업'이 명성 때문에 막히지 않게. 명성은 이 밑으로 내려가지 않는다.
+        /// </summary>
+        public const int TutorialStartReputation = 15;
+
+        /// <summary>지금 판의 시작 명성(시연 433, 튜토리얼 15).</summary>
+        public static int StartReputationNow => IsTutorial ? TutorialStartReputation : StartReputation;
+
+        /// <summary>지금 판의 시작 가게 레벨(시연 7, 튜토리얼 1).</summary>
+        public static int StartLevelNow => Boosted ? StartLevel : 1;
+
         /// <summary>시연은 3일(3일차가 도그쇼 날), 튜토리얼은 2일(도그쇼 없음). 본편은 30일차.</summary>
         public static int Days => IsTutorial ? 2 : 3;
 

@@ -62,6 +62,8 @@ namespace DogShop.UI
         float shownMoney = -1f;
         float moneyPulse;
         Text levelText;
+        /// <summary>지난번 갱신 때 레벨업할 수 있었나. 할 수 있게 된 순간에만 알림을 띄운다.</summary>
+        bool levelReadyShown;
         Text reputationText;
         Text mascotText;
         RawImage mascotBadge;
@@ -200,7 +202,15 @@ namespace DogShop.UI
             speedText.text = "x" + t.SpeedMultiplier;
             speedText.color = t.SpeedMultiplier > 1 ? MoneyColor : CalmColor;
 
-            levelText.text = "가게 Lv " + s.Level;
+            // 레벨업 알림(2026-11-05): 레벨업은 포스기 창 안에서만 보여서 명성, 돈, 마스코트 등급이 다 찼는데도 며칠씩 놓쳤다.
+            // 할 수 있는 동안은 레벨 글씨를 노랗게 "레벨업 가능"으로, 할 수 있게 된 순간엔 위쪽 알림을 한 번 띄운다
+            string notReady;
+            bool levelReady = s.CanLevelUp(out notReady);
+            levelText.text = levelReady ? "Lv " + s.Level + " 레벨업 가능" : "가게 Lv " + s.Level;
+            levelText.color = levelReady ? MoneyColor : TextColor;
+            if (levelReady && !levelReadyShown && !Exhibition.Active)
+                Toast("가게 레벨업을 할 수 있다! 계산대 포스기에서 [Lv" + (s.Level + 1) + " 레벨업]을 누르자", MoneyColor);
+            levelReadyShown = levelReady;
 
             ShopLevelDef next = s.Next;
             if (next != null)
@@ -677,7 +687,7 @@ namespace DogShop.UI
             Anchor(moneyText.rectTransform, new Vector2(1f, 1f), new Vector2(-16f, -12f), new Vector2(250f, 36f));
 
             levelText = Label(panel, "Level", font, 20, TextAnchor.MiddleLeft, TextColor);
-            Anchor(levelText.rectTransform, new Vector2(0f, 1f), new Vector2(16f, -56f), new Vector2(140f, 24f));
+            Anchor(levelText.rectTransform, new Vector2(0f, 1f), new Vector2(16f, -56f), new Vector2(190f, 24f));   // 140 -> 190: "Lv 3 레벨업 가능"이 들어가게
 
             int before = panel.childCount;
             Icon(panel, iconReputation, new Vector2(1f, 1f), new Vector2(-150f, -54f), 28f);

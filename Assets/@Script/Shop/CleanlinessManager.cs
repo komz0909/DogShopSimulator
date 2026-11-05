@@ -84,6 +84,9 @@ namespace DogShop.Shop
                 ? ShopLevelManager.Instance.Current.customersPerDay
                 : 0;
 
+            // 가구를 옮겨 오염을 덮었거나 가구 틈에 끼게 됐으면 빈 바닥으로 옮긴다 — 청소기가 영영 못 닿는 오염이 남지 않게
+            RelocateBlocked();
+
             accumulated += BaseDirtPerHour + dogs * DirtPerDogPerHour + customers * DirtPerCustomerPerHour;
 
             while (accumulated >= DirtPerSpot && spots.Count < MaxSpots)
@@ -113,12 +116,12 @@ namespace DogShop.Shop
             OnChanged?.Invoke();
         }
 
-        /// <summary>진열대·계산대·기존 오염과 겹치지 않는 바닥 지점을 찾는다.</summary>
-        bool TryFindFloorSpot(out Vector3 position)
+        /// <summary>가구·계산대·기존 오염과 겹치지 않고 청소기가 닿는 바닥 지점을 찾는다. ignore 는 옮기는 중인 그 오염(자기 자신과는 안 겹친다).</summary>
+        bool TryFindFloorSpot(out Vector3 position, DirtSpot ignore = null)
         {
             ShelfManager shelves = ShelfManager.Instance;
 
-            for (int attempt = 0; attempt < 24; attempt++)
+            for (int attempt = 0; attempt < 40; attempt++)
             {
                 // 지금 판매장 안쪽(가게가 양쪽으로 넓어지면 따라 넓어진다)
                 Rect floor = ShopSpace.Instance != null ? ShopSpace.Instance.FloorRect : new Rect(0f, 0f, 8f, 6f);
@@ -140,9 +143,9 @@ namespace DogShop.Shop
                 }
 
                 for (int i = 0; i < spots.Count && !blocked; i++)
-                    if (Overlaps(candidate, spots[i].transform.position, 0.7f)) blocked = true;
+                    if (spots[i] != null && spots[i] != ignore && Overlaps(candidate, spots[i].transform.position, 0.7f)) blocked = true;
 
-                if (blocked) continue;
+                if (blocked || !IsClearFloor(candidate)) continue;
 
                 position = candidate;
                 return true;
@@ -150,6 +153,70 @@ namespace DogShop.Shop
 
             position = Vector3.zero;
             return false;
+        }
+
+        // ---- 가구와 겹치지 않는 자리(2026-11-05) ----
+        // 예전엔 진열대 <b>중심</b>에서 0.8m 만 피했다. 긴 아일랜드 진열대 끝, 벽 진열대, 간식 매대, 침대 같은 가구 아래나
+        // 가구와 가구 사이 좁은 틈에 오염이 생겨 로봇청소기가 닿지 못하고 그 자리에 계속 남았다(직접 플레이).
+
+        const float ProbeRadius = 0.35f;
+        static readonly Collider[] probeHits = new Collider[24];
+        UnityEngine.AI.NavMeshPath probePath;
+        RobotVacuum vacuum;
+
+        /// <summary>
+        /// 그 바닥 지점이 비어 있고 청소기가 갈 수 있나.
+        ///   1) 바닥 위(높이 0.1~0.7m)를 반경 0.35m 상자로 훑어 가구, 계산대, 벽 같은 단단한 것이 있으면 안 된다.
+        ///      사람, 강아지, 청소기(길찾기로 움직이는 것)와 주인공, 바닥에 붙은 판(높이가 낮다)은 셈하지 않는다
+        ///   2) 그 자리에 길(NavMesh)이 있어야 한다. 가구가 길을 깎아 낸 자리와 좁은 틈은 길이 없다
+        ///   3) 로봇청소기가 있으면 청소기 자리에서 그곳까지 길이 끝까지 이어져야 한다
+        /// </summary>
+        bool IsClearFloor(Vector3 p)
+        {
+            int n = Physics.OverlapBoxNonAlloc(new Vector3(p.x, 0.4f, p.z), new Vector3(ProbeRadius, 0.3f, ProbeRadius),
+                                               probeHits, Quaternion.identity, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
+            for (int i = 0; i < n; i++)
+            {
+                Collider hit = probeHits[i];
+                if (hit == null) continue;
+                if (hit is CharacterController || hit.GetComponentInParent<CharacterController>() != null) continue;
+                if (hit.GetComponentInParent<UnityEngine.AI.NavMeshAgent>() != null) continue;
+                if (hit.GetComponentInParent<DirtSpot>() != null) continue;
+                return false;
+            }
+
+            if (vacuum == null) vacuum = FindAnyObjectByType<RobotVacuum>();
+            UnityEngine.AI.NavMeshAgent agent = vacuum != null ? vacuum.GetComponent<UnityEngine.AI.NavMeshAgent>() : null;
+            var filter = new UnityEngine.AI.NavMeshQueryFilter
+            {
+                agentTypeID = agent != null ? agent.agentTypeID : 0,
+                areaMask = UnityEngine.AI.NavMesh.AllAreas,
+            };
+
+            UnityEngine.AI.NavMeshHit onMesh;
+            if (!UnityEngine.AI.NavMesh.SamplePosition(p, out onMesh, 0.3f, filter)) return false;
+            Vector3 d = onMesh.position - p;
+            d.y = 0f;
+            if (d.sqrMagnitude > 0.2f * 0.2f) return false;
+
+            if (agent == null) return true;
+            UnityEngine.AI.NavMeshHit from;
+            if (!UnityEngine.AI.NavMesh.SamplePosition(vacuum.transform.position, out from, 1f, filter)) return true;   // 청소기가 아직 길 위에 없으면(해금 전) 길만 본다
+            if (probePath == null) probePath = new UnityEngine.AI.NavMeshPath();
+            return UnityEngine.AI.NavMesh.CalculatePath(from.position, onMesh.position, filter, probePath)
+                && probePath.status == UnityEngine.AI.NavMeshPathStatus.PathComplete;
+        }
+
+        /// <summary>가구에 덮였거나 청소기가 못 가는 자리의 오염을 빈 바닥으로 옮긴다. 빈 자리를 못 찾으면 그대로 둔다.</summary>
+        void RelocateBlocked()
+        {
+            for (int i = 0; i < spots.Count; i++)
+            {
+                DirtSpot spot = spots[i];
+                if (spot == null || IsClearFloor(spot.transform.position)) continue;
+                Vector3 moved;
+                if (TryFindFloorSpot(out moved, spot)) spot.transform.position = moved;
+            }
         }
 
         static bool Overlaps(Vector3 a, Vector3 b, float radius)

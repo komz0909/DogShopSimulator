@@ -58,7 +58,7 @@ namespace DogShop.Dogs
         // ---- 그릴 내용(0.25초마다 다시 계산) ----
         string title = "";
         string subtitle = "";
-        int clean, health, beauty, training, agility;
+        int clean, health, beauty, training, agility, mascotBonus;
         int breed;
         bool blocked;
 
@@ -82,7 +82,8 @@ namespace DogShop.Dogs
         struct Card
         {
             public bool unlocked, enabled, used, upgrading, canUpgrade;
-            public int stage, cost, gain, unlockLevel, daysLeft;
+            public int stage, cost, unlockLevel, daysLeft;
+            public float gain;   // 소수점까지(본편 강화는 +30% 씩)
             public string name, axis, upgradeLabel, reason;
             public GrowthAxis axisKind;
         }
@@ -182,6 +183,7 @@ namespace DogShop.Dogs
             beauty = st.Beauty;
             training = st.Training;
             agility = st.Agility;
+            mascotBonus = st.MascotBonus;
             breed = target.BreedIndex;
             blocked = st.GrowthBlocked;
 
@@ -235,14 +237,17 @@ namespace DogShop.Dogs
                     c.reason = string.IsNullOrEmpty(reason) ? "" : reason.Split('—')[0].Trim();
                     c.stage = tm.StageOf(i);
                     c.cost = tm.CostOf(i);
-                    c.gain = tm.GainOf(i);
+                    c.gain = tm.GainExact(i);
                     c.used = tm.UsedToday(i);
                     c.upgrading = tm.IsUpgrading(i);
                     c.daysLeft = tm.UpgradeDaysLeft(i);
                     c.canUpgrade = tm.CanUpgrade(i, out reason);
 
                     // 아직 덜 했으면 몇 번 남았는지를 적는다 — 단계가 있는 줄 알게
+                    // 본편은 돈으로 강화한다 — 덜 했으면 횟수, 다 했으면 값을 적는다
                     c.upgradeLabel = c.stage >= TrainingStages.Max ? "MAX"
+                        : TrainingStages.Paid
+                            ? (tm.RepsOf(i) < tm.RepsNeeded(i) ? "강화 " + tm.RepsOf(i) + "/" + tm.RepsNeeded(i) + "회" : "강화 " + tm.UpgradeCostOf(i).ToString("N0"))   // "원"과 아이콘까지 넣으면 버튼을 넘쳤다
                         : tm.RepsOf(i) < tm.RepsNeeded(i) ? "단계업 " + tm.RepsOf(i) + "/" + tm.RepsNeeded(i)
                         : "단계업 " + TrainingStages.DaysToReach(c.stage + 1) + "일";
                 }
@@ -348,7 +353,7 @@ namespace DogShop.Dogs
                     UI.UiSkin.Tag(blocked ? UI.UiSkin.Coral : Mathf.Min(clean, health) >= 70 ? UI.UiSkin.Green : UI.UiSkin.Cream));
 
             // 마스코트 등급 — 강아지가 가게의 얼굴이다. 총합이 오르면 등급이 오르고 가게 레벨업 조건이 풀린다
-            int total = beauty + training + agility;
+            int total = beauty + training + agility + mascotBonus;   // 등급 심사 보너스까지
             int grade = MascotGrade.GradeOf(total);
             Texture2D badgeArt = MascotGrade.Badge(grade);
             float bx = badgeArt != null ? tx + 46f : tx;   // 배지 그림이 있으면 왼쪽에 두고 띠·막대를 오른쪽으로
@@ -363,7 +368,7 @@ namespace DogShop.Dogs
             {
                 int lo = MascotGrade.Thresholds[grade], hi = MascotGrade.Thresholds[grade + 1];
                 Bar(new Rect(bx, r.y + 68f, r.xMax - bx, 8f), Mathf.Clamp01((total - lo) / (float)(hi - lo)), gc);
-                GUI.Label(new Rect(tx, r.y + 78f, tw, 18f), MascotGrade.Names[grade + 1] + "까지 " + total + "/" + hi, mascotSmall);
+                GUI.Label(new Rect(tx, r.y + 78f, tw, 18f), MascotGrade.Names[grade + 1] + "까지 " + total + "/" + hi + (mascotBonus > 0 ? "  (심사 +" + mascotBonus + ")" : ""), mascotSmall);
             }
             if (blocked) GUI.Label(new Rect(r.x, r.y + 98f, r.width, 18f), "청결/건강을 40 이상으로 (성장 정지)", warnSmall);
 
@@ -582,7 +587,10 @@ namespace DogShop.Dogs
             }
 
             // 단계(★ 채움 / ☆ 빈칸)
-            string stars = new string('★', d.stage) + new string('☆', Mathf.Max(0, TrainingStages.Max - d.stage));
+            // 10단계는 별 10개가 칸(66)에 안 들어가 "★ 3/10" 으로 적는다
+            string stars = TrainingStages.Max <= 5
+                ? new string('★', d.stage) + new string('☆', Mathf.Max(0, TrainingStages.Max - d.stage))
+                : "★ " + d.stage + "/" + TrainingStages.Max;
             GUI.Label(new Rect(row.x + 142f, row.y, 66f, row.height), stars, starStyle);
 
             // 효과 칩(축 색)
@@ -595,7 +603,12 @@ namespace DogShop.Dogs
                 if (chipBoth == null || chipBoth.normal.background == null) chipBoth = new GUIStyle(chipStyle) { fontSize = 12 };
                 chipStyle = chipBoth;
             }
-            GUI.Box(new Rect(row.x + 210f, cy - 11f, 92f, 22f), d.axis + " +" + TrainingManager.GainText(d.gain), chipStyle);
+            // 강화로 "훈련도 +40.7" 처럼 길어지면 칩을 넘쳐 글씨를 줄인다(공유 스타일이라 그리고 나서 되돌린다)
+            string chipText = d.axis + " +" + TrainingManager.GainText(d.gain);
+            int chipFont = chipStyle.fontSize;
+            if (d.axisKind != GrowthAxis.Both && chipText.Length > 8) chipStyle.fontSize = 12;
+            GUI.Box(new Rect(row.x + 210f, cy - 11f, 92f, 22f), chipText, chipStyle);
+            chipStyle.fontSize = chipFont;
 
             // 값 — 못 하는 까닭(돈·슬롯·컨디션)이 있으면 그 자리에 빨갛게
             bool showReason = !d.enabled && !d.used && !d.upgrading && d.reason.Length > 0;
@@ -614,7 +627,7 @@ namespace DogShop.Dogs
             // [단계업 n/m] — 여러 번 하면 열린다
             var upBtn = new Rect(row.x + 458f, cy - 14f, row.xMax - row.x - 462f, 28f);
             GUI.enabled = d.canUpgrade;
-            if (UI.UiSkin.Click(upBtn, new GUIContent(d.upgradeLabel, d.canUpgrade ? upgradeIcon : null), btnStyle))
+            if (UI.UiSkin.Click(upBtn, new GUIContent(d.upgradeLabel, d.canUpgrade && !TrainingStages.Paid ? upgradeIcon : null), btnStyle))
             {
                 tm.BeginUpgrade(i);
                 Rebuild();

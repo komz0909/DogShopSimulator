@@ -45,7 +45,7 @@ namespace DogShop.Dogs
             return grade >= 0 && grade < badges.Length ? badges[grade] : null;
         }
 
-        public static int Total(DogStats s) => s == null ? 0 : s.Beauty + s.Training + s.Agility;
+        public static int Total(DogStats s) => s == null ? 0 : s.MascotTotal;   // 등급 심사 보너스까지(2026-11-05)
 
         public static int GradeOf(int total)
         {

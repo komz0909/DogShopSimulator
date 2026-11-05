@@ -35,29 +35,49 @@ namespace DogShop.Data
     /// <summary>
     /// 훈련 단계. 같은 훈련을 계속 쓰면 단계를 올려 <b>슬롯 하나가 내는 성장</b>을 키운다.
     ///
-    /// 비용과 획득량이 같은 배수로 오르므로 <b>원당 효율은 단계와 무관하다</b>.
+    /// (시연판 규칙) 비용과 획득량이 같은 배수로 오르므로 <b>원당 효율은 단계와 무관하다</b>.
+    /// 본편은 2026-11-05 부터 돈으로 강화하고 단계마다 1점당 값이 싸진다 — 아래 클래스 머리말 참고.
     /// 단계를 올려서 얻는 것은 효율이 아니라 <b>슬롯당 처리량</b>이다 —
     /// 하루 슬롯이 정해져 있으니, 고점을 노리려면 단계를 올리는 수밖에 없다.
     /// 값은 시간으로 치른다(2~4단계 하루, 5단계 이틀 동안 그 훈련을 못 쓴다).
     /// </summary>
     public static class TrainingStages
     {
-        public const int Max = 5;
+        // ---- 본편 강화(2026-11-05): 돈을 내고 올리고, 올릴수록 효율이 좋아진다. 10단계 ----
+        // 후반에 돈이 남아돌았다(측정: 20일차 뒤 3,000~5,800원이 쓸 곳 없이 쌓임). 훈련 칸이 하루 3개로 정해져 있어
+        // 돈이 있어도 강아지를 더 키울 수 없었다. 이제 강화를 돈으로 사고, 강화가 1점당 값을 낮춰 준다.
+        // 단계는 시즌이 바뀌어도 남는다 — 다섯 시즌 동안 돈을 쓸 곳이다.
+        // 시연판(Exhibition.Boosted)은 예전 규칙(5단계, 비용과 획득이 같이 1.5배, 시간으로 치름) 그대로다.
 
-        /// <summary>단계당 비용·획득 배수.</summary>
+        /// <summary>돈으로 강화하는 본편 규칙인가(본편, 튜토리얼). 시연판은 false.</summary>
+        public static bool Paid => !Core.Exhibition.Boosted;
+
+        public static int Max => Paid ? 10 : 5;
+
+        /// <summary>시연판: 단계당 비용, 획득 배수.</summary>
         public const float Step = 1.5f;
 
-        /// <summary>그 단계로 올리는 데 걸리는 날. 마지막 단계만 이틀이다.</summary>
-        public static int DaysToReach(int stage) => stage >= Max ? 2 : 1;
+        /// <summary>본편: 단계마다 획득 +30%, 1회 값 +10%. 10단계면 획득 3.7배, 값 1.9배라 1점당 값이 처음의 절반쯤이다.</summary>
+        public const float GainPerStage = 0.3f, CostPerStage = 0.1f;
+
+        /// <summary>본편: 강화비 = 1단계 1회 값 x 이것 x 지금 단계. 전문 훈련(550원)은 1,100원부터 9,900원까지, 10단계까지 49,500원.</summary>
+        public const int UpgradeCostFactor = 2;
+
+        public static float GainMultiplier(int stage) => 1f + GainPerStage * (Mathf.Clamp(stage, 1, Max) - 1);
+        public static float CostMultiplier(int stage) => 1f + CostPerStage * (Mathf.Clamp(stage, 1, Max) - 1);
+        public static int UpgradeCost(int baseCost, int stage) => baseCost * UpgradeCostFactor * Mathf.Clamp(stage, 1, Max);
+
+        /// <summary>그 단계로 올리는 데 걸리는 날. 본편은 돈을 내면 바로 오른다(0). 시연판은 하루, 마지막 단계만 이틀.</summary>
+        public static int DaysToReach(int stage) => Paid ? 0 : stage >= Max ? 2 : 1;
 
         /// <summary>
-        /// 그 단계에서 <b>몇 번 훈련해야</b> 다음 단계로 올릴 수 있는가. 1 / 2 / 4 / 8 로 배가 된다.
-        ///
-        /// 단계를 돈이나 시간만으로 올리면 "일단 다 올리고 본다"가 되어 단계가 선택이 아니게 된다.
+        /// 그 단계에서 몇 번 훈련해야 다음 단계로 올릴 수 있는가.
+        /// 본편은 지금 단계 수만큼(1, 2, 3 ... 9번, 10단계까지 모두 45번). 시연판은 1 / 2 / 4 / 8.
         /// 써 본 만큼만 올라가므로, 주력으로 쓰는 훈련이 자연히 먼저 커진다.
         /// </summary>
-        public static int RepsToAdvance(int stage) => 1 << (Mathf.Clamp(stage, 1, Max - 1) - 1);
+        public static int RepsToAdvance(int stage) => Paid ? Mathf.Clamp(stage, 1, Max - 1) : 1 << (Mathf.Clamp(stage, 1, Max - 1) - 1);
 
+        /// <summary>시연판: 단계 값(비용과 획득에 같은 배수).</summary>
         public static int ValueAt(int baseValue, int stage) =>
             Mathf.Max(1, Mathf.RoundToInt(baseValue * Mathf.Pow(Step, Mathf.Clamp(stage, 1, Max) - 1)));
     }

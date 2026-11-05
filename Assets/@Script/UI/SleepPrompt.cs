@@ -78,7 +78,7 @@ namespace DogShop.UI
             y += RowHeight;
             string reason;
             bool showDay = Exhibition.ShowPending, canEnter = Exhibition.CanEnterShow(out reason);
-            GUI.Label(new Rect(x, y, w, RowHeight), showDay && !canEnter ? reason : "오늘 하루 수고했다. 내일 09:00 에 일어난다", body);
+            GUI.Label(new Rect(x, y, w, RowHeight), showDay && !canEnter ? reason : Show.MascotReview.Pending ? "오늘 밤은 마스코트 등급 심사가 있다" : "오늘 하루 수고했다. 내일 09:00 에 일어난다", body);
             y += RowHeight + Pad;
 
             // 도그쇼 날(시연 3일차, 본편 30일차)엔 잠 대신 도그쇼 — 쇼 없이 다음 날로 넘어가지 않게.
@@ -89,6 +89,12 @@ namespace DogShop.UI
                 return;
             }
 
+            // 본편 10일차, 20일차: 잠 대신 마스코트 등급 심사로(2026-11-05)
+            if (Show.MascotReview.Pending)
+            {
+                if (UiSkin.Click(new Rect(x, y, w, RowHeight + 8f), "마스코트 등급 심사 받으러 가기", UiSkin.Button(UiSkin.Green))) Show.MascotReview.Start();
+                return;
+            }
             if (UiSkin.Click(new Rect(x, y, w, RowHeight + 8f), showDay ? "출전 포기하고 잠자기" : "잠자러 가기", UiSkin.Button(UiSkin.Green)))
             {
                 Sound.Play(Sfx.Sleep);

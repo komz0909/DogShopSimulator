@@ -34,7 +34,7 @@ namespace DogShop.Shop
             Instance = this;
 
             // 시연 모드는 Exhibition.StartLevel(Lv 7) 에서 시작한다(훈련이 다 열린 가게, Lv 8 레벨업 직전). Start 의 ApplyFloor 가 넓이를 맞춘다
-            if (Exhibition.Active) Level = FloorLevel = Exhibition.StartLevel;
+            if (Exhibition.Boosted) Level = FloorLevel = Exhibition.StartLevel;   // 튜토리얼은 본편처럼 1레벨부터(2026-11-05)
         }
 
         void Start()

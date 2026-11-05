@@ -69,6 +69,25 @@ namespace DogShop.Shop
         };
 
         /// <summary>
+        /// 튜토리얼 2일차(2026-11-05). 본편처럼 1레벨 가게라 시연의 '마스코트 등급 260'과 'Lv8 레벨업'은 할 수 없다 —
+        /// 대신 손님이 쌓아 준 명성으로 Lv2 레벨업을 해 본다. 마스코트 등급은 훈련 설명에서 알려 준다.
+        /// </summary>
+        // 정적 필드는 적힌 순서대로 만들어진다 — DemoDays 가 이걸 쓰므로 앞에 둔다
+        static readonly Quest[] TutorialDay2 =
+        {
+            new Quest(Goal.Unpack, "배달 상자 정리",
+                "1) 어제 발주한 물건이 가게 문밖에 와 있다\n2) 배달 상자를 보고 E 로 뜯어 창고에 정리"),
+            new Quest(Goal.Care, "강아지 돌보기",
+                "1) T 로 강아지 부르기\n2) 강아지를 보고 E 로 상태창 열기\n3) 밥, 목욕, 약 중 하나 해 주기"),
+            new Quest(Goal.Train, "강아지 훈련하기",
+                "1) 상태창 훈련 칸에서 하나 골라 훈련\n미모, 훈련도, 어질리티 합이 마스코트 등급이 된다\n등급이 오르면 가게를 더 키울 수 있다", 2),
+            new Quest(Goal.LevelUp, "가게 레벨업",
+                "1) 계산대 POS 를 보고 E 로 열기\n2) [Lv2 레벨업] 누르기\n명성은 손님과 온라인 주문이 쌓아 준다"),
+            new Quest(Goal.Exercise, "강아지 운동시키기",
+                "1) 상태창 운동 칸에서 하나 골라 운동\n하루 한 번, 어질리티가 오른다"),
+        };
+
+        /// <summary>
         /// 시연 하루마다의 할 일. 1일차 가게 운영 → 2일차 강아지 키우기 → 3일차 도그쇼 준비.
         /// 3일차 마지막 줄이 끝나면 왼쪽 안내판의 [도그쇼 시작]으로 간다.
         /// </summary>
@@ -89,7 +108,7 @@ namespace DogShop.Shop
                 new Quest(Goal.Order, "발주하기",
                     "1) 계산대 POS 를 보고 E 로 열기\n2) 반짝이는 '" + DemoOrderProduct + "'를 담기\n3) 장바구니 아래 [주문한다] 누르기\n주문한 물건은 다음 날 아침 가게 앞에 배달 온다"),
             },
-            new[]
+            Exhibition.IsTutorial ? TutorialDay2 : new[]
             {
                 new Quest(Goal.Unpack, "배달 상자 정리",
                     "1) 어제 발주한 물건이 가게 문밖에 와 있다\n2) 배달 상자를 보고 E 로 뜯어 창고에 정리"),
@@ -340,7 +359,7 @@ namespace DogShop.Shop
 
         /// <summary>시연에서 가게를 이미 한 번 이상 키웠나(시작 레벨보다 높다). 본편 튜토리얼에는 레벨업 할 일이 없다.</summary>
         static bool LeveledUpThisRun =>
-            Exhibition.Active && ShopLevelManager.Instance != null && ShopLevelManager.Instance.Level > Exhibition.StartLevel;
+            Exhibition.Active && ShopLevelManager.Instance != null && ShopLevelManager.Instance.Level > Exhibition.StartLevelNow;
 
         /// <summary>다음 가게 레벨이 요구하는 마스코트 등급을 채웠나. 요구가 없거나 최대 레벨이면 채운 것으로 본다.</summary>
         static bool MascotGateMet
