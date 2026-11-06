@@ -163,13 +163,18 @@ namespace DogShop.Show
         // 가게 먼저 76/82/81(47%) — 무난한 실력이면 3, 4등이었다. 130 이면 열심히 키움 79점 1등, 보통 70점 2등, 거의 안 키움 5등.
         public const int BaseStatFull = 130;
         public const int ExhibitionStatFull = 240;
-        public const int StatFullPerSeason = 40;   // 시즌별 130/170/210/250/290   // 60 -> 40(2026-11-06): 170/210/250/290/330   // 80 -> 60: 다섯 시즌에 240/300/360/420/480(2026-11-04)
+        // 시즌별 만점 기준 표(2026-11-06 저녁). 시즌마다 +40 이던 것을 다섯 시즌 측정(매일 훈련, 무난한 실력) 곡선에 맞췄다.
+        // 측정 능력치: 시즌 1 92/95/106, 시즌 2 104/108/66(새 강아지 + 가게 1레벨부터라 돈이 가게로 감), 시즌 3 294/289/180,
+        // 시즌 4 426/422/250, 시즌 5 548/542/308(강화 단계가 이어져 시즌 3부터 성장이 크게 붙는다).
+        // +40 규칙이면 1, 3, 1, 1, 1등 — 시즌 2 에서 막히고 4, 5 는 능력치가 기준의 두 배라 긴장이 없었다.
+        // 이 표면 1, 2, 1, 1, 2등(마지막 시즌은 라이벌이 가장 세다).
+        static readonly int[] StatFullBySeason = { BaseStatFull, 140, 280, 380, 480 };
 
         /// <summary>본편은 다섯 시즌까지 — 더 길면 지루하다(2026-11-04). 5시즌 결산 뒤 끝난다.</summary>
         public const int MaxSeasons = 5;
         public bool IsLastSeason => Season >= MaxSeasons;
-        public const int MaxStatFull = 330;
-        public static int StatFullFor(int season) => Mathf.Min(MaxStatFull, BaseStatFull + (Mathf.Max(1, season) - 1) * StatFullPerSeason);
+        public const int MaxStatFull = 480;
+        public static int StatFullFor(int season) => Mathf.Min(MaxStatFull, StatFullBySeason[Mathf.Clamp(season, 1, StatFullBySeason.Length) - 1]);
         public static float StatFull => Exhibition.Active ? ExhibitionStatFull : Instance == null ? BaseStatFull : StatFullFor(Instance.Season);
 
         // ---- 우승 혜택(명예의 벽) ----

@@ -286,6 +286,65 @@ namespace DogShop.Dogs
         public bool ExercisedToday { get; private set; }
         public int SpentTodayAgility { get; private set; }
 
+        // ---- 운동 강화(2026-11-06) ----
+        // 훈련 강화와 같은 규칙(본편만): 돈으로 강화, 최대 10단계, 단계마다 획득 +30%, 1회 값 +10%, 강화 값 = 기본 값 x 2 x 단계,
+        // 지금 단계에서 단계 수만큼 해 봐야 다음 강화가 열린다. 단계는 시즌을 넘어 이어진다.
+        // 다섯 시즌 측정에서 훈련은 강화가 쌓여 시즌 3부터 하루 15~18씩 오르는데 운동은 하루 10(장애물)에 묶여
+        // 어질리티가 미모·훈련도의 60% 에 머물렀다. 시연판(Paid 아님)은 예전 그대로 1단계 값이다.
+        int[] exStage, exReps;
+        float[] exCarry;
+
+        public int ExerciseStageOf(int i) => exStage != null && i >= 0 && i < exStage.Length ? exStage[i] : 1;
+        public int ExerciseRepsOf(int i) => exReps != null && i >= 0 && i < exReps.Length ? exReps[i] : 0;
+        public int ExerciseRepsNeeded(int i) => TrainingStages.RepsToAdvance(ExerciseStageOf(i));
+
+        /// <summary>지금 단계의 운동 값.</summary>
+        public int ExerciseCostOf(int i) => TrainingStages.Paid
+            ? Mathf.RoundToInt(Exercises[i].cost * TrainingStages.CostMultiplier(ExerciseStageOf(i)))
+            : Exercises[i].cost;
+
+        /// <summary>지금 단계의 운동 획득(소수점까지). 소수점은 쌓았다가 1이 되면 붙인다.</summary>
+        public float ExerciseGainExact(int i) => TrainingStages.Paid
+            ? Exercises[i].gain * TrainingStages.GainMultiplier(ExerciseStageOf(i)) * GrowthScale
+            : ExerciseGainOf(i);
+
+        /// <summary>다음 단계로 강화하는 값. 시연판은 0.</summary>
+        public int ExerciseUpgradeCostOf(int i) => TrainingStages.Paid ? TrainingStages.UpgradeCost(Exercises[i].cost, ExerciseStageOf(i)) : 0;
+
+        public bool CanUpgradeExercise(int i, out string reason)
+        {
+            if (!TrainingStages.Paid) { reason = "시연판은 강화 없음"; return false; }
+            if (!IsExerciseUnlocked(i)) { reason = "미해금 운동"; return false; }
+            if (ExerciseStageOf(i) >= TrainingStages.Max) { reason = "최고 단계"; return false; }
+            int need = ExerciseRepsNeeded(i);
+            if (ExerciseRepsOf(i) < need) { reason = "더 해 봐야 한다: " + ExerciseRepsOf(i) + " / " + need + "회"; return false; }
+            int price = ExerciseUpgradeCostOf(i);
+            if (GameManager.Instance != null && GameManager.Instance.Money < price) { reason = "재화 부족: " + GameManager.Instance.Money + " / " + price; return false; }
+            reason = null;
+            return true;
+        }
+
+        public bool UpgradeExercise(int i)
+        {
+            string reason;
+            if (!CanUpgradeExercise(i, out reason)) return false;
+            if (!GameManager.Instance.TrySpend(ExerciseUpgradeCostOf(i), GameManager.SpendKind.Dog)) return false;
+            exStage[i] = Mathf.Min(TrainingStages.Max, exStage[i] + 1);
+            exReps[i] = 0;   // 새 단계에서 다시 쌓는다
+            Sound.Play(Sfx.Sparkle);
+            OnSlotsChanged?.Invoke();
+            return true;
+        }
+
+        int TakeExerciseGain(int i)
+        {
+            if (!TrainingStages.Paid) return ExerciseGainOf(i);
+            float exact = ExerciseGainExact(i) + exCarry[i];
+            int whole = Mathf.FloorToInt(exact + 0.0001f);
+            exCarry[i] = Mathf.Max(0f, exact - whole);
+            return whole;
+        }
+
         /// <summary>운동을 마쳤다(강아지, 운동 번호, 실제로 오른 어질리티). 화면 가운데 "운동했다" 창이 받는다.</summary>
         public event Action<Dog, int, int> OnExercised;
 
@@ -303,7 +362,7 @@ namespace DogShop.Dogs
                 reason = "유지 스탯 부족: 청결 " + dog.Stats.Cleanliness + " / 건강 " + dog.Stats.Health;
                 return false;
             }
-            int cost = Exercises[index].cost;
+            int cost = ExerciseCostOf(index);
             if (GameManager.Instance.Money < cost)
             {
                 reason = "재화 부족: " + GameManager.Instance.Money + " / " + cost;
@@ -331,14 +390,15 @@ namespace DogShop.Dogs
         public bool Exercise(Dog dog, int index)
         {
             if (!CanExercise(dog, index, out _)) return false;
-            ExerciseDef def = Exercises[index];
-            if (!GameManager.Instance.TrySpend(def.cost, GameManager.SpendKind.Dog)) return false;
+            int cost = ExerciseCostOf(index);
+            if (!GameManager.Instance.TrySpend(cost, GameManager.SpendKind.Dog)) return false;
 
-            dog.Stats.AddGrowth(GrowthAxis.Agility, Boost(ExerciseGainOf(index), ref exerciseCarry), out int gained);
+            dog.Stats.AddGrowth(GrowthAxis.Agility, Boost(TakeExerciseGain(index), ref exerciseCarry), out int gained);
             ExercisedToday = true;
+            if (TrainingStages.Paid) exReps[index]++;
             Sound.Play(Sfx.Train);
             ShowGain(dog, GainText("어질리티", gained));
-            SpentTodayAgility += def.cost;
+            SpentTodayAgility += cost;
 
             DogRoamer roamer = dog.GetComponent<DogRoamer>();
             if (roamer != null) roamer.Show(DogAnim.Run, ShowSeconds);
@@ -376,6 +436,11 @@ namespace DogShop.Dogs
             upgradeDays = new int[count];
             reps = new int[count];
             for (int i = 0; i < count; i++) stage[i] = 1;
+
+            exStage = new int[Exercises.Length];
+            exReps = new int[Exercises.Length];
+            exCarry = new float[Exercises.Length];
+            for (int i = 0; i < exStage.Length; i++) exStage[i] = 1;
         }
 
         /// <summary>오늘 이미 쓴 훈련인가. 하루가 바뀌면 풀린다.</summary>
@@ -417,6 +482,8 @@ namespace DogShop.Dogs
             data.trainingStage = stage != null ? (int[])stage.Clone() : new int[0];
             data.trainingUpgradeDays = upgradeDays != null ? (int[])upgradeDays.Clone() : new int[0];
             data.trainingReps = reps != null ? (int[])reps.Clone() : new int[0];
+            data.exerciseStage = (int[])exStage.Clone();
+            data.exerciseReps = (int[])exReps.Clone();
         }
 
         public void RestoreFrom(SaveData data)
@@ -444,6 +511,13 @@ namespace DogShop.Dogs
                 reps[i] = data.trainingReps != null && i < data.trainingReps.Length
                     ? Mathf.Max(0, data.trainingReps[i])
                     : 0;
+            }
+
+            // 운동 단계(2026-11-06). 옛 세이브에는 없으므로 1단계로 본다
+            for (int i = 0; i < exStage.Length; i++)
+            {
+                exStage[i] = data.exerciseStage != null && i < data.exerciseStage.Length ? Mathf.Clamp(data.exerciseStage[i], 1, TrainingStages.Max) : 1;
+                exReps[i] = data.exerciseReps != null && i < data.exerciseReps.Length ? Mathf.Max(0, data.exerciseReps[i]) : 0;
             }
 
             OnSlotsChanged?.Invoke();

@@ -118,6 +118,9 @@ namespace DogShop.Show
         }
 
         /// <summary>타이틀 화면으로(시즌 결산의 [저장하고 타이틀로]).</summary>
+        /// <summary>측정용(MeasurementMode): 보던 장면을 끝까지 넘긴 것으로 친다(뒤에 붙은 일은 그대로 한다).</summary>
+        internal void FinishForMeasure() { if (playing != null) Finish(true); }
+
         public void ReturnToTitle() => UnityEngine.SceneManagement.SceneManager.LoadScene(titleScene);
 
         static Dictionary<string, string> BreedTokens()

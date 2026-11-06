@@ -93,6 +93,9 @@ namespace DogShop.Show
         static float FetchWeight => ChampionshipManager.FetchWeightOf(ChampionshipManager.CurrentTrend);
         static string Pct(float w) => Mathf.RoundToInt(w * 100f) + "%";
 
+        /// <summary>측정용(MeasurementMode): 떠 있는 안내창을 닫는다.</summary>
+        internal void CloseNoticeForMeasure() { if (noticeTitle != null) CloseNotice(); }
+
         // ---- 능력치 보정(2026-11-06) ----
         // 예전엔 능력치 0 이어도 71점, 만점이어도 94점 — 미니게임 실력만으로 1등이 됐다(키울 이유가 약했다).
         // 이제 종목 점수 = 실력 점수 x 능력치 보정. 그 종목 능력치가 만점 기준의 0% 면 50%, 100% 면 100%.

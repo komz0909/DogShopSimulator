@@ -444,7 +444,7 @@ namespace DogShop.Dogs
                 bool unlocked = TrainingManager.Instance.IsExerciseUnlocked(i);
                 string line = !unlocked ? "Lv " + def.unlockLevel + " 해금"
                             : exercisedToday ? "오늘 완료"
-                            : exerciseEnabled[i] ? def.cost.ToString("N0") + "원 / +" + TrainingManager.GainText(TrainingManager.ExerciseGainOf(i))
+                            : exerciseEnabled[i] ? TrainingManager.Instance.ExerciseCostOf(i).ToString("N0") + "원 / +" + TrainingManager.GainText(TrainingManager.Instance.ExerciseGainExact(i))
                             : exerciseReason[i];
                 bool warn = unlocked && !exercisedToday && !exerciseEnabled[i];
                 Texture2D icon = i < exerciseIcons.Length ? exerciseIcons[i] : null;
@@ -454,7 +454,33 @@ namespace DogShop.Dogs
                     Rebuild();
                 }
             }
-            y += rowH + 14f;
+
+            // 운동 강화 줄(본편, 2026-11-06): 버튼 아래에 단계와 [강화] — 훈련 줄의 강화와 같은 규칙
+            if (TrainingStages.Paid)
+            {
+                TrainingManager tm = TrainingManager.Instance;
+                float sy = y + rowH + 3f;
+                for (int i = 0; i < TrainingManager.Exercises.Length; i++)
+                {
+                    if (!tm.IsExerciseUnlocked(i)) continue;
+                    var strip = new Rect(r.x + i * (bw + bgap), sy, bw, 24f);
+                    int st = tm.ExerciseStageOf(i);
+                    GUI.Label(new Rect(strip.x + 4f, strip.y, 62f, strip.height), "★ " + st + "/" + TrainingStages.Max, starStyle);
+                    string up = st >= TrainingStages.Max ? "MAX"
+                              : tm.ExerciseRepsOf(i) < tm.ExerciseRepsNeeded(i) ? "강화 " + tm.ExerciseRepsOf(i) + "/" + tm.ExerciseRepsNeeded(i) + "회"
+                              : "강화 " + tm.ExerciseUpgradeCostOf(i).ToString("N0");
+                    string why;
+                    GUI.enabled = tm.CanUpgradeExercise(i, out why);
+                    if (UI.UiSkin.Click(new Rect(strip.x + 66f, strip.y, strip.width - 66f, strip.height), up, btnStyle))
+                    {
+                        tm.UpgradeExercise(i);
+                        Rebuild();
+                    }
+                    GUI.enabled = true;
+                }
+                y += rowH + 34f;
+            }
+            else y += rowH + 14f;
 
             DrawTrainingList(new Rect(r.x, y, r.width, r.yMax - y));
         }

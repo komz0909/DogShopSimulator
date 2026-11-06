@@ -527,6 +527,10 @@ namespace DogShop.Show
             GUI.matrix = keep;
         }
 
+        /// <summary>측정용(MeasurementMode): 시즌 결산판이 열려 있나, 그 판의 [다음 시즌] 누르기.</summary>
+        internal bool SeasonChoiceOpen => seasonChoice;
+        internal void StartNextSeasonForMeasure() => StartNextSeason(false);
+
         /// <summary>다음 시즌 첫날 아침으로. 타이틀로 갈 때도 넘긴 뒤 저장해서, 이어하기가 다음 시즌에서 시작되게 한다.</summary>
         void StartNextSeason(bool toTitle)
         {

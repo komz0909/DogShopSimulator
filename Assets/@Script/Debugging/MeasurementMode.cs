@@ -96,6 +96,12 @@ namespace DogShop.Debugging
                 ServeShelves();
             }
 
+            if (MultiSeason)
+            {
+                if (Cutscene.Instance != null && Cutscene.Instance.IsOpen) Cutscene.Instance.FinishForMeasure();
+                if (DogShow.Instance != null) DogShow.Instance.CloseNoticeForMeasure();
+            }
+
             MindShopHours();
             ServeCustomers();
             ShipOnlineOrders();
@@ -718,14 +724,20 @@ namespace DogShop.Debugging
             Dog hero = DogManager.Instance.Hero;
             if (tm == null || hero == null || tm.ExercisedToday) return;
             int floor = InventoryManager.Instance.DailyConsumptionCost(ShopLevelManager.Instance.Level, ShopLevelManager.Instance.Current.customersPerDay) * 2;
-            for (int i = TrainingManager.Exercises.Length - 1; i >= 0; i--)
+            // 강화가 생겨(2026-11-06) 가장 비싼 운동이 늘 최선은 아니다 — 지금 단계에서 가장 많이 오르는 것을 고른다
+            int pick = -1;
+            float best = 0f;
+            for (int i = 0; i < TrainingManager.Exercises.Length; i++)
             {
                 string why;
                 if (!tm.CanExercise(hero, i, out why)) continue;
-                if (GameManager.Instance.Money - TrainingManager.Exercises[i].cost < floor) continue;
-                tm.Exercise(hero, i);
-                return;
+                if (GameManager.Instance.Money - tm.ExerciseCostOf(i) < floor) continue;
+                float g = tm.ExerciseGainExact(i);
+                if (g <= best) continue;
+                pick = i;
+                best = g;
             }
+            if (pick >= 0) tm.Exercise(hero, pick);
         }
 
         bool SavingForUpgrade()
@@ -803,6 +815,84 @@ namespace DogShop.Debugging
             TrainStop = "칸 다 씀";
         }
 
+        // ---- 여러 시즌 이어 재기(2026-11-06) ----
+        // 시즌 마지막 날 가게가 닫히면 도그쇼 점수를 능력치로 어림해 넣고, 실제 게임과 같은 길(잠들기 > 엔딩 > 시즌 결산판 >
+        // [다음 시즌])로 넘어간다. 장면과 안내창은 바로 넘긴다. 마지막 시즌은 명예의 전당 기록이 만들어지는지만 보고 멈춘다
+        // (전당에 실제로 넣지는 않는다 — 측정 기록이 사람 기록 사이에 끼면 안 된다).
+
+        /// <summary>켜 두면 30일차에서 멈추지 않고 다음 시즌으로 넘어간다.</summary>
+        public static bool MultiSeason;
+
+        /// <summary>시즌마다 한 줄: 능력치, 어림 점수와 순위, 돈, 가게 레벨, 훈련 단계 합.</summary>
+        public static readonly System.Text.StringBuilder SeasonTrace = new System.Text.StringBuilder();
+
+        /// <summary>무난한 실력(박자 오차 45ms 안팎)의 종목 실력 점수 — 능력치 비율 0, 0.4, 0.6, 0.8, 1 에서 잰 값.</summary>
+        static readonly float[] SkillAt = { 0f, 0.4f, 0.6f, 0.8f, 1f };
+        static readonly float[] SkillValue = { 0.71f, 0.83f, 0.87f, 0.91f, 0.94f };
+
+        static float Skill(float n)
+        {
+            n = Mathf.Clamp01(n);
+            for (int i = 1; i < SkillAt.Length; i++)
+                if (n <= SkillAt[i]) return Mathf.Lerp(SkillValue[i - 1], SkillValue[i], (n - SkillAt[i - 1]) / (SkillAt[i] - SkillAt[i - 1]));
+            return SkillValue[SkillValue.Length - 1];
+        }
+
+        /// <summary>도그쇼 총점 어림(DogShow 의 식 그대로: 종목 점수 = 실력 x 능력치 보정, 종목 비중은 이번 시즌 경향).</summary>
+        static int ModelScore(DogStats st, bool perfect)
+        {
+            float full = ChampionshipManager.StatFull;
+            float b = Mathf.Clamp01(st.Beauty / full), t = Mathf.Clamp01(st.Training / full), a = Mathf.Clamp01(st.Agility / full);
+            float avg = (b + t + a) / 3f;
+            int tr = ChampionshipManager.CurrentTrend;
+            System.Func<float, float> k = n => (perfect ? 1f : Skill(n)) * Mathf.Lerp(0.5f, 1f, n);
+            float s = ChampionshipManager.PoseWeightOf(tr) * k(b) + ChampionshipManager.FetchWeightOf(tr) * k(t) + 0.25f * k(a) + 0.30f * k(avg);
+            return Mathf.RoundToInt(s * 100f);
+        }
+
+        void SeasonStep()
+        {
+            ChampionshipManager champ = ChampionshipManager.Instance;
+            if (Cutscene.Instance != null && Cutscene.Instance.IsOpen) { Cutscene.Instance.FinishForMeasure(); return; }
+
+            if (evening.SeasonChoiceOpen)
+            {
+                if (champ.IsLastSeason)
+                {
+                    string hall;
+                    try { var e = champ.BuildHallEntry(); hall = e != null ? "명예의 전당 기록 만들어짐" : "명예의 전당 기록 없음"; }
+                    catch (System.Exception ex) { hall = "명예의 전당 기록 오류: " + ex.Message; }
+                    SeasonTrace.Append("완주 | 시즌 순위 ").Append(string.Join(",", champ.SeasonRanks)).Append(" | 우승 ").Append(champ.Trophies).Append("번 | ").Append(hall).Append("\n");
+                    Toggle();   // 끝. 저장 지우기와 타이틀 이동은 하지 않는다
+                    return;
+                }
+                evening.StartNextSeasonForMeasure();
+                return;
+            }
+
+            if (TimeManager.Instance.IsDayOver) return;   // 엔딩 장면을 기다린다
+            bool closed = ShopHours.Instance == null || ShopHours.Instance.Current == ShopHours.Phase.Closed;
+            if (!closed) return;
+
+            if (!champ.HasShowResult)
+            {
+                Dog hero = DogManager.Instance.Hero;
+                int score = ModelScore(hero.Stats, false), best = ModelScore(hero.Stats, true);
+                champ.SetShowResult(hero, score);
+                TrainingManager tm = TrainingManager.Instance;
+                int stages = 0;
+                for (int i = 0; i < tm.Catalog.Count; i++) stages += tm.StageOf(i);
+                var top = champ.ShowBoard;
+                SeasonTrace.Append("시즌 ").Append(champ.Season).Append(" (D").Append(GameManager.Instance.Day).Append(") 기준 ").Append(Mathf.RoundToInt(ChampionshipManager.StatFull))
+                    .Append(" 경향 ").Append(ChampionshipManager.TrendNames[ChampionshipManager.CurrentTrend])
+                    .Append(" | 미 ").Append(hero.Stats.Beauty).Append(" 훈 ").Append(hero.Stats.Training).Append(" 어 ").Append(hero.Stats.Agility)
+                    .Append(" | 무난 ").Append(score).Append("점 ").Append(champ.ShowRank).Append("등 (1등 라이벌 ").Append(top[0].hero && top.Count > 1 ? top[1].score : top[0].score)
+                    .Append(") 완벽 ").Append(best).Append("점 | 돈 ").Append(GameManager.Instance.Money).Append(" Lv ").Append(ShopLevelManager.Instance.Level)
+                    .Append(" 훈련단계합 ").Append(stages).Append("\n");
+            }
+            TimeManager.Instance.EndDayNow();   // 잠자리에 든 것과 같은 길 — 엔딩, 시즌 결산판으로
+        }
+
         /// <summary>측정용: 그날 훈련을 멈춘 까닭(2026-11-06).</summary>
         public static string TrainStop = "";
 
@@ -863,7 +953,19 @@ namespace DogShop.Debugging
                     pick = i;
                     best = g;
                 }
-                if (pick < 0 || !tm.BeginUpgrade(pick)) return;
+                // 운동 강화(2026-11-06)도 같은 줄에 세운다. 운동 번호는 -(i + 1) 로 적는다
+                for (int i = 0; i < TrainingManager.Exercises.Length; i++)
+                {
+                    string why;
+                    if (!tm.CanUpgradeExercise(i, out why) || tm.ExerciseUpgradeCostOf(i) > budget) continue;
+                    float g = tm.ExerciseGainExact(i);
+                    if (g <= best) continue;
+                    pick = -(i + 1);
+                    best = g;
+                }
+                if (pick == -1 && best <= 0f) return;
+                bool ok = pick >= 0 ? tm.BeginUpgrade(pick) : tm.UpgradeExercise(-pick - 1);
+                if (!ok) return;
             }
         }
 
@@ -996,7 +1098,7 @@ namespace DogShop.Debugging
         void AdvanceDayIfOver()
         {
             if (evening == null) return;
-            if (ChampionshipManager.Instance.IsFinalDay(GameManager.Instance.Day)) return;
+            if (ChampionshipManager.Instance.IsFinalDay(GameManager.Instance.Day)) { if (MultiSeason) SeasonStep(); return; }
 
             if (!TimeManager.Instance.IsDayOver)
             {

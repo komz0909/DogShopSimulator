@@ -79,6 +79,10 @@ namespace DogShop.Core
         /// <summary>지금 단계에서 그 훈련을 몇 번 했는가. 단계상승의 선행 조건이다.</summary>
         public int[] trainingReps = new int[0];
 
+        /// <summary>운동 단계와 지금 단계에서 한 횟수(2026-11-06, 운동 강화).</summary>
+        public int[] exerciseStage = new int[0];
+        public int[] exerciseReps = new int[0];
+
         public int dirtSpots;
 
         /// <summary>하루 중 시각과 마감 여부. 없으면 로드가 항상 09:00으로 되돌아간다.</summary>
