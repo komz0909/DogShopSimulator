@@ -589,7 +589,11 @@ namespace DogShop.Show
             float y = 20f + rh;
             SeasonArt.Outlined(new Rect(0f, y, sw, 38f), "새 강아지와 가게를 1레벨부터 다시 키운다. 돈, 가구, 훈련 단계, 순위 보너스는 그대로",
                 SeasonArt.Text(26, TextAnchor.MiddleCenter, Color.white), SeasonArt.Outline, 2f);
-            y += 62f;
+            // 다음 시즌 심사 경향 — 견종을 고르는 기준이 된다(2026-11-05)
+            int upcoming = champ.UpcomingTrend;
+            SeasonArt.Outlined(new Rect(0f, y + 36f, sw, 34f), "시즌 " + next + " 심사 경향: " + ChampionshipManager.TrendNames[upcoming] + "  (" + ChampionshipManager.TrendShares(upcoming) + ")",
+                SeasonArt.Text(24, TextAnchor.MiddleCenter, SeasonArt.Gold), SeasonArt.Outline, 2f);
+            y += 62f + 34f;
 
             // ---- 견종 카드 ----
             DogManager dogs = DogManager.Instance;

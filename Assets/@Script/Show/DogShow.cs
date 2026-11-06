@@ -87,7 +87,22 @@ namespace DogShop.Show
         float beautyN, trainingN, agilityN, totalN;   // 0~1
         float poseScore, fetchScore, agilityScore, courseScore;   // 0~1
         /// <summary>총점 가중치(합 1). 장애물 달리기가 가장 길고 손이 많이 가서 비중을 크게 뒀다.</summary>
-        const float PoseWeight = 0.20f, FetchWeight = 0.25f, AgilityWeight = 0.25f, CourseWeight = 0.30f;
+        const float AgilityWeight = 0.25f, CourseWeight = 0.30f;
+        /// <summary>미모 심사, 훈련 심사 비중은 시즌 심사 경향으로 바뀐다(둘의 합 45%, ChampionshipManager.Trend). 시연은 20 / 25.</summary>
+        static float PoseWeight => ChampionshipManager.PoseWeightOf(ChampionshipManager.CurrentTrend);
+        static float FetchWeight => ChampionshipManager.FetchWeightOf(ChampionshipManager.CurrentTrend);
+        static string Pct(float w) => Mathf.RoundToInt(w * 100f) + "%";
+
+        // ---- 능력치 보정(2026-11-06) ----
+        // 예전엔 능력치 0 이어도 71점, 만점이어도 94점 — 미니게임 실력만으로 1등이 됐다(키울 이유가 약했다).
+        // 이제 종목 점수 = 실력 점수 x 능력치 보정. 그 종목 능력치가 만점 기준의 0% 면 50%, 100% 면 100%.
+        // 미모 심사는 미모, 훈련 심사는 훈련도, 어질리티는 어질리티, 장애물 달리기는 세 능력치 평균. 시연판은 보정 없음.
+        const float StatFloor = 0.5f;
+        static float StatFactor(float n) => Exhibition.Active ? 1f : Mathf.Lerp(StatFloor, 1f, Mathf.Clamp01(n));
+
+        /// <summary>종목이 끝날 때 덧붙이는 보정 설명. "  x 능력치 보정 83% = 70점". 시연판은 빈 문자열.</summary>
+        static string FactorTail(float raw, float n) => Exhibition.Active ? ""
+            : "  x 능력치 보정 " + Pct(StatFactor(n)) + " = " + Mathf.RoundToInt(raw * StatFactor(n) * 100f) + "점";
 
         // 화면 글
         string headline = "";
@@ -298,6 +313,30 @@ namespace DogShop.Show
             return true;
         }
 
+        int trendNoticeDay = -1;
+
+        /// <summary>
+        /// 시즌 첫날(1, 31, 61…일차) 이번 시즌 심사 경향을 알린다(2026-11-05). 첫 장면(컷신)이나 다른 안내가 떠 있으면 닫힌 뒤에.
+        /// </summary>
+        void CheckTrendNotice()
+        {
+            // 장면이 열린 첫 순간엔 첫 장면(컷신)이 아직 안 떠 있다 — 그 아래에 깔리지 않게 잠깐 기다린다
+            if (Running || noticeTitle != null || Exhibition.Active || Time.timeSinceLevelLoad < 2f) return;
+            GameManager g = GameManager.Instance;
+            TimeManager t = TimeManager.Instance;
+            ChampionshipManager champ = ChampionshipManager.Instance;
+            if (g == null || t == null || champ == null || t.IsDayOver) return;
+            if ((g.Day - 1) % ChampionshipManager.FinalDay != 0 || trendNoticeDay == g.Day) return;
+            if (Cutscene.Instance != null && Cutscene.Instance.IsOpen) return;
+            if (Debugging.MeasurementMode.Instance != null && Debugging.MeasurementMode.Instance.Active) return;
+            trendNoticeDay = g.Day;
+            int trend = champ.Trend;
+            OpenNotice("시즌 " + champ.Season + " 심사 경향: " + ChampionshipManager.TrendNames[trend],
+                       "도그쇼 총점: " + ChampionshipManager.TrendShares(trend) + ", 어질리티 25%, 장애물 달리기 30%",
+                       ChampionshipManager.TrendHint(trend),
+                       "강아지 상태창 훈련 칸에서 언제든 다시 볼 수 있다");
+        }
+
         /// <summary>심사 날 아침(가게가 열려 있는 동안) 한 번 알린다. 다른 안내(20일차 건강 안내)가 떠 있으면 닫힌 뒤에.</summary>
         void CheckReviewNotice()
         {
@@ -416,7 +455,7 @@ namespace DogShop.Show
                 "가는 안쪽 띠 = PERFECT(100점), 그 바깥 띠 = GOOD(60점), 놓치면 MISS",
                 "뒤로 갈수록 링이 빨라진다",
                 "미모가 높을수록 띠가 넓어진다  (지금 미모 " + hero.Stats.Beauty + ")",
-                ScoreNote(PoseRounds + "번의 평균이 점수", "총점의 20%"));
+                ScoreNote(PoseRounds + "번의 평균이 점수", "총점의 " + Pct(PoseWeight)));
         }
 
         /// <summary>
@@ -500,9 +539,10 @@ namespace DogShop.Show
                 yield return Wait(0.9f);
             }
 
-            poseScore = total / PoseRounds;
+            float rawPose = total / PoseRounds;
+            poseScore = rawPose * StatFactor(beautyN);
             headline = "미모 심사 끝";
-            subline = "성적 " + Mathf.RoundToInt(poseScore * 100f) + "점";
+            subline = "실력 " + Mathf.RoundToInt(rawPose * 100f) + "점" + FactorTail(rawPose, beautyN);
             yield return Wait(1.6f);
         }
 
@@ -528,7 +568,7 @@ namespace DogShop.Show
                 "강아지가 받침대 줄에서 물건을 찾아 물어 온다",
                 "카드를 맞게 골라도 훈련도가 낮으면 헤매거나 엉뚱한 걸 물어 온다",
                 "훈련도가 높을수록 정확하다  (지금 훈련도 " + hero.Stats.Training + ")",
-                ScoreNote("맞게 물어 온 횟수가 점수", "총점의 25%"));
+                ScoreNote("맞게 물어 온 횟수가 점수", "총점의 " + Pct(FetchWeight)));
 
             // 카드를 맞게 골랐을 때 제대로 물어 올 확률. 예전 Lerp(0.35, 0.95) 는 훈련도 중간(0.5)에서 65% —
             // 3번 다 맞힐 확률이 27% 라 평균으로 키운 강아지도 거의 늘 틀렸다. 제곱근 곡선으로 중간을 끌어올린다.
@@ -631,10 +671,11 @@ namespace DogShop.Show
             propOf.Clear();
             if (handler != null) Destroy(handler);
 
-            fetchScore = got / (float)FetchRounds;
+            float rawFetch = got / (float)FetchRounds;
+            fetchScore = rawFetch * StatFactor(trainingN);
             requested = -1;
             headline = "훈련 심사 끝";
-            subline = FetchRounds + "번 중 " + got + "번 성공";
+            subline = FetchRounds + "번 중 " + got + "번 성공" + FactorTail(rawFetch, trainingN);
             yield return Wait(1.6f);
         }
 
@@ -882,10 +923,11 @@ namespace DogShop.Show
 
             hero.Animator.SetPlaybackSpeed(1f);
             hero.Animator.Play(DogAnim.WagTail);
-            agilityScore = cleared / (float)total;
+            float rawAgility = cleared / (float)total;
+            agilityScore = rawAgility * StatFactor(agilityN);
             if (jumpGuide != null) { jumpGuide.Clear(); jumpGuide = null; }
             headline = "어질리티 끝";
-            subline = "허들과 링 " + total + "개 중 " + cleared + "개";
+            subline = "허들과 링 " + total + "개 중 " + cleared + "개" + FactorTail(rawAgility, agilityN);
             yield return Wait(1.8f);
         }
 
@@ -1306,12 +1348,12 @@ namespace DogShop.Show
                 ? Mathf.Lerp(100f, 40f, Mathf.InverseLerp(par, CourseLimit, courseTime))
                 : 40f * course.Next / Mathf.Max(1, course.Obstacles.Count);   // 못 끝냈으면 지난 장애물 몫만
             float points = Mathf.Max(0f, timePoints - course.PenaltyPoints);
-            courseScore = points / 100f;
+            courseScore = points / 100f * StatFactor(totalN);
 
             if (course.Finished) Cheer(true);
             headline = course.Finished ? "장애물 달리기 끝" : "시간 종료";
             subline = "기록 " + courseTime.ToString("0.0") + "초 (" + Mathf.RoundToInt(timePoints) + "점)   감점 -" + course.PenaltyPoints
-                    + "   성적 " + Mathf.RoundToInt(points) + "점";
+                    + "   성적 " + Mathf.RoundToInt(points) + "점" + FactorTail(points / 100f, totalN);
             yield return Wait(2.2f);
         }
 
@@ -1439,7 +1481,7 @@ namespace DogShop.Show
 
         /// <summary>종목 안내창 마지막 줄. 도그쇼는 총점 비중, 등급 심사는 보너스 비율을 적는다.</summary>
         string ScoreNote(string basis, string weight) =>
-            basis + ", " + (reviewEvent >= 0 ? "점수의 " + Mathf.RoundToInt(reviewRate * 100f) + "%가 마스코트 등급 보너스" : weight);
+            basis + (Exhibition.Active ? "" : " x 능력치 보정") + ", " + (reviewEvent >= 0 ? "점수의 " + Mathf.RoundToInt(reviewRate * 100f) + "%가 마스코트 등급 보너스" : weight);
 
         /// <summary>등급 심사 결과판: 받은 보너스, 점수, 능력치 합과 보너스, 지금 등급과 다음 등급까지.</summary>
         void DrawReviewResult()
@@ -1823,6 +1865,7 @@ namespace DogShop.Show
 
         void Update()
         {
+            CheckTrendNotice();
             if (!Running) return;
             Keyboard kb = Keyboard.current;
             if (kb == null) return;
@@ -2488,6 +2531,9 @@ namespace DogShop.Show
                     GUI.DrawTexture(new Rect(barRect.x, barRect.y, Mathf.Max(barRect.height, barRect.width * fill), barRect.height),
                                     Texture2D.whiteTexture, ScaleMode.StretchToFill, false, 0f, new Color(bar.r, bar.g, bar.b, a), 0f, barRect.height * 0.5f);
 
+                // 본편은 끝에 "(점수 보정 N%)"가 붙어 길다 — 칸을 넘으면 글자를 줄인다
+                cardEffect.fontSize = 14;
+                while (cardEffect.fontSize > 10 && cardEffect.CalcSize(new GUIContent(effect)).x > row.width) cardEffect.fontSize--;
                 GUI.Label(new Rect(row.x, barRect.yMax + rowH * 0.03f, row.width, rowH * 0.3f), effect, cardEffect);
             }
             GUI.color = Color.white;
@@ -2514,6 +2560,14 @@ namespace DogShop.Show
 
         /// <summary>심사표 한 줄의 이름·색·비중과, 그 점수를 정한 능력치가 실제로 무엇을 쉽게 했는지(종목이 쓰는 식 그대로).</summary>
         void CardRow(int i, DogStats st, out string name, out Color bar, out float weight, out string effect)
+        {
+            CardRowBase(i, st, out name, out bar, out weight, out effect);
+            if (Exhibition.Active) return;
+            float n = i == 0 ? beautyN : i == 1 ? trainingN : i == 2 ? agilityN : totalN;
+            effect += "  (점수 보정 " + Pct(StatFactor(n)) + ")";
+        }
+
+        void CardRowBase(int i, DogStats st, out string name, out Color bar, out float weight, out string effect)
         {
             switch (i)
             {

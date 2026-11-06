@@ -244,6 +244,9 @@ namespace DogShop.Debugging
 
             CareHero();
 
+            // 어젯밤이 마스코트 등급 심사 날이었으면 보통 실력(70점)으로 받은 셈 친다 — 무인 측정은 심사장을 건너뛴다(2026-11-06)
+            GrantReviewBonus();
+
             // 업그레이드가 발주보다 먼저다. 뒤에 두면 발주로 돈을 쓴 직후,
             // 매출이 들어오기 전 하루 중 가장 가난한 순간에 운전자본을 판정해
             // 명성이 요구치의 19배가 되어도 레벨이 30일간 1에 멈춘다(3차 측정).
@@ -255,7 +258,7 @@ namespace DogShop.Debugging
             HaulDelivery();
 
             // 승급 저축일이면 훈련·단계상승·장식을 쉰다 — 아래 SavingForUpgrade 참고
-            if (!SavingForUpgrade())
+            if (TrainFirst || !SavingForUpgrade())
             {
                 TrainHero();
                 ExerciseHero();
@@ -270,7 +273,18 @@ namespace DogShop.Debugging
 
             // 상자는 <b>맨 마지막</b>이다. 재고·진열대·승급·훈련을 다 하고도 남는 돈으로만 산다
             BuyBoxes();
+
+            // 측정용 하루 기록(2026-11-06)
+            var h = DogManager.Instance.Hero;
+            DayTrace.Append(GameManager.Instance.Day).Append(" 돈").Append(GameManager.Instance.Money)
+                .Append(" 칸").Append(TrainingManager.Instance.SlotsUsed).Append("/").Append(TrainingManager.Instance.SlotsTotal)
+                .Append(" 청결").Append(h.Stats.Cleanliness).Append(" 건강").Append(h.Stats.Health)
+                .Append(" 미").Append(h.Stats.Beauty).Append(" 훈").Append(h.Stats.Training).Append(" 어").Append(h.Stats.Agility)
+                .Append(" | ").Append(TrainStop).Append("\n");
+            TrainStop = "(훈련 안 함)";
         }
+
+        public static readonly System.Text.StringBuilder DayTrace = new System.Text.StringBuilder();
 
         /// <summary>
         /// 남는 돈으로 랜덤 상자를 깐다.
@@ -775,16 +789,22 @@ namespace DogShop.Debugging
                 // 승격 문턱을 통째로 하한선에 넣었더니 그 돈이 훈련 예산을 전부 삼켜
                 // 30일 내내 훈련이 0이었다(7차 측정: 성장 4 고정, 챔피언십 2점).
                 // 반씩 나누면 훈련도 승격도 멈추지 않는다.
-                int budget = (GameManager.Instance.Money - floor) / 2;
-                if (budget <= 0) return;
+                int budget = TrainFirst ? GameManager.Instance.Money - floor : (GameManager.Instance.Money - floor) / 2;
+                if (budget <= 0) { TrainStop = "예산없음(돈 " + GameManager.Instance.Money + ", 하한 " + floor + ")"; return; }
 
                 int pick = BestAffordable(tm, axis, budget);
                 if (pick < 0) pick = BestAffordable(tm, Other(axis), budget);
-                if (pick < 0) return;
+                if (pick < 0) { TrainStop = "고를 훈련 없음(예산 " + budget + ")"; return; }
 
-                if (!tm.Train(hero, pick)) return;
+                string why;
+                if (!tm.CanTrain(hero, pick, out why)) { TrainStop = why; return; }
+                if (!tm.Train(hero, pick)) { TrainStop = "훈련 실패"; return; }
             }
+            TrainStop = "칸 다 씀";
         }
+
+        /// <summary>측정용: 그날 훈련을 멈춘 까닭(2026-11-06).</summary>
+        public static string TrainStop = "";
 
         /// <summary>
         /// 올릴 수 있는 훈련의 단계를 올린다. 값은 돈이 아니라 시간이다.
@@ -796,8 +816,60 @@ namespace DogShop.Debugging
         /// 다만 내일 슬롯을 채울 훈련은 남긴다. 강화 중엔 그 훈련을 쓸 수 없어서,
         /// 한꺼번에 여러 개를 걸면 내일 슬롯이 비어 그날 성장을 통째로 버린다.
         /// </summary>
+        // ---- 2026-11-06: 본편 규칙 맞춤 ----
+
+        /// <summary>등급 심사에서 사람이 보통 받는다고 보는 점수. 보너스 = 이 점수 x 30%(10일차), 40%(20일차).</summary>
+        const int ReviewScoreAssumed = 70;
+
+        /// <summary>강아지 먼저 키우기(2026-11-06): 승급 저축일에도 훈련하고, 하한선 위 잉여를 전부 훈련에 쓴다. 기본은 가게 먼저.</summary>
+        public static bool TrainFirst;
+        int reviewGrantedDay = -1;
+
+        void GrantReviewBonus()
+        {
+            int prev = GameManager.Instance.Day - 1;
+            int ev = MascotReview.EventOn(prev);
+            if (prev < 1 || ev < 0 || reviewGrantedDay == prev) return;
+            Dog hero = DogManager.Instance.Hero;
+            if (hero == null) return;
+            reviewGrantedDay = prev;
+            hero.Stats.AddMascotBonus(MascotReview.BonusFor(ReviewScoreAssumed, MascotReview.RateOf(ev)));
+        }
+
+        /// <summary>
+        /// 본편 강화는 돈으로 산다. 재고 몫(이틀치 소진액)을 남기고 그 위 잉여의 <b>절반 안에서만</b>,
+        /// 올릴 수 있는 훈련 중 획득이 가장 큰 것부터 올린다. 예전 방식(시간)대로 두면 가진 돈을 강화에 다 써 재고가 말랐다.
+        /// </summary>
+        void UpgradeTrainingsPaid()
+        {
+            TrainingManager tm = TrainingManager.Instance;
+            int floor = InventoryManager.Instance.DailyConsumptionCost(
+                ShopLevelManager.Instance.Level,
+                ShopLevelManager.Instance.Current.customersPerDay) * 2;
+
+            int guard = 0;
+            while (guard++ < 8)
+            {
+                int budget = (GameManager.Instance.Money - floor) / 2;
+                if (budget <= 0) return;
+                int pick = -1;
+                float best = 0f;
+                for (int i = 0; i < tm.Catalog.Count; i++)
+                {
+                    string why;
+                    if (!tm.CanUpgrade(i, out why) || tm.UpgradeCostOf(i) > budget) continue;
+                    float g = tm.GainExact(i);
+                    if (g <= best) continue;
+                    pick = i;
+                    best = g;
+                }
+                if (pick < 0 || !tm.BeginUpgrade(pick)) return;
+            }
+        }
+
         void UpgradeTrainings()
         {
+            if (TrainingStages.Paid) { UpgradeTrainingsPaid(); return; }
             TrainingManager tm = TrainingManager.Instance;
             int guard = 0;
 

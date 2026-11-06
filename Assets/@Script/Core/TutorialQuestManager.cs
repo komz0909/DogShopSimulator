@@ -276,13 +276,14 @@ namespace DogShop.Shop
                     string head = Exhibition.ModeName + " " + Mathf.Clamp(Today, 1, Exhibition.Days) + "일차  오늘 할 일";
                     return IsComplete ? head : head + " " + (Step + 1) + "/" + QuestCount;
                 }
-                if (IsComplete) return "튜토리얼";
-                return "튜토리얼 " + (Step + 1) + "/" + QuestCount + (ReadyToClaim ? "   달성!" : "   +" + Reward + "원");
+                // 본편 1일차는 '튜토리얼'이 아니라 적응하며 돈을 받는 '기초 퀘스트'다(2026-11-05). 튜토리얼은 메인 화면의 튜토리얼 모드
+                if (IsComplete) return "기초 퀘스트";
+                return "기초 퀘스트 " + (Step + 1) + "/" + QuestCount + (ReadyToClaim ? "   달성!" : "   +" + Reward + "원");
             }
         }
 
         /// <summary>다 끝냈을 때 판에 띄우는 한 줄과 그 아래 설명(시연만, 본편은 설명 없음).</summary>
-        public string CompleteText => Demo ? (Exhibition.IsShowDay(Today) ? "준비 완료!" : Exhibition.IsTutorialLastDay(Today) ? "튜토리얼 완료!" : "오늘 할 일 완료!") : "튜토리얼 완료!";
+        public string CompleteText => Demo ? (Exhibition.IsShowDay(Today) ? "준비 완료!" : Exhibition.IsTutorialLastDay(Today) ? "튜토리얼 완료!" : "오늘 할 일 완료!") : "기초 퀘스트 완료!";
         public string CompleteDetail => !Demo ? null
             : Exhibition.IsShowDay(Today) ? "왼쪽 [도그쇼 시작]을 누르거나 G 를 누르자."
             : Exhibition.IsTutorialLastDay(Today) ? "본게임으로 들어가보자! 잠시 뒤 타이틀 화면으로 간다."
@@ -302,7 +303,7 @@ namespace DogShop.Shop
             if (IsComplete)
             {
                 FinishedAt = Time.unscaledTime;
-                Toast("튜토리얼 완료! +" + Reward + "원");
+                Toast("기초 퀘스트 완료! +" + Reward + "원  내일부터 '오늘의 가게 목표'가 나온다");
             }
             else Toast("보상 +" + Reward + "원  다음 퀘스트: " + Quests[Step].objective);
             Changed();

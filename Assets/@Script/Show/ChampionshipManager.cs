@@ -44,10 +44,41 @@ namespace DogShop.Show
         /// </summary>
         static readonly int[] RivalScores = { 270, 225, 180, 145, 110 };
 
-        /// <summary>50/50은 두 축 구분을 무의미하게 만들므로 후보에서 제외한다.</summary>
-        static readonly int[] BeautyWeightOptions = { 70, 60, 40, 30 };
+        // ---- 시즌 심사 경향(2026-11-05) ----
+        // 도그쇼 총점에서 미모 심사와 훈련 심사의 비중이 시즌마다 바뀐다. 어질리티 25%, 장애물 달리기 30% 는 그대로.
+        // 예전엔 비중이 늘 같아 미모와 훈련도 중 무엇을 키워도 비슷했다 — 이제 시즌 경향을 보고 키울 축, 강화할 훈련, 다음 강아지 견종을 고른다.
+        // 시즌이 시작될 때 안내하고(DogShow.CheckTrendNotice), 다음 시즌 강아지 고르기 화면과 강아지 상태창 훈련 칸에도 적는다. 시연은 늘 균형.
+        public const int TrendBalanced = 0, TrendBeauty = 1, TrendTraining = 2;
+        public static readonly string[] TrendNames = { "균형", "미모 중시", "훈련 중시" };
+        static readonly float[] TrendPose = { 0.20f, 0.35f, 0.10f };
+        static readonly float[] TrendFetch = { 0.25f, 0.10f, 0.35f };
 
-        public int BeautyWeight { get; private set; } = 70;
+        /// <summary>이번 시즌 심사 경향(0 균형, 1 미모 중시, 2 훈련 중시). 저장된다.</summary>
+        public int Trend { get; private set; }
+        int upcomingTrend = -1;
+
+        /// <summary>지금 판의 심사 경향. 시연은 늘 균형.</summary>
+        public static int CurrentTrend => Exhibition.Active || Instance == null ? TrendBalanced : Instance.Trend;
+
+        /// <summary>다음 시즌 심사 경향 — 다음 시즌 강아지를 고르기 전에 미리 정해 보여 준다. BeginNextSeason 이 이 값을 쓴다.</summary>
+        public int UpcomingTrend { get { if (upcomingTrend < 0) upcomingTrend = RollTrend(); return upcomingTrend; } }
+
+        static int RollTrend() => Random.Range(0, TrendNames.Length);
+        public static float PoseWeightOf(int trend) => TrendPose[Mathf.Clamp(trend, 0, TrendPose.Length - 1)];
+        public static float FetchWeightOf(int trend) => TrendFetch[Mathf.Clamp(trend, 0, TrendFetch.Length - 1)];
+
+        /// <summary>"미모 심사 35%, 훈련 심사 10%" 처럼.</summary>
+        public static string TrendShares(int trend) =>
+            "미모 심사 " + Mathf.RoundToInt(PoseWeightOf(trend) * 100f) + "%, 훈련 심사 " + Mathf.RoundToInt(FetchWeightOf(trend) * 100f) + "%";
+
+        /// <summary>그 경향에서 무엇을 키우면 좋은지 한 줄.</summary>
+        public static string TrendHint(int trend) =>
+            trend == TrendBeauty ? "미모를 키우면 도그쇼 점수가 더 오른다. 미용 훈련 강화가 이번 시즌에 유리하다"
+            : trend == TrendTraining ? "훈련도를 키우면 도그쇼 점수가 더 오른다. 훈련 쪽 강화가 이번 시즌에 유리하다"
+            : "미모와 훈련도를 고르게 키우자";
+
+        /// <summary>무인 측정의 스탯 점수(Score)가 쓰는 미모 비중(%). 심사 경향의 두 종목 비중에서 나눈다.</summary>
+        public int BeautyWeight => Mathf.RoundToInt(PoseWeightOf(Trend) / (PoseWeightOf(Trend) + FetchWeightOf(Trend)) * 100f);
         public int TrainingWeight => 100 - BeautyWeight;
         public int RivalCount => RivalScores.Length;
 
@@ -56,7 +87,7 @@ namespace DogShop.Show
             if (Instance != null && Instance != this) { Destroy(this); return; }
             Instance = this;
 
-            BeautyWeight = BeautyWeightOptions[Random.Range(0, BeautyWeightOptions.Length)];
+            Trend = Exhibition.Active ? TrendBalanced : RollTrend();   // 새 판의 시즌 1. 불러오면 RestoreFrom 이 저장된 값으로 덮는다
         }
 
         void OnDestroy()
@@ -125,15 +156,21 @@ namespace DogShop.Show
         /// 시즌마다 +80, 시즌 4 부터 480. 능력치 자체에는 상한이 없지만 만점을 넘긴 몫은 도그쇼에 안 들어가므로,
         /// 만점이 오르면 같은 강아지라도 무대가 다시 어려워져 계속 키워야 한다. 시연은 240.
         /// </summary>
-        public const int BaseStatFull = 240;
-        public const int StatFullPerSeason = 60;   // 80 -> 60: 다섯 시즌에 240/300/360/420/480(2026-11-04)
+        // 2026-11-06 다시 맞춤: 측정(강화 10단계, 등급 심사 반영)에서 30일차 능력치가 가게 먼저 키우기 106/111/100,
+        // 매일 훈련하기 111/109/122 — 240 기준이면 절반이라 도그쇼가 너무 어려웠다. 잘 키우면 70% 근처가 되게 170 으로.
+        // 시연판은 마무리한 그대로 240(ExhibitionStatFull).
+        // 170 -> 130(2026-11-06 오후): 능력치 보정(DogShow.StatFactor)을 넣은 뒤 다시 잰 30일차 능력치가 매일 훈련 칸을 다 써도 98/98/99(170 의 58%),
+        // 가게 먼저 76/82/81(47%) — 무난한 실력이면 3, 4등이었다. 130 이면 열심히 키움 79점 1등, 보통 70점 2등, 거의 안 키움 5등.
+        public const int BaseStatFull = 130;
+        public const int ExhibitionStatFull = 240;
+        public const int StatFullPerSeason = 40;   // 시즌별 130/170/210/250/290   // 60 -> 40(2026-11-06): 170/210/250/290/330   // 80 -> 60: 다섯 시즌에 240/300/360/420/480(2026-11-04)
 
         /// <summary>본편은 다섯 시즌까지 — 더 길면 지루하다(2026-11-04). 5시즌 결산 뒤 끝난다.</summary>
         public const int MaxSeasons = 5;
         public bool IsLastSeason => Season >= MaxSeasons;
-        public const int MaxStatFull = 480;
+        public const int MaxStatFull = 330;
         public static int StatFullFor(int season) => Mathf.Min(MaxStatFull, BaseStatFull + (Mathf.Max(1, season) - 1) * StatFullPerSeason);
-        public static float StatFull => Exhibition.Active || Instance == null ? BaseStatFull : StatFullFor(Instance.Season);
+        public static float StatFull => Exhibition.Active ? ExhibitionStatFull : Instance == null ? BaseStatFull : StatFullFor(Instance.Season);
 
         // ---- 우승 혜택(명예의 벽) ----
 
@@ -240,12 +277,14 @@ namespace DogShop.Show
             ShowBoard = null;
             ShowRank = 0;
             ShowScore = 0;
-            BeautyWeight = BeautyWeightOptions[Random.Range(0, BeautyWeightOptions.Length)];
+            Trend = upcomingTrend >= 0 ? upcomingTrend : RollTrend();   // 강아지 고르기 화면에 보여 준 그 경향
+            upcomingTrend = -1;
         }
 
         public void CaptureInto(SaveData data)
         {
             data.season = Season;
+            data.showTrend = Trend;
             data.seasonRanks = seasonRanks.ToArray();
             data.champions = champions.ToArray();
             data.seasonLogs = seasonLogs.ToArray();
@@ -255,6 +294,7 @@ namespace DogShop.Show
         {
             // 시즌이 없던 세이브는 0 — 날짜로 맞춘다(30일차까지 시즌 1)
             Season = Mathf.Max(Mathf.Max(1, data.season), (data.day - 1) / FinalDay + 1);
+            if (data.showTrend >= 0) Trend = Mathf.Clamp(data.showTrend, 0, TrendNames.Length - 1);   // 없던 세이브는 새로 뽑은 값 그대로
             seasonRanks.Clear();
             if (data.seasonRanks != null) seasonRanks.AddRange(data.seasonRanks);
             champions.Clear();
@@ -307,7 +347,9 @@ namespace DogShop.Show
         }
 
         /// <summary>라이벌 다섯 자리의 기준 점수(±<see cref="RivalShowSpread"/>). <b>임시값</b> — 직접 해 보고 맞춘다.</summary>
-        static readonly int[] RivalShowScores = { 86, 79, 71, 62, 52 };
+        // 86/79/71/62/52 -> 76/70/63/55/46(2026-11-06): 능력치 보정(DogShow.StatFactor)으로 총점이 내려간 만큼.
+        // 계산(무난한 실력): 잘 키움(만점의 75%) 79점 1등, 덜 키움(40%) 58점 4등, 완벽한 실력 + 덜 키움 68점 3등
+        static readonly int[] RivalShowScores = { 76, 70, 63, 55, 46 };
         const int RivalShowSpread = 3;
 
         static readonly string[] RivalNames =

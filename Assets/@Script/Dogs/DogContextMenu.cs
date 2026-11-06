@@ -540,6 +540,10 @@ namespace DogShop.Dogs
             TrainingManager tm = TrainingManager.Instance;
             GUI.Label(new Rect(r.x, r.y, 200f, 26f), "훈련", sectionStyle);
             if (Show.ChampionshipManager.RankBonus > 0f) GUI.Label(new Rect(r.x + 52f, r.y + 1f, 220f, 24f), "순위 보너스 " + Show.ChampionshipManager.RankBonusText(Show.ChampionshipManager.RankBonus), exerciseCount);
+            // 이번 시즌 심사 경향(본편) — 미모와 훈련도 중 무엇을 키울지 고르는 기준(2026-11-05)
+            if (!Exhibition.Active && Show.ChampionshipManager.Instance != null)
+                GUI.Label(new Rect(r.x + (Show.ChampionshipManager.RankBonus > 0f ? 200f : 52f), r.y + 1f, 220f, 24f),
+                          "이번 시즌 심사: " + Show.ChampionshipManager.TrendNames[Show.ChampionshipManager.CurrentTrend], exerciseCount);
 
             // 오늘 남은 훈련 — 글 + 발바닥 도장
             if (tm != null)

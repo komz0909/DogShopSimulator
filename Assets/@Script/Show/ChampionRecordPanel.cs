@@ -134,7 +134,7 @@ namespace DogShop.Show
             }
 
             // ---- 능력치 막대(그 시즌 만점 기준) ----
-            int full = ChampionshipManager.StatFullFor(record.season);
+            int full = Exhibition.Active ? ChampionshipManager.ExhibitionStatFull : ChampionshipManager.StatFullFor(record.season);   // 시연판은 240 그대로
             StatRow(ref y, x, w, "미모", record.beauty, full, Beauty, 0.15f);
             StatRow(ref y, x, w, "훈련도", record.training, full, Training, 0.25f);
             StatRow(ref y, x, w, "어질리티", record.agility, full, Agility, 0.35f);

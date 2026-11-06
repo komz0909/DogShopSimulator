@@ -126,6 +126,8 @@ namespace DogShop.Core
         public DogShop.Shop.DailyQuestManager.Quest[] dailyQuests;
         /// <summary>챔피언십 시즌(ChampionshipManager). 0 = 시즌이 없던 세이브(날짜로 맞춘다). 시즌별 순위(-1 = 출전 못 함).</summary>
         public int season;
+        /// <summary>이번 시즌 심사 경향(0 균형, 1 미모 중시, 2 훈련 중시, 2026-11-05). -1 = 없던 세이브.</summary>
+        public int showTrend = -1;
         public int[] seasonRanks;
         /// <summary>우승 기록(명예의 벽 액자).</summary>
         public DogShop.Show.ChampionshipManager.ChampionRecord[] champions;
