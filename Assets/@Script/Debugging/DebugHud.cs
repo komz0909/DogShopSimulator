@@ -69,7 +69,9 @@ namespace DogShop.Debugging
             Keyboard kb = Keyboard.current;
             if (kb == null) return;
 
-            if (kb.f1Key.wasPressedThisFrame) visible = !visible;
+            // F1(개발 수치), F9(마지막 저장 불러오기)는 개발 빌드에서만(2026-11-06). 일반 실행 파일에서 F9 를 잘못 누르면
+            // 마지막 저장으로 돌아가 그 사이 한 일이 사라졌다 — 공모전 심사 중에 누를 수 있다
+            if (Debug.isDebugBuild && kb.f1Key.wasPressedThisFrame) visible = !visible;
 
             // 게임 속도 1 / 2 / 3 = x1 / x2 / x4. 예전 x4 / x16 은 손님·강아지가 순간이동하듯 보여 줄였다.
             // 무인 측정(MeasurementMode) 중에만 3 이 예전처럼 x16 — 30일을 돌리는 데 필요하다
@@ -102,7 +104,7 @@ namespace DogShop.Debugging
             }
 
             if (kb.f5Key.wasPressedThisFrame) SaveManager.Instance.Save();
-            if (kb.f9Key.wasPressedThisFrame) SaveManager.Instance.Load();
+            if (Debug.isDebugBuild && kb.f9Key.wasPressedThisFrame) SaveManager.Instance.Load();
         }
 
         void HandleExecuted(IPlayerAction action) => Refresh();

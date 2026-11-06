@@ -93,6 +93,89 @@ namespace DogShop.Show
         static float FetchWeight => ChampionshipManager.FetchWeightOf(ChampionshipManager.CurrentTrend);
         static string Pct(float w) => Mathf.RoundToInt(w * 100f) + "%";
 
+        // ---- 소개 영상 촬영용 자동 플레이(2026-11-06) ----
+        // 켜면 안내창을 잠시 보여 주고 넘기고, 네 종목을 코드가 대신 한다. 실제 게임에서는 늘 꺼져 있다(에디터 촬영 때만 켠다).
+        internal static bool AutoPlay;
+        const float AutoGuideSeconds = 2.6f;
+        float autoChoiceAt = -1f, autoWeaveAt;
+        bool autoGood;
+        float autoLastRing = -1f;
+
+        void AutoInput()
+        {
+            if (phase == Phase.Pose)
+            {
+                // 판마다 한 번 정한다 — 다섯에 하나쯤은 GOOD 으로(매번 PERFECT 면 심심하다)
+                if (ringRadius > 0.9f) autoGood = Random.value < 0.2f;
+                // 여기서 누르면 판정은 링이 한 프레임 더 줄어든 뒤에 한다 — 그 자리가 목표에 가장 가깝게 누른다
+                float step = autoLastRing > ringRadius ? autoLastRing - ringRadius : 0.02f;
+                autoLastRing = ringRadius;
+                float aim = targetRadius + step * 1.5f + (autoGood ? perfectHalf + 0.015f : 0f);
+                if (!posePressed && ringRadius > 0f && ringRadius <= aim) posePressed = true;
+            }
+            if (phase == Phase.Fetch && awaitingChoice)
+            {
+                if (autoChoiceAt < 0f) autoChoiceAt = Time.time;
+                if (Time.time - autoChoiceAt > 1.1f)
+                {
+                    for (int i = 0; i < cards.Length; i++) if (cards[i] == requested) { chosenCard = i; break; }
+                    autoChoiceAt = -1f;
+                }
+            }
+            else autoChoiceAt = -1f;
+        }
+
+        /// <summary>허들(마지막 링) 바로 앞에서 뛴다 — 꼭대기가 허들 위에 오게.</summary>
+        bool AutoJump(float pos, bool[] passed, bool hoopDone)
+        {
+            float lead = runSpeed * airTime * 0.5f;
+            for (int i = 0; i < TrackHurdleAt.Length && i < passed.Length; i++)
+                if (!passed[i] && pos >= TrackHurdleAt[i] - lead && pos < TrackHurdleAt[i]) return true;
+            return !hoopDone && pos >= TrackHoopAt - lead && pos < TrackHoopAt;
+        }
+
+        int AutoWeaveKey()
+        {
+            ObstacleCourse.Obstacle o = course.Active;
+            if (o == null || o.rSeq == null || o.rIndex >= o.rSeq.Length) return -1;
+            if (Time.time - autoWeaveAt < 0.28f) return -1;
+            autoWeaveAt = Time.time;
+            return o.rSeq[o.rIndex];
+        }
+
+        /// <summary>장애물 달리기 길잡이: 다음 입구 앞으로 돌아 들어가고, 장애물 위에서는 가운데 줄을 따라 앞으로.</summary>
+        Vector3 AutoCourseDir()
+        {
+            Vector3 hp = hero.transform.position;
+            ObstacleCourse.Obstacle o = course.Active;
+            if (o != null)
+            {
+                Quaternion r = Quaternion.Euler(0f, o.yaw, 0f);
+                Vector3 fwd = Flat(stage.TransformDirection(r * Vector3.forward)).normalized;
+                Vector3 side = Flat(stage.TransformDirection(r * Vector3.right)).normalized;
+                Vector3 lp = course.Local(o, hp);
+                float lat = Mathf.Clamp(-lp.x * 3f, -0.6f, 0.6f);
+                if (o.kind == ObstacleCourse.Kind.Table && o.moving)
+                {
+                    float z = Mathf.Clamp(-lp.z * 2.5f - o.slideVel * 1.2f, -1f, 1f);
+                    return Vector3.ClampMagnitude(fwd * z + side * lat, 1f);
+                }
+                if (o.kind == ObstacleCourse.Kind.Seesaw && !o.tipped && lp.z > o.size.z * 0.5f - 0.45f) return Vector3.zero;   // 끝에서 판이 내려가길 기다린다
+                return Vector3.ClampMagnitude(fwd + side * lat, 1f);
+            }
+            Vector3 entry, f;
+            if (!course.NextEntrance(out entry, out f)) return Vector3.zero;
+            f = Flat(f).normalized;
+            Vector3 d = Flat(hp - entry);
+            float along = Vector3.Dot(d, f);
+            Vector3 latV = d - f * along;
+            Vector3 target = along > -0.3f && latV.magnitude > 0.25f
+                ? entry - f * 1.2f                                                     // 옆이나 지나친 쪽 — 입구 앞으로 돌아간다
+                : entry - f * Mathf.Clamp(-along * 0.5f, 0f, 2.5f) + f * 0.5f;
+            Vector3 to = Flat(target - hp);
+            return to.sqrMagnitude < 1e-4f ? f : to.normalized;
+        }
+
         /// <summary>측정용(MeasurementMode): 떠 있는 안내창을 닫는다.</summary>
         internal void CloseNoticeForMeasure() { if (noticeTitle != null) CloseNotice(); }
 
@@ -472,7 +555,8 @@ namespace DogShop.Show
             guideLines = lines;
             guideReady = false;
             phase = Phase.Guide;
-            while (!guideReady) yield return null;
+            float guideAt = Time.time;
+            while (!guideReady) { if (AutoPlay && Time.time - guideAt > AutoGuideSeconds) guideReady = true; yield return null; }
             phase = keep;
             yield return CountdownToStart();
         }
@@ -886,6 +970,7 @@ namespace DogShop.Show
             {
                 pos += runSpeed * Time.deltaTime;
                 if (jumpGuide != null) jumpGuide.UpdatePads(pos);
+                if (AutoPlay && AutoJump(pos, passed, hoopDone)) jumpRequested = true;
                 if (jumpRequested && Time.time - jumpStart > airTime) { jumpStart = Time.time; Sound.Play(Sfx.ShowJump); }
                 jumpRequested = false;
 
@@ -1228,7 +1313,8 @@ namespace DogShop.Show
             subline = "WASD 로 장애물 6개를 순서대로 지나자. 빨리 도착할수록 점수가 높고, 실수하면 감점";
             phase = Phase.CourseGuide;
             guideReady = false;
-            while (!guideReady) yield return null;
+            float courseGuideAt = Time.time;
+            while (!guideReady) { if (AutoPlay && Time.time - courseGuideAt > AutoGuideSeconds + 1f) guideReady = true; yield return null; }
             phase = Phase.Course;
 
             yield return CountdownToStart();
@@ -1276,6 +1362,7 @@ namespace DogShop.Show
                         else if (kb.sKey.wasPressedThisFrame || kb.downArrowKey.wasPressedThisFrame) pressed = ObstacleCourse.Down;
                         else if (kb.aKey.wasPressedThisFrame || kb.leftArrowKey.wasPressedThisFrame) pressed = ObstacleCourse.Left;
                     }
+                    if (AutoPlay) pressed = AutoWeaveKey();
                     string miss;
                     pos = course.TickWeave(weaveArrows, pressed, dt, hero.transform.position, out miss);
                     if (miss != null) Flash(miss, new Color(1f, 0.45f, 0.4f));
@@ -1289,6 +1376,7 @@ namespace DogShop.Show
                     Vector3 camR = Flat(showCamera.transform.right).normalized;
                     dir = camF * input.y + camR * input.x;
                     if (dir.sqrMagnitude > 1f) dir.Normalize();
+                    if (AutoPlay) dir = AutoCourseDir();
 
                     // 테이블 위에선 걸음을 늦추고 기울기로 미끄러지는 몫을 더한다 — 반대쪽으로 버텨야 한다
                     float speed = course.Balancing ? runSpeed * ObstacleCourse.TableWalk : runSpeed;
@@ -1393,6 +1481,7 @@ namespace DogShop.Show
             while (cardOpen)
             {
                 if (Exhibition.Active && Time.time - cardShownAt > ExhibitionCardSeconds) cardOpen = false;
+                if (AutoPlay && Time.time - cardShownAt > 7f) cardOpen = false;
                 yield return null;
             }
 
@@ -1407,6 +1496,7 @@ namespace DogShop.Show
             {
                 // 시연은 아무도 안 눌러도 순위표를 잠시 보여 준 뒤 엔딩으로 — 부스에서 다음 사람이 바로 받을 수 있게
                 if (Exhibition.Active && Time.time - boardShownAt > ExhibitionBoardSeconds) resultReady = false;
+                if (AutoPlay && Time.time - boardShownAt > 6f) resultReady = false;
                 yield return null;
             }
 
@@ -1453,7 +1543,8 @@ namespace DogShop.Show
             Cheer(reviewScore >= 80);
 
             resultReady = true;
-            while (resultReady) yield return null;
+            float reviewShownAt = Time.time;
+            while (resultReady) { if (AutoPlay && Time.time - reviewShownAt > 5f) resultReady = false; yield return null; }
 
             reviewEvent = -1;
             Running = false;
@@ -1870,6 +1961,7 @@ namespace DogShop.Show
         {
             CheckTrendNotice();
             if (!Running) return;
+            if (AutoPlay) AutoInput();
             Keyboard kb = Keyboard.current;
             if (kb == null) return;
 

@@ -175,6 +175,9 @@ namespace DogShop.Show
             Keyboard kb = Keyboard.current;
             if (kb != null && (kb.spaceKey.wasPressedThisFrame || kb.enterKey.wasPressedThisFrame || kb.eKey.wasPressedThisFrame))
                 Next();
+            // 소개 영상 촬영(DogShow.AutoPlay) 중엔 한 장씩 저절로 넘긴다(2026-11-06)
+            else if (DogShow.AutoPlay && Time.unscaledTime - shownAt >= 3.2f)
+                Next();
             // 시연 엔딩은 아무도 안 눌러도 한 장씩 넘어간다(끝나면 견종 고르기로)
             else if (Exhibition.Active && playing == ending && Time.unscaledTime - shownAt >= ExhibitionEndingSeconds)
                 Next();
