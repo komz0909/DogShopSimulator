@@ -282,6 +282,7 @@ namespace DogShop.Show
             ShowBoard = null;
             ShowRank = 0;
             ShowScore = 0;
+            ShowEntered = false;
             Trend = upcomingTrend >= 0 ? upcomingTrend : RollTrend();   // 강아지 고르기 화면에 보여 준 그 경향
             upcomingTrend = -1;
         }
@@ -293,6 +294,7 @@ namespace DogShop.Show
             data.seasonRanks = seasonRanks.ToArray();
             data.champions = champions.ToArray();
             data.seasonLogs = seasonLogs.ToArray();
+            CaptureShowInto(data);
         }
 
         public void RestoreFrom(SaveData data)
@@ -306,6 +308,7 @@ namespace DogShop.Show
             if (data.champions != null) champions.AddRange(data.champions);
             seasonLogs.Clear();
             if (data.seasonLogs != null) seasonLogs.AddRange(data.seasonLogs);
+            RestoreShowFrom(data);
         }
 
         public bool IsFinalDay(int day) => day >= LastDay && !(Exhibition.Active && Exhibition.IsTutorial);   // 튜토리얼은 도그쇼, 엔딩 없이 끝난다
@@ -342,6 +345,7 @@ namespace DogShop.Show
         // 육성은 미니게임 쪽으로 들어간다(미모 → 포즈 판정 폭, 훈련도 → 물어오기 정확도, 어질리티 → 어질리티 속도·점프, 셋의 평균 → 장애물 달리기 속도).
         // 위의 스탯 점수(Score·Rank·RivalScores)는 도그쇼를 건너뛰는 무인 측정에서만 쓴다.
 
+        [System.Serializable]
         public class ShowEntry
         {
             public string name;
@@ -365,6 +369,63 @@ namespace DogShop.Show
         public int ShowRank { get; private set; }
         public int ShowScore { get; private set; }
         public bool HasShowResult => ShowBoard != null;
+
+        // ---- 도그쇼 한 번만(2026-11-12) ----
+        // 예전엔 쇼 진행과 결과가 세이브에 없어서, 결과가 마음에 안 들면 그날 아침 자동 저장(또는 F5)을 불러와
+        // 도그쇼를 몇 번이고 다시 할 수 있었다. 이제 쇼를 시작할 때 출전함을 저장하고, 결과가 나오면 순위표를 덧붙인다.
+        // 불러온 날이 도그쇼 날이고 이미 나섰으면 그날을 바로 마친다 — 결과가 있으면 엔딩, 없으면(쇼 도중에 껐다) 중도 기권.
+
+        /// <summary>이번 시즌 도그쇼 무대에 올랐나. 결과 없이 true 면 중도 기권.</summary>
+        public bool ShowEntered { get; private set; }
+
+        /// <summary>쇼 칸이 쇼를 시작하기 직전에 부른다 — 출전함을 적고 가게 상태째 저장한다(시연은 저장 없음).</summary>
+        public void MarkShowEntered()
+        {
+            if (Exhibition.Active) return;
+            ShowEntered = true;
+            if (Debugging.MeasurementMode.Instance != null && Debugging.MeasurementMode.Instance.Active) return;   // 무인 측정은 저장하지 않는다
+            if (SaveManager.Instance != null) SaveManager.Instance.Save();
+        }
+
+        public void CaptureShowInto(SaveData data)
+        {
+            data.showEntered = ShowEntered;
+            data.showScore = ShowScore;
+            data.showBoard = ShowBoard != null ? ShowBoard.ToArray() : new ShowEntry[0];
+        }
+
+        void RestoreShowFrom(SaveData data)
+        {
+            ShowEntered = data.showEntered;
+            if (data.showBoard != null && data.showBoard.Length > 0)
+            {
+                ShowBoard = new List<ShowEntry>(data.showBoard);
+                ShowScore = data.showScore;
+                ShowRank = ShowBoard.FindIndex(e => e.hero) + 1;
+            }
+            else
+            {
+                ShowBoard = null;
+                ShowScore = 0;
+                ShowRank = 0;
+            }
+        }
+
+        /// <summary>불러온 날이 도그쇼 날이고 이미 무대에 올랐으면, 쇼를 다시 열지 않고 그날을 마친다(한 프레임 뒤 — 다른 복원이 끝난 다음).</summary>
+        public void ResumeShowAfterLoad()
+        {
+            if (Exhibition.Active || !ShowEntered || GameManager.Instance == null || !IsFinalDay(GameManager.Instance.Day)) return;
+            StartCoroutine(EndShowDayNextFrame());
+        }
+
+        System.Collections.IEnumerator EndShowDayNextFrame()
+        {
+            yield return null;
+            TimeManager t = TimeManager.Instance;
+            if (t == null || t.IsDayOver) yield break;
+            if (!HasShowResult) ActionRunner.Reject("도그쇼 도중에 그만둬서 중도 기권으로 처리했다");
+            t.EndDayNow();
+        }
 
         /// <summary>
         /// 도그쇼 총점으로 순위표를 만든다. 주인공 견종을 뺀 나머지 견종이 하나씩 나오고,
@@ -403,6 +464,8 @@ namespace DogShop.Show
             ShowBoard = board;
             ShowScore = score;
             ShowRank = board.FindIndex(e => e.hero) + 1;
+            // 결과를 바로 세이브에 덧붙인다 — 순위표를 보고 끄거나 불러와도 이 결과가 남는다(시연은 저장 없음)
+            if (!Exhibition.Active && SaveManager.Instance != null) SaveManager.Instance.SaveShowFields();
         }
 
         /// <summary>

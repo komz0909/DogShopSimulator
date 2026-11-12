@@ -371,6 +371,9 @@ namespace DogShop.Show
         {
             if (phase != Phase.None || Running) return false;
             if (TimeManager.Instance != null && TimeManager.Instance.IsDayOver) return false;
+            // 무대에 오르기 직전, 가게 상태 그대로 "출전함"을 저장한다 — 아침 세이브를 불러와 다시 도전하지 못하게(2026-11-12)
+            if (DogManager.Instance != null && DogManager.Instance.Hero != null && stage != null && showCamera != null && ChampionshipManager.Instance != null)
+                ChampionshipManager.Instance.MarkShowEntered();
             Begin();
             return phase != Phase.None;
         }

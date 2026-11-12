@@ -246,6 +246,7 @@ namespace DogShop.Core
             GameManager.Instance != null && Show.ChampionshipManager.Instance != null
             && Show.ChampionshipManager.Instance.IsFinalDay(GameManager.Instance.Day)
             && !Show.ChampionshipManager.Instance.HasShowResult
+            && !Show.ChampionshipManager.Instance.ShowEntered   // 한 번 무대에 올랐으면 다시 열지 않는다(2026-11-12, 본편만 저장)
             && !(Debugging.MeasurementMode.Instance != null && Debugging.MeasurementMode.Instance.Active);
 
         /// <summary>지금 출전견이 도그쇼에 나갈 수 있나(건강 70 이상). 못 나가면 이유.</summary>

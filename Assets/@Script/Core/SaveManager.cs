@@ -137,6 +137,13 @@ namespace DogShop.Core
         public DogShop.Show.ChampionshipManager.ChampionRecord[] champions;
         /// <summary>시즌마다 순위, 가게 명성, 함께한 강아지(2026-11-05).</summary>
         public DogShop.Show.ChampionshipManager.SeasonLog[] seasonLogs;
+        /// <summary>
+        /// 이번 시즌 도그쇼(2026-11-12). 쇼를 시작하면 출전함을 저장하고, 결과가 나오면 점수와 순위표를 덧붙인다 —
+        /// 그날 아침 세이브를 불러와 도그쇼를 다시 하던 것을 막는다. 순위표가 비었는데 출전했으면 중도 기권이다.
+        /// </summary>
+        public bool showEntered;
+        public int showScore;
+        public DogShop.Show.ChampionshipManager.ShowEntry[] showBoard;
         public int[] shelf = new int[0];
         public int[] incoming = new int[0];
 
@@ -318,12 +325,32 @@ namespace DogShop.Core
             // 시연 모드는 저장하지 않는다 — 본편 세이브(이어하기)를 덮으면 안 된다
             if (Exhibition.Active) { Debug.Log("[Save] 시연 모드는 저장하지 않는다"); return; }
 
+            // 도그쇼·마스코트 심사 도중(F5, 종료 저장)에는 무대 위 상태(강아지 자리, 꺼 둔 시계·조작)를 남기지 않는다.
+            // 쇼를 시작할 때 저장한 가게 상태를 두고 쇼 칸만 고친다
+            if (Show.DogShow.Running && HasSave) { SaveShowFields(); return; }
+
             SaveData data = Capture();
             if (data == null) return;
 
             File.WriteAllText(SavePath, JsonUtility.ToJson(data, true));
             Debug.Log("[Save] Day " + data.day + " / Lv " + data.shopLevel
                       + " / 강아지 " + data.dogs.Length + "마리 / " + SavePath);
+        }
+
+        /// <summary>
+        /// 세이브 파일의 도그쇼 칸(출전함, 점수, 순위표)만 지금 값으로 고친다. 나머지는 쇼를 시작할 때 저장한 그대로 둔다.
+        /// 세이브가 없으면(쇼 시작 저장이 실패한 경우) 아무것도 하지 않는다.
+        /// </summary>
+        public void SaveShowFields()
+        {
+            if (Exhibition.Active || !HasSave || Show.ChampionshipManager.Instance == null) return;
+            if (Debugging.MeasurementMode.Instance != null && Debugging.MeasurementMode.Instance.Active) return;   // 무인 측정은 사용자 세이브를 건드리지 않는다
+            SaveData data = JsonUtility.FromJson<SaveData>(File.ReadAllText(SavePath));
+            if (data == null) return;
+            Show.ChampionshipManager.Instance.CaptureShowInto(data);
+            File.WriteAllText(SavePath, JsonUtility.ToJson(data, true));
+            Debug.Log("[Save] 도그쇼 기록만 저장: 출전 " + data.showEntered + " / 점수 " + data.showScore
+                      + " / 순위표 " + (data.showBoard != null ? data.showBoard.Length : 0) + "마리");
         }
 
         public bool Load()
@@ -340,6 +367,8 @@ namespace DogShop.Core
 
             Restore(data);
             OnLoaded?.Invoke();
+            // 도그쇼에 이미 나선 날이면 무대로 다시 보내지 않고 그날을 마친다(결과가 있으면 엔딩, 없으면 중도 기권)
+            if (Show.ChampionshipManager.Instance != null) Show.ChampionshipManager.Instance.ResumeShowAfterLoad();
             Debug.Log("[Load] Day " + data.day + " / Lv " + data.shopLevel
                       + " / 강아지 " + data.dogs.Length + "마리");
             return true;

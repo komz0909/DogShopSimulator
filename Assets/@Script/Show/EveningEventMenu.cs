@@ -133,6 +133,15 @@ namespace DogShop.Show
             int level = ShopLevelManager.Instance.Level;
 
             // 도그쇼를 실제로 치렀으면 출전 자격은 따지지 않는다 — 순위표까지 본 뒤 "무대에 서지 못했다"가 나왔다
+            // 무대에 올랐다가 결과 없이 끝났다(쇼 도중에 게임을 껐다가 불러옴) — 중도 기권(2026-11-12)
+            if (!champ.HasShowResult && champ.ShowEntered)
+            {
+                resultLine = "챔피언십 중도 기권: 도그쇼를 끝까지 치르지 않았다";
+                gradeLine = "최종 랭크  " + champ.FinalGrade(champ.RivalCount + 1, level, g.Money);
+                FillEnding(-1, champ.FinalGrade(champ.RivalCount + 1, level, g.Money), level, g.Money);
+                return;
+            }
+
             string reason;
             if (!champ.HasShowResult && !champ.CanEnter(hero, out reason))
             {
