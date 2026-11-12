@@ -25,7 +25,11 @@ namespace DogShop.UI
         enum Page { Pause, Settings, ConfirmQuit }
         Page page;
 
-        static readonly string[] PauseButtons = { "계속 진행", "게임 설정", "게임 종료" };
+        static readonly string[] PauseButtons = { "계속 진행", "저장하기", "게임 설정", "게임 종료" };
+        static readonly string[] DemoPauseButtons = { "계속 진행", "게임 설정", "게임 종료" };   // 시연·튜토리얼은 저장이 없다
+
+        /// <summary>일시 정지 메뉴를 연 뒤 [저장하기]를 눌렀나 — 안내 줄을 "저장했다"로 바꾼다.</summary>
+        bool savedThisPause;
         static readonly string[] QuitButtons = { "저장하고 종료", "그냥 종료", "취소" };
         static readonly string[] DemoQuitButtons = { "메인 화면으로", "게임 종료", "취소" };
 
@@ -49,6 +53,7 @@ namespace DogShop.UI
         {
             IsOpen = true;
             page = Page.Pause;
+            savedThisPause = false;
             savedTimeScale = Time.timeScale;
             Time.timeScale = 0f;
             PointerMenus.SetOpen(this, true);
@@ -78,10 +83,24 @@ namespace DogShop.UI
             {
                 case Page.Pause:
                 {
-                    int pick = SettingsPanel.DrawMenu("일시 정지", null, PauseButtons, closeImage, frameImage);
+                    if (Exhibition.Active)
+                    {
+                        int demo = SettingsPanel.DrawMenu("일시 정지", null, DemoPauseButtons, closeImage, frameImage);
+                        if (demo == 0 || demo == -2) Close();
+                        else if (demo == 1) page = Page.Settings;
+                        else if (demo == 2) page = Page.ConfirmQuit;
+                        break;
+                    }
+
+                    // 본편: [저장하기]와 마지막 저장 시각. 매일 아침 자동 저장되고 F5 로도 저장된다(2026-11-12)
+                    SaveManager save = SaveManager.Instance;
+                    string note = save == null ? null
+                        : (savedThisPause ? "저장했다 " : "마지막 저장 ") + save.LastSaveText + "  (아침마다 자동, F5)";   // 안내 칸이 한 줄 높이다
+                    int pick = SettingsPanel.DrawMenu("일시 정지", note, PauseButtons, closeImage, frameImage);
                     if (pick == 0 || pick == -2) Close();
-                    else if (pick == 1) page = Page.Settings;
-                    else if (pick == 2) page = Page.ConfirmQuit;
+                    else if (pick == 1 && save != null) { save.Save(); savedThisPause = true; }
+                    else if (pick == 2) page = Page.Settings;
+                    else if (pick == 3) page = Page.ConfirmQuit;
                     break;
                 }
                 case Page.Settings:
@@ -101,9 +120,10 @@ namespace DogShop.UI
                         break;
                     }
 
-                    // 자동 저장이 없다 — 마지막 저장(F5) 뒤의 진행을 그냥 날리지 않게 한 번 묻는다
+                    // 매일 아침 자동 저장은 있지만 그 뒤 하루치 진행은 남지 않는다 — 그냥 날리지 않게 한 번 묻는다
+                    SaveManager lastSave = SaveManager.Instance;
                     int pick = SettingsPanel.DrawMenu("게임 종료",
-                        "저장하지 않으면 마지막 저장(F5) 뒤의 진행은 사라진다",
+                        "저장하지 않으면 마지막 저장(" + (lastSave != null ? lastSave.LastSaveText : "없음") + ") 뒤의 진행은 사라진다",
                         QuitButtons, closeImage, frameImage);
                     if (pick == 0) { if (SaveManager.Instance != null) SaveManager.Instance.Save(); Quit(); }
                     else if (pick == 1) Quit();

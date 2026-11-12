@@ -103,7 +103,7 @@ namespace DogShop.Debugging
                 }
             }
 
-            if (kb.f5Key.wasPressedThisFrame) SaveManager.Instance.Save();
+            if (kb.f5Key.wasPressedThisFrame) SaveManager.Instance.SaveByPlayer();   // 일반 빌드에서도 저장 키 — "저장했다" 알림이 뜬다
             if (Debug.isDebugBuild && kb.f9Key.wasPressedThisFrame) SaveManager.Instance.Load();
         }
 

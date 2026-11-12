@@ -157,13 +157,18 @@ namespace DogShop.UI
         void Start()
         {
             ActionRunner.OnRejected += HandleRejected;
+            SaveManager.OnPlayerSaved += HandleSaved;
             Refresh();
         }
 
         void OnDestroy()
         {
             ActionRunner.OnRejected -= HandleRejected;
+            SaveManager.OnPlayerSaved -= HandleSaved;
         }
+
+        /// <summary>F5 로 저장했을 때 "저장했다 (Day 3 10:42)" — 예전엔 아무 표시가 없어 눌렸는지 알 수 없었다(2026-11-12).</summary>
+        void HandleSaved(string message) => Toast(message, TextColor);
 
         void Update()
         {

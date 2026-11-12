@@ -287,10 +287,43 @@ namespace DogShop.Core
         System.Collections.IEnumerator Start()
         {
             if (TimeManager.Instance != null) TimeManager.Instance.OnDayStarted += AutoSaveSoon;
-            if (!GameStart.FromMenu || !GameStart.Continue) yield break;
+            if (!GameStart.FromMenu) yield break;
+
+            // 새 게임은 첫날 아침에도 저장한다(2026-11-12) — 첫날은 OnDayStarted 가 오지 않아 F5·종료 저장 전엔 세이브가 없었다.
+            // 메인 화면에서 새로 시작할 때만(에디터에서 가게 씬을 바로 켠 시험판은 사용자 세이브를 덮지 않는다)
+            if (!GameStart.Continue) { AutoSaveSoon(); yield break; }
 
             yield return null;   // 모든 Start 가 끝난 뒤
             Load();
+        }
+
+        // ---- 마지막 저장 안내(2026-11-12) ----
+        // 일시 정지 메뉴와 종료 확인에 "마지막 저장 Day 3 10:42" 를 보여 준다. 예전엔 "마지막 저장(F5)" 이라고만 해서
+        // 플레이어는 F5 가 저장인 것도, 매일 아침 자동 저장되는 것도 알 수 없었다.
+
+        /// <summary>이번 판에서 마지막으로 저장(또는 불러온 세이브)한 날. -1 = 아직 없음.</summary>
+        public int LastSaveDay { get; private set; } = -1;
+        public float LastSaveHour { get; private set; }
+
+        /// <summary>"Day 3 10:42" 또는 "아직 저장하지 않았다".</summary>
+        public string LastSaveText => LastSaveDay < 0 ? "아직 저장하지 않았다"
+            : "Day " + LastSaveDay + "  " + Mathf.FloorToInt(LastSaveHour).ToString("00") + ":" + Mathf.FloorToInt((LastSaveHour % 1f) * 60f).ToString("00");
+
+        /// <summary>플레이어가 직접 저장했다(일시 정지 메뉴 [저장하기], F5). HUD 가 알림을 띄운다.</summary>
+        public static event Action<string> OnPlayerSaved;
+
+        /// <summary>플레이어가 직접 누른 저장. 저장하고 "저장했다" 알림을 보낸다. 시연은 저장하지 않는다고 알린다.</summary>
+        public void SaveByPlayer()
+        {
+            if (Exhibition.Active) { OnPlayerSaved?.Invoke(Exhibition.ModeName + " 진행은 저장되지 않는다"); return; }
+            Save();
+            OnPlayerSaved?.Invoke("저장했다  (" + LastSaveText + ")");
+        }
+
+        void MarkSaved(int day, float hour)
+        {
+            LastSaveDay = day;
+            LastSaveHour = hour;
         }
 
         void OnDestroy()
@@ -333,6 +366,7 @@ namespace DogShop.Core
             if (data == null) return;
 
             File.WriteAllText(SavePath, JsonUtility.ToJson(data, true));
+            MarkSaved(data.day, data.currentHour);
             Debug.Log("[Save] Day " + data.day + " / Lv " + data.shopLevel
                       + " / 강아지 " + data.dogs.Length + "마리 / " + SavePath);
         }
@@ -366,6 +400,7 @@ namespace DogShop.Core
                     + ") — 빠진 필드는 기본값으로 복원한다. 데모 세이브라면 다시 만들 것.");
 
             Restore(data);
+            MarkSaved(data.day, data.currentHour);
             OnLoaded?.Invoke();
             // 도그쇼에 이미 나선 날이면 무대로 다시 보내지 않고 그날을 마친다(결과가 있으면 엔딩, 없으면 중도 기권)
             if (Show.ChampionshipManager.Instance != null) Show.ChampionshipManager.Instance.ResumeShowAfterLoad();

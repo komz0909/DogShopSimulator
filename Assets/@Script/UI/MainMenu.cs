@@ -89,6 +89,13 @@ namespace DogShop.UI
         int picked = -1;
         bool settingsOpen;
 
+        /// <summary>
+        /// 세이브가 있는데 [게임 시작]을 눌렀다 — 한 번 묻는다(2026-11-12). 새 게임은 첫날 아침에 바로 저장하므로
+        /// 모르고 누르면 이어 하던 게임이 그 자리에서 덮인다.
+        /// </summary>
+        bool confirmNewGame;
+        static readonly string[] NewGameButtons = { "새로 시작", "취소" };
+
         void Awake()
         {
             if (uiFont != null) UiSkin.Font = uiFont;
@@ -134,17 +141,25 @@ namespace DogShop.UI
 
             // 설정이 떠 있으면 뒤 화면 버튼은 <b>죽여서</b> 그린다. IMGUI 는 먼저 그린 버튼이
             // 클릭을 먼저 받으므로, 뒤에 그리는 설정 창의 가림판으로는 이 버튼들을 막을 수 없다
-            GUI.enabled = !settingsOpen && !cardOpen;
+            GUI.enabled = !settingsOpen && !cardOpen && !confirmNewGame;
             if (page == Page.Home) DrawHome();
             else if (page == Page.Hall) DrawHall();
             else if (!cardOpen) DrawBreedPage();   // 카드가 뜨면 견종 목록은 숨긴다 — 카드 가장자리가 흐려지며 비쳐 어수선했다
-            GUI.enabled = !settingsOpen;
+            GUI.enabled = !settingsOpen && !confirmNewGame;
             if (page == Page.Breeds && cardOpen) DrawIntroCard();
             GUI.enabled = true;
 
             // 설정은 <b>덮개</b>다. 뒤 화면을 어둡게 깔고 그 위에 띄운다 —
             // 별도 페이지로 만들면 어디서 왔는지 기억해 두었다 돌아가야 한다
             if (settingsOpen && SettingsPanel.Draw(closeImage, frameImage)) settingsOpen = false;
+
+            if (confirmNewGame)
+            {
+                int pick = SettingsPanel.DrawMenu("새로 시작", "새로 시작하면 이어 하던 게임이 지워진다",   // 안내 칸이 한 줄 높이다
+                    NewGameButtons, closeImage, frameImage);
+                if (pick == 0) { confirmNewGame = false; exhibitionPick = false; page = Page.Breeds; }
+                else if (pick == 1 || pick == -2) confirmNewGame = false;
+            }
         }
 
         void DrawBackground()
@@ -250,10 +265,14 @@ namespace DogShop.UI
             y += step;
 
 #if !EXHIBITION_BUILD
-            if (BoneButton(new Rect(x, y, width, height), "게임 시작", true, true)) { exhibitionPick = false; page = Page.Breeds; }
+            bool hasSave = SaveManager.HasSaveFile;
+            if (BoneButton(new Rect(x, y, width, height), "게임 시작", true, true))
+            {
+                if (hasSave) confirmNewGame = true;
+                else { exhibitionPick = false; page = Page.Breeds; }
+            }
             y += step;
 
-            bool hasSave = SaveManager.HasSaveFile;
             if (BoneButton(new Rect(x, y, width, height), "이어하기", hasSave, true))
             {
                 GameStart.Resume();
