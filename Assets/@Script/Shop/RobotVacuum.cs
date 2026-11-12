@@ -87,6 +87,12 @@ namespace DogShop.Shop
 
         void Start()
         {
+            // 에이전트는 씬에서 <b>꺼 둔 채</b> 저장돼 있고 여기서 켠다(2026-11-12).
+            // 빌드에서는 씬을 불러올 때 이 에이전트가 NavMeshSurface 보다 먼저 켜질 수 있는데, 그러면
+            // 아직 길이 없어서 "Failed to create agent because there is no valid NavMesh" 를 내고
+            // 길 밖에 남는다. Start 는 씬의 모든 OnEnable(=NavMesh 등록) 뒤에 돌므로 여기서 켜면 안전하다.
+            if (agent != null && !agent.enabled) agent.enabled = true;
+
             ShopLevelManager level = ShopLevelManager.Instance;
             if (level != null) level.OnLevelUp += HandleLevel;
 

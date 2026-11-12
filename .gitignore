@@ -136,3 +136,10 @@ Temp_bld/
 
 # 소개 영상 녹화 원본(2026-11-06)
 /Recordings/
+
+# 캡처, 이미지 원본 백업(2026-11-12)
+/Captures/
+
+# 유니티 자동 복구 씬
+/Assets/_Recovery/
+/Assets/_Recovery.meta
