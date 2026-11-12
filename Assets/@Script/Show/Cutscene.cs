@@ -211,6 +211,21 @@ namespace DogShop.Show
             return picked != null ? picked : slide.images[0];
         }
 
+        /// <summary>
+        /// 그림을 그릴 자리. 화면이 그림(컷신 16:9)보다 <b>넓으면</b> 높이에 맞춰 가운데 두고 양옆을 비운다(2026-11-12) —
+        /// 예전엔 늘 꽉 채워 잘라서(ScaleAndCrop) 21:9(2560x1080)에서 위아래가 4분의 1쯤 잘려 인물 머리·자막 자리가 사라졌다.
+        /// 화면이 같거나 좁으면(16:9, 16:10) 예전처럼 화면 전체 — 16:10 은 양옆이 조금 잘리지만 여백보다 낫다.
+        /// </summary>
+        static Rect PictureRect(Rect screen, Texture2D image)
+        {
+            if (image == null || image.height <= 0 || screen.height <= 0f) return screen;
+            float imageAspect = (float)image.width / image.height;
+            float screenAspect = screen.width / screen.height;
+            if (screenAspect <= imageAspect * 1.02f) return screen;   // 2% 안쪽 차이는 그냥 채운다
+            float w = screen.height * imageAspect;
+            return new Rect(screen.x + (screen.width - w) * 0.5f, screen.y, w, screen.height);
+        }
+
         void OnGUI()
         {
             if (playing == null) return;
@@ -238,23 +253,35 @@ namespace DogShop.Show
 
             Slide slide = playing[index];
             Texture2D image = ImageOf(slide);
-            if (image != null) GUI.DrawTexture(screen, image, ScaleMode.ScaleAndCrop);
+            Rect pic = PictureRect(screen, image);
+            if (image != null)
+            {
+                if (pic.width < screen.width - 1f)
+                {
+                    // 화면이 그림보다 넓다(21:9 등) — 양옆 여백에 같은 그림을 어둡게 꽉 채워 깐다. 검은 띠보다 덜 휑하다
+                    GUI.color = new Color(0.28f, 0.28f, 0.28f, 1f);
+                    GUI.DrawTexture(screen, image, ScaleMode.ScaleAndCrop);
+                    GUI.color = Color.white;
+                    GUI.DrawTexture(pic, image, ScaleMode.StretchToFill);
+                }
+                else GUI.DrawTexture(screen, image, ScaleMode.ScaleAndCrop);
+            }
 
-            // 아래쪽 글 띠. 그림이 밝아도 읽히게 반투명 검정을 깐다
+            // 아래쪽 글 띠. 그림이 밝아도 읽히게 반투명 검정을 깐다. 글 띠·안내·건너뛰기는 그림 영역 안에 둔다
             float band = Mathf.Max(150f, Screen.height * 0.2f);
-            Rect bandRect = new Rect(0f, Screen.height - band, Screen.width, band);
+            Rect bandRect = new Rect(pic.x, Screen.height - band, pic.width, band);
             GUI.color = new Color(0f, 0f, 0f, 0.62f);
             GUI.DrawTexture(bandRect, Texture2D.whiteTexture);
             GUI.color = Color.white;
 
-            GUI.Label(new Rect(Pad * 2f, bandRect.y + Pad * 0.5f, Screen.width - Pad * 4f, band - Pad * 1.6f),
+            GUI.Label(new Rect(pic.x + Pad * 2f, bandRect.y + Pad * 0.5f, pic.width - Pad * 4f, band - Pad * 1.6f),
                 Fill(slide.text), textStyle);
 
-            GUI.Label(new Rect(Pad, Screen.height - Pad * 1.6f * k, Screen.width - Pad * 2f, Pad * 1.3f * k),
+            GUI.Label(new Rect(pic.x + Pad, Screen.height - Pad * 1.6f * k, pic.width - Pad * 2f, Pad * 1.3f * k),
                 (index + 1) + " / " + playing.Length + "     클릭/Space: 다음", hintStyle);
 
             float skipW = 150f * k, skipH = 46f * k;
-            if (UiSkin.Click(new Rect(Screen.width - skipW - Pad, Pad, skipW, skipH), "건너뛰기", skipStyle))
+            if (UiSkin.Click(new Rect(pic.xMax - skipW - Pad, Pad, skipW, skipH), "건너뛰기", skipStyle))
             {
                 Finish(true);
                 return;
