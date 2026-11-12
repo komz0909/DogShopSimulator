@@ -267,7 +267,9 @@ namespace DogShop.Dogs
 
         // ---- 운동(어질리티) ----
         // 훈련 슬롯을 쓰지 않고 돈만 낸다. 하루 한 번, 해금된 운동 중 하나를 고른다.
-        // 비싼 운동일수록 한 번에 많이 오르지만 1점당 값은 조금씩 비싸진다(40 → 42 → 45원) — 싼 운동이 죽지 않게.
+        // 비싼 운동일수록 한 번에 많이 오르지만 1점당 값은 조금씩 비싸진다(33 → 35 → 40원) — 싼 운동이 죽지 않게.
+        // 10-15 에 값을 내리며(120/250/450 → 100/200/400) 공놀이와 달리기가 1점당 33원으로 같아져, 달리기가 열리면
+        // 공놀이를 쓸 까닭이 없었다. 달리기를 210 으로 올려 순서를 되살렸다(2026-11-12).
         // 30일 동안 레벨을 제때 올리며 매일 하면 대략 200 안팎(도그쇼 만점 기준 240)에 닿는다. 임시값이다.
 
         public struct ExerciseDef
@@ -279,7 +281,7 @@ namespace DogShop.Dogs
         public static readonly ExerciseDef[] Exercises =
         {
             new ExerciseDef { nameKo = "공놀이", cost = 100, gain = 3, unlockLevel = 1 },
-            new ExerciseDef { nameKo = "달리기", cost = 200, gain = 6, unlockLevel = 3 },
+            new ExerciseDef { nameKo = "달리기", cost = 210, gain = 6, unlockLevel = 3 },
             new ExerciseDef { nameKo = "장애물", cost = 400, gain = 10, unlockLevel = 5 },
         };
 
