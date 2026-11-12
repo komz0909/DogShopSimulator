@@ -146,7 +146,7 @@ namespace DogShop.Show
             return e;
         }
 
-        /// <summary>시즌마다 라이벌 도그쇼 점수가 이만큼 오른다. 1위 라이벌 86 → 90 → 94 → 98 에서 멈춘다.</summary>
+        /// <summary>시즌마다 라이벌 도그쇼 점수가 이만큼 오른다(0/3/6/9/12). 1위 라이벌 기준 76 → 79 → 82 → 85 → 88(±3).</summary>
         public const int RivalBonusPerSeason = 3;   // 4 -> 3: 다섯 시즌에 걸쳐 0/3/6/9/12 로 고르게(2026-11-04)
         public const int MaxRivalBonus = 12;
         public int RivalBonus => Exhibition.Active ? 0 : Mathf.Min(MaxRivalBonus, (Season - 1) * RivalBonusPerSeason);

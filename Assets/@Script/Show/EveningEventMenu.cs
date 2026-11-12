@@ -491,7 +491,7 @@ namespace DogShop.Show
             float rankBonus = ChampionshipManager.RankBonus;
             string bonusLine = rankBonus > 0f ? "순위 보너스  명성, 훈련, 운동 " + ChampionshipManager.RankBonusText(rankBonus) : "1~3등을 하면 명성, 훈련, 운동 보너스가 붙는다";
             GUI.Label(new Rect(x, y, w, 30f), bonusLine, SeasonArt.Text(SeasonArt.Fit(bonusLine, 21, w), TextAnchor.MiddleCenter, new Color(0.2f, 0.55f, 0.3f)));
-            y += 36f;
+            y += 30f;   // 36 -> 30(2026-11-12): 아래 "다음 시즌" 칸의 넷째 줄(만점·라이벌)이 칸 테두리에 걸쳐 넘쳤다
 
             var box = new Rect(x, y, w, bottom - 104f - y);
             GUI.Box(box, GUIContent.none, UiSkin.Tag(new Color(0.96f, 0.9f, 0.76f)));
@@ -512,17 +512,17 @@ namespace DogShop.Show
             }
 
             int nextStart = ChampionshipManager.LastDay + 1;
-            GUI.Label(new Rect(bx, box.y + 8f, bwid, 32f), "다음 시즌  Day " + nextStart + " ~ " + (nextStart + ChampionshipManager.FinalDay - 1),
+            GUI.Label(new Rect(bx, box.y + 4f, bwid, 30f), "다음 시즌  Day " + nextStart + " ~ " + (nextStart + ChampionshipManager.FinalDay - 1),
                 SeasonArt.Text(25, TextAnchor.MiddleCenter, SeasonArt.Ink));
-            GUI.Label(new Rect(bx, box.y + 38f, bwid, 26f), "새 강아지와 가게를 1레벨부터 다시 키운다", SeasonArt.Text(20, TextAnchor.MiddleCenter, SeasonArt.SoftInk));
-            GUI.Label(new Rect(bx, box.y + 62f, bwid, 26f), "돈, 가구, 훈련 단계, 순위 보너스는 그대로", SeasonArt.Text(20, TextAnchor.MiddleCenter, SeasonArt.SoftInk));
+            GUI.Label(new Rect(bx, box.y + 32f, bwid, 24f), "새 강아지와 가게를 1레벨부터 다시 키운다", SeasonArt.Text(20, TextAnchor.MiddleCenter, SeasonArt.SoftInk));
+            GUI.Label(new Rect(bx, box.y + 54f, bwid, 24f), "돈, 가구, 훈련 단계, 순위 보너스는 그대로", SeasonArt.Text(20, TextAnchor.MiddleCenter, SeasonArt.SoftInk));
 
             // 다음 시즌에 무엇이 어려워지는가: 만점과 라이벌
             int fullNow = ChampionshipManager.StatFullFor(champ.Season), fullNext = ChampionshipManager.StatFullFor(champ.Season + 1);
             int rivalNext = Mathf.Min(ChampionshipManager.MaxRivalBonus, champ.Season * ChampionshipManager.RivalBonusPerSeason) - champ.RivalBonus;
             string harder = (fullNext > fullNow ? "능력치 만점 " + fullNow + "에서 " + fullNext + "으로" : "능력치 만점 " + fullNow + " (최대)")
                           + (rivalNext > 0 ? "   라이벌 점수 +" + rivalNext : "   라이벌은 최고 수준");
-            GUI.Label(new Rect(bx, box.y + 88f, bwid, 28f), harder,
+            GUI.Label(new Rect(bx, box.y + 78f, bwid, 26f), harder,
                 SeasonArt.Text(SeasonArt.Fit(harder, 20, bwid), TextAnchor.MiddleCenter, new Color(0.78f, 0.3f, 0.24f)));
 
             if (SeasonArt.Button(new Rect(x, bottom - 88f, w, 84f), "다음 시즌 강아지 고르기", true, 32))
