@@ -162,15 +162,37 @@ namespace DogShop.UI
             }
         }
 
+        /// <summary>
+        /// 메인 화면 그림이 놓인 자리. 로고·버튼·명예의 전당 버튼은 화면이 아니라 이 안에 둔다(2026-11-12) —
+        /// 21:9 에서 그림을 가운데 두면 화면 가장자리에 붙은 버튼이 어두운 여백 위에 떴다. 16:9·16:10 은 화면 전체와 같다.
+        /// </summary>
+        Rect homeArea;
+
         void DrawBackground()
         {
+            Rect screen = new Rect(0f, 0f, Screen.width, Screen.height);
+            homeArea = screen;
             if (background == null) return;
 
-            // 화면비가 달라도 빈 곳이 생기지 않게 채워서 자른다
+            float imageAspect = (float)background.width / background.height;
+            if (Screen.width / (float)Screen.height > imageAspect * 1.02f)
+            {
+                // 화면이 그림보다 넓다(21:9 등) — 예전처럼 채워 자르면 위아래가 4분의 1쯤 잘려 지붕·거리가 사라졌다.
+                // 높이에 맞춰 가운데 두고, 양옆엔 같은 그림을 어둡게 꽉 채워 깐다(컷신과 같은 방식)
+                GUI.color = new Color(0.32f, 0.32f, 0.32f, 1f);
+                GUI.DrawTexture(screen, background, ScaleMode.ScaleAndCrop);
+                GUI.color = Color.white;
+                float w = Screen.height * imageAspect;
+                homeArea = new Rect((Screen.width - w) * 0.5f, 0f, w, Screen.height);
+                GUI.DrawTexture(homeArea, background, ScaleMode.StretchToFill);
+                return;
+            }
+
+            // 화면비가 같거나 좁으면 빈 곳이 생기지 않게 채워서 자른다
             float scale = Mathf.Max(Screen.width / (float)background.width,
                                     Screen.height / (float)background.height);
-            float w = background.width * scale, h = background.height * scale;
-            GUI.DrawTexture(new Rect((Screen.width - w) * 0.5f, (Screen.height - h) * 0.5f, w, h), background);
+            float fw = background.width * scale, fh = background.height * scale;
+            GUI.DrawTexture(new Rect((Screen.width - fw) * 0.5f, (Screen.height - fh) * 0.5f, fw, fh), background);
         }
 
         // ---- 공통 부품 ----
@@ -241,7 +263,7 @@ namespace DogShop.UI
             if (logo != null)
             {
                 float tw = HomeTitleWidth * s, th = tw * logo.height / logo.width;
-                GUI.DrawTexture(new Rect(Screen.width * HomeTitleLeft, Screen.height * HomeTitleTop, tw, th), logo, ScaleMode.StretchToFill);
+                GUI.DrawTexture(new Rect(homeArea.x + homeArea.width * HomeTitleLeft, Screen.height * HomeTitleTop, tw, th), logo, ScaleMode.StretchToFill);
             }
 
             // 전시 빌드(2026-11-02, 지스타 부스 PC): 시연 모드·게임 설정·게임 종료 셋만 — 본편 시작·이어하기를 숨긴다.
@@ -256,7 +278,7 @@ namespace DogShop.UI
             float room = Screen.height * (1f - HomeButtonsBottom) - Screen.height * 0.04f;
             s = Mathf.Min(s, room / (HomeButtonStep * (count - 1) + HomeButtonH));
             float width = HomeButtonW * s, height = HomeButtonH * s, step = HomeButtonStep * s;
-            float x = Screen.width * (1f - HomeButtonsRight) - width;
+            float x = homeArea.xMax - homeArea.width * HomeButtonsRight - width;
             float y = Screen.height * (1f - HomeButtonsBottom) - (step * (count - 1) + height);   // 맨 위 버튼
 
             // 시안처럼 뼈를 칸에 꽉 채워(조금 납작하게) 그린다
@@ -291,7 +313,7 @@ namespace DogShop.UI
             // 명예의 전당(2026-11-05): 버튼 줄에 넣으니 줄이 너무 길어 보였다 — 왼쪽 아래 구석에 따로, 다른 색(금빛 알약 + 트로피)으로 크게
             float hs = UiSkin.ScreenScale;
             float hw = 360f * hs, hh = 100f * hs;
-            var hall = new Rect(Screen.width * 0.012f + hh * 0.1f, Screen.height - hh - Screen.height * 0.02f, hw, hh);
+            var hall = new Rect(homeArea.x + homeArea.width * 0.012f + hh * 0.1f, Screen.height - hh - Screen.height * 0.02f, hw, hh);
             bool hallClicked = SeasonArt.Button(new Rect(hall.x + hh * 0.35f, hall.y, hall.width - hh * 0.35f, hall.height), "명예의 전당", true, Mathf.RoundToInt(34f * hs));
             if (SeasonArt.Trophy != null) GUI.DrawTexture(new Rect(hall.x - hh * 0.1f, hall.y - hh * 0.2f, hh * 1.2f, hh * 1.2f), SeasonArt.Trophy, ScaleMode.ScaleToFit, true);
             if (hallClicked)
